@@ -3,16 +3,37 @@ const appVersion = '1.0.0';
 
 const welcomeMessage = 'مرحبًا بك في\n $appName';
 const loginPrompt = 'الرجاء تسجيل الدخول للمتابعة';
-const registerPrompt = 'ليس لديك حساب؟ سجل الآن';
+const registerPrompt = 'ليس لديك حساب؟';
+const registerNow = 'سجل الآن';
 const alreadyHaveAccount = 'هل لديك حساب؟ تسجيل الدخول';
 const invalidCredentials = 'بيانات الاعتماد غير صحيحة';
+
+
+const fullName = 'الاسم الكامل';
 const username = 'اسم المستخدم';
 const email = 'البريد الإلكتروني';
 const phone = 'رقم الهاتف';
+const address = 'العنوان';
+const classroom = 'الأسرة';
+const gender = 'الجنس';
+const userType = 'نوع المستخدم';
+const male = 'ذكر';
+const female = 'أنثى';
+const priest = 'كاهن';
+const superServant = 'امين/ة خدمة';
+const servant = 'خادم/ة';
+const child = 'مخدوم';
+const parent = 'ولي أمر';
+const other = 'آخر';
 const password = 'كلمة المرور';
 const confirmPassword = 'تأكيد كلمة المرور';
+
+
+
 const forgotPassword = 'نسيت كلمة المرور؟';
 const login = 'تسجيل الدخول';
+const next = 'التالي';
+const back = 'رجوع';
 const register = 'إنشاء حساب';
 const logout = 'تسجيل الخروج';
 const home = 'الرئيسية';
@@ -65,3 +86,80 @@ const viewAll = 'عرض الكل';
 const notificationSettings = 'إعدادات الإشعارات';
 const enableNotifications = 'تمكين الإشعارات';
 const disableNotifications = 'تعطيل الإشعارات';
+const selectClassroom = 'اختر الأسرة';
+
+// Validation messages
+const nameValidation = 'الاسم يجب أن يكون من 3 إلى 50 حرفًا';
+const usernameValidation = 'اسم المستخدم يجب أن يكون من 3 إلى 20 حرفًا';
+const phoneValidation = 'رقم الهاتف يجب أن يكون من 10 إلى 15 رقمًا';
+const addressValidation = 'العنوان يجب أن يكون من 5 إلى 100 حرفًا';
+const passwordValidation = 'كلمة المرور يجب أن تكون من 6 إلى 20 حرفًا';
+const genericError = 'حدث خطأ غير متوقع. الرجاء المحاولة لاحقًاًا.';
+const unauthorized = 'غير مصرح. الرجاء تسجيل الدخول مرة أخرى.';
+const forbidden = 'ممنوع. ليس لديك إذن للوصول إلى هذا المورد.';
+const notFound = 'المورد غير موجود.';
+const serverError = 'خطأ في الخادم. الرجاء المحاولة لاحقًا.';
+const badRequest = 'طلب غير صالح. الرجاء التحقق من البيانات المدخلة.';
+const timeoutError = 'انتهت مهلة الاتصال. الرجاء المحاولة مرة أخرى.';
+const noResponse = 'لا يوجد رد من الخادم. الرجاء المحاولة مرة أخرى.';
+const unexpectedError = 'حدث خطأ غير متوقع. الرجاء المحاولة لاحقًا.';
+const offline = 'أنت غير متصل بالإنترنت. الرجاء التحقق من اتصال';
+const online = 'أنت متصل بالإنترنت.';
+const loadingData = 'جارٍ تحميل البيانات...';
+const submitting = 'جارٍ الإرسال...';
+const refreshing = 'جارٍ التحديث...';
+const searching = 'جارٍ البحث...';
+const noResults = 'لا توجد نتائج.';
+const pullToRefresh = 'اسحب للتحديث';
+const releaseToRefresh = 'حرر للتحديث';
+const refreshingData = 'جارٍ تحديث البيانات...';
+const lastUpdated = 'آخر تحديث: ';
+const viewProfile = 'عرض الملف الشخصي';
+const editProfile = 'تعديل الملف الشخصي';
+const changePassword = 'تغيير كلمة المرور';
+const currentPassword = 'كلمة المرور الحالية';
+const newPassword = 'كلمة المرور الجديدة';
+const confirmNewPassword = 'تأكيد كلمة المرور الجديدة';
+const passwordChanged = 'تم تغيير كلمة المرور بنجاح';
+const deleteAccount = 'حذف الحساب';
+const accountDeleted = 'تم حذف الحساب بنجاح';
+const areYouSure = 'هل أنت متأكد؟';
+const thisActionCannotBeUndone = 'هذا الإجراء لا يمكن التراجع عنه.';
+const enterCurrentPassword = 'الرجاء إدخال كلمة المرور الحالية';
+const enterNewPassword = 'الرجاء إدخال كلمة المرور الجديدة';
+const enterConfirmNewPassword = 'الرجاء تأكيد كلمة المرور الجديدة';
+const passwordsMustMatch = 'كلمتا المرور يجب أن تتطابقا';
+const weakNewPassword = 'كلمة المرور الجديدة ضعيفة';
+const changeLanguage = 'تغيير اللغة';
+
+
+// Fallback messages
+const somethingWentWrong = 'حدث خطأ ما. الرجاء المحاولة لاحقًا.';
+const unableToProcess = 'غير قادر على معالجة الطلب. الرجاء المحاولة لاحقًا.';
+const actionFailed = 'فشل الإجراء. الرجاء المحاولة مرة أخرى.';
+const actionSuccessful = 'تم الإجراء بنجاح.';
+const loadingFailed = 'فشل التحميل. الرجاء المحاولة مرة أخرى.';
+
+
+// Auth fallback messages
+const authFailed = 'فشل المصادقة. الرجاء التحقق من بيانات الاعتماد الخاصة بك.';
+const sessionExpired = 'انتهت الجلسة. الرجاء تسجيل الدخول مرة أخرى.';
+const registrationFailed = 'فشل التسجيل. الرجاء المحاولة مرة أخرى.';
+const registrationSuccessful = 'تم التسجيل بنجاح. الرجاء تسجيل الدخول.';
+const passwordResetFailed = 'فشل إعادة تعيين كلمة المرور. الرجاء المحاولة مرة أخرى.';
+const passwordResetEmailSent = 'تم إرسال بريد إلكتروني لإعادة تعيين كلمة المرور.';
+const invalidResetToken = 'رمز إعادة التعيين غير صالح أو منتهي الصلاحية.';
+const emailAlreadyInUse = 'البريد الإلكتروني مستخدم بالفعل. الرجاء استخدام بريد إلكتروني مختلف.';
+const usernameAlreadyInUse = 'اسم المستخدم مستخدم بالفعل. الرجاء اختيار اسم مستخدم مختلف.';
+const accountLocked = 'تم قفل الحساب. الرجاء الاتصال بالدعم.';
+const tooManyAttempts = 'محاولات كثيرة جدًا. الرجاء المحاولة مرة أخرى لاحقًا.';
+const verifyYourEmail = 'الرجاء التحقق من بريدك الإلكتروني لإكمال التسجيل.';
+const emailNotVerified = 'البريد الإلكتروني غير مُحقق. الرجاء التحقق من بريدك الإلكتروني.';
+const resendVerificationEmail = 'إعادة إرسال بريد التحقق الإلكتروني.';
+const checkYourEmail = 'الرجاء التحقق من بريدك الإلكتروني للحصول على مزيد من التعليمات.';
+const invalidEmailOrPassword = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+const accountDisabled = 'تم تعطيل الحساب. الرجاء الاتصال بالدعم.';
+const loginSuccessful = 'تم تسجيل الدخول بنجاح.';
+const logoutSuccessful = 'تم تسجيل الخروج بنجاح.';
+const registrationComplete = 'اكتمل التسجيل. يمكنك الآن تسجيل الدخول.';
+const loginFailed = 'فشل تسجيل الدخول. الرجاء الرجاء المحاولة مرة أخرى.';

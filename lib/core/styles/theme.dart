@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'colors.dart';
 
 ThemeData theme = ThemeData(
@@ -42,9 +41,32 @@ ThemeData theme = ThemeData(
   ),
   textTheme: TextTheme(
     bodyMedium: TextStyle(
+      fontFamily: 'Alexandria',
       fontSize: 14.0,
       fontWeight: FontWeight.w600,
       color: Colors.white,
+    ),
+  ),
+  buttonTheme: ButtonThemeData(
+    buttonColor: teal100,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10.0),
+    ),
+    textTheme: ButtonTextTheme.primary,
+  ),
+  elevatedButtonTheme: ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      minimumSize: Size(double.infinity, 50),
+      backgroundColor: teal100,
+      foregroundColor: Colors.black,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      textStyle: TextStyle(
+        fontSize: 18.0,
+        fontWeight: FontWeight.bold,
+        fontFamily: 'Alexandria',
+      ),
     ),
   ),
 );

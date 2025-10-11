@@ -1,4 +1,4 @@
-package com.avaabraamchurch.church
+package com.avaabraamchurch.nenshiri_emporo
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -9,22 +9,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:church/main.dart';
+import 'package:church/modules/Auth/login/login_screen.dart';
+import 'package:church/core/constants/strings.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    // await tester.pumpWidget(MyApp());
+  testWidgets('Login screen renders and shows login text', (WidgetTester tester) async {
+    // Increase test surface to avoid layout overflow in small test viewports.
+    await tester.binding.setSurfaceSize(const Size(1080, 1920));
+    addTearDown(() async {
+      await tester.binding.setSurfaceSize(null);
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Build our app with LoginScreen as the start widget and trigger a frame.
+    await tester.pumpWidget(MyApp(startWidget: LoginScreen()));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Verify that the login text appears at least once on screen.
+    expect(find.text(login), findsWidgets);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Ensure the ElevatedButton with login text exists
+    expect(find.widgetWithText(ElevatedButton, login), findsOneWidget);
   });
 }

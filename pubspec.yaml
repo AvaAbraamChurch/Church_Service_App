@@ -46,6 +46,10 @@ dependencies:
   shared_preferences: ^2.5.3
   package_info_plus: ^9.0.0
   url_launcher: ^6.3.2
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.0.1
+  circle_nav_bar: ^2.2.0
 
 dev_dependencies:
   flutter_test:

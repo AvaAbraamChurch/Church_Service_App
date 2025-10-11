@@ -90,7 +90,7 @@ class CustomDropDownMenu extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 10),
-        if (showTitle)
+        if (showTitle && title != null)
           Container(
               margin: const EdgeInsets.all(5),
               child: Text(title!,
@@ -261,6 +261,76 @@ Widget coloredTextField({
       focusedBorder: focusedBorder ?? defaultFocusedBorder,
       errorStyle: TextStyle(color: errorStyleColor ?? Colors.red),
     ),
+  );
+}
+
+// New coloredDropdownMenu widget with fill color and border radius similar to coloredTextField
+Widget coloredDropdownMenu<T>({
+  required List<DropdownMenuEntry<T>> dropdownMenuEntries,
+  required ValueChanged<T?> onSelected,
+  TextEditingController? controller,
+  String? label,
+  String? hintText,
+  bool enableFilter = true,
+  double? width,
+  double menuHeight = 200,
+  // Visual parity with coloredTextField
+  Color fillColor = const Color(0xFFFFFFFF),
+  bool filled = true,
+  double borderRadius = 8.0,
+  InputBorder? enabledBorder,
+  InputBorder? focusedBorder,
+  double? contentPaddingVertical,
+  double? contentPaddingHorizontal,
+  // Text styles
+  Color textColor = Colors.white,
+  double textSize = 16,
+  Color labelColor = Colors.white,
+  Color hintColor = Colors.white,
+  // Optional icons
+  Widget? leadingIcon,
+  Widget? trailingIcon,
+  TextDirection textDirection = TextDirection.rtl,
+}) {
+  final OutlineInputBorder defaultEnabledBorder = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(borderRadius),
+  );
+  final OutlineInputBorder defaultFocusedBorder = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(borderRadius),
+    borderSide: const BorderSide(color: Colors.blue),
+  );
+
+  return DropdownMenu<T>(
+    controller: controller,
+    // Label shows above the input when provided
+    label: label != null
+        ? Text(label, style: TextStyle(color: labelColor))
+        : null,
+    hintText: hintText ?? label,
+    enableFilter: enableFilter,
+    textStyle: TextStyle(fontSize: textSize, color: textColor),
+    leadingIcon: leadingIcon,
+    trailingIcon: trailingIcon,
+    menuHeight: menuHeight,
+    width: width,
+    inputDecorationTheme: InputDecorationTheme(
+      filled: filled,
+      fillColor: fillColor,
+      labelStyle: TextStyle(color: labelColor),
+      hintStyle: TextStyle(color: hintColor),
+      contentPadding: EdgeInsets.symmetric(
+        vertical: contentPaddingVertical ?? 12,
+        horizontal: contentPaddingHorizontal ?? 12,
+      ),
+      border: enabledBorder ?? defaultEnabledBorder,
+      enabledBorder: enabledBorder ?? defaultEnabledBorder,
+      focusedBorder: focusedBorder ?? defaultFocusedBorder,
+    ),
+    dropdownMenuEntries: dropdownMenuEntries,
+    onSelected: onSelected,
+    // Align text/hint direction
+    // DropdownMenu doesn't expose textDirection directly for the field, but
+    // the underlying TextField honors the Theme/Directionality; wrap if needed
   );
 }
 
@@ -440,6 +510,57 @@ class CustomTextField extends StatelessWidget {
         helperText: controller.text.isNotEmpty ? 'Enter your data here' : null,
         helperStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
       ),
+    );
+  }
+}
+
+class RegistrationStepIndicator extends StatelessWidget {
+  final int currentStep; // 1-based
+  final int totalSteps;
+  final double dotSize;
+  final double spacing;
+  final Color activeColor;
+  final Color inactiveColor;
+  final bool showFractionText;
+
+  const RegistrationStepIndicator({
+    super.key,
+    required this.currentStep,
+    required this.totalSteps,
+    this.dotSize = 10,
+    this.spacing = 8,
+    this.activeColor = Colors.white,
+    this.inactiveColor = const Color(0x99FFFFFF),
+    this.showFractionText = true,
+  }) : assert(currentStep >= 1), assert(totalSteps >= 1);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: List.generate(totalSteps, (i) {
+            final isActive = (i + 1) == currentStep;
+            return Container(
+              width: dotSize,
+              height: dotSize,
+              margin: EdgeInsetsDirectional.only(end: i == totalSteps - 1 ? 0 : spacing),
+              decoration: BoxDecoration(
+                color: isActive ? activeColor : inactiveColor,
+                shape: BoxShape.circle,
+              ),
+            );
+          }),
+        ),
+        if (showFractionText) ...[
+          const SizedBox(width: 12),
+          Text(
+            '$currentStep / $totalSteps',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+        ]
+      ],
     );
   }
 }

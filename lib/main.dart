@@ -1,12 +1,13 @@
 import 'dart:io';
+import 'package:church/layout/home_layout.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/styles/theme.dart';
 import 'shared/bloc_observer.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'shared/version_check_wrapper.dart';
-
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 // Use the navigator key from NotificationsService
 // final GlobalKey<NavigatorState> navigatorKey = NotificationsService.navigatorKey;
@@ -14,29 +15,10 @@ import 'shared/version_check_wrapper.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // await dotenv.load(fileName: ".env");
-  //
-  // // Access environment variables
-  // final supabaseUrl = dotenv.env['SUPABASE_URL']!;
-  // final supabaseKey = dotenv.env['SUPABASE_KEY']!;
-  //
-  // await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
-  // await Supabase.initialize(url: AppConfig.supabaseUrl, anonKey: AppConfig.supabaseAnonKey);
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
-  // Initialize NotificationsService with WorkManager for background processing
-  // try {
-  //   await NotificationsService.initialize(
-  //     supabaseUrl: supabaseUrl,
-  //     supabaseKey: supabaseKey,
-  //   );
-  //
-  //   print('✅ NotificationsService initialized successfully');
-  // } catch (e) {
-  //   print('❌ Error initializing NotificationsService: $e');
-  // }
-  //
-  // // Initialize Supabase image service
-  // await SupabaseImageService.initialize();
 
 
   // await Hive.initFlutter();
@@ -47,7 +29,7 @@ void main() async {
 
   Widget widget;
 
-  widget = LoginScreen();
+  widget = HomeLayout();
 
   //
   // if (uId.isNotEmpty || isLoggedIn) {
