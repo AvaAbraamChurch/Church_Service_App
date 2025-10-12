@@ -29,7 +29,7 @@ void main() async {
 
   Widget widget;
 
-  widget = HomeLayout();
+  widget = LoginScreen();
 
   //
   // if (uId.isNotEmpty || isLoggedIn) {

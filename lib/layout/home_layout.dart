@@ -2,10 +2,15 @@ import 'package:church/core/styles/themeScaffold.dart';
 import 'package:circle_nav_bar/circle_nav_bar.dart';
 import 'package:flutter/material.dart';
 import '../core/styles/colors.dart';
+import '../modules/Chat/chat_screen.dart';
 import '../modules/Home/home_screen.dart';
+import '../modules/Notifications/notifications_screen.dart';
+import '../modules/Profile/profile_screen.dart';
+import '../modules/Todo/todo_screen.dart';
 
 class HomeLayout extends StatefulWidget {
-  const HomeLayout({super.key});
+  final String userId;
+  const HomeLayout({super.key, required this.userId});
 
   @override
   State<HomeLayout> createState() => _HomeLayoutState();
@@ -83,16 +88,18 @@ class _HomeLayoutState extends State<HomeLayout>
       ),
       body: PageView(
         controller: pageController,
+        reverse: true,
         onPageChanged: (index) {
           tabIndex = index;
-          print(tabIndex);
-        },
+          },
         children: [
-          const Center(child: Text('Messages Page')),
-          const Center(child: Text('Profile Page')),
-          HomeScreen(),
-          const Center(child: Text('Events Page')),
-          const Center(child: Text('Notifications Page')),
+          ChattingScreen(),
+          ProfileScreen(),
+          HomeScreen(userId: widget.userId),
+          TodoScreen(),
+          NotificationsScreen(),
+
+
         ],
       ),
     );

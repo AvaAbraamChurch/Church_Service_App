@@ -1,0 +1,55 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class UsersRepository {
+  final FirebaseFirestore _firestore;
+
+  UsersRepository({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  Future<void> addUser(Map<String, dynamic> userData) async {
+    try {
+      await _firestore.collection('users').add(userData);
+    } catch (e) {
+      throw Exception('Error adding user: $e');
+    }
+  }
+
+  Future<void> updateUser(String userId, Map<String, dynamic> userData) async {
+    try {
+      await _firestore.collection('users').doc(userId).update(userData);
+    } catch (e) {
+      throw Exception('Error updating user: $e');
+    }
+  }
+
+  Future<void> deleteUser(String userId) async {
+    try {
+      await _firestore.collection('users').doc(userId).delete();
+    } catch (e) {
+      throw Exception('Error deleting user: $e');
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>> getUsers() {
+    return _firestore.collection('users').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => {
+            'id': doc.id,
+            ...doc.data(),
+          }).toList();
+    });
+  }
+
+  Future<Map<String, dynamic>?> getUserById(String userId) async {
+    try {
+      final doc = await _firestore.collection('users').doc(userId).get();
+      if (doc.exists) {
+        return {
+          'id': doc.id,
+          ...doc.data()!,
+        };
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Error fetching user: $e');
+    }
+  }
+}
