@@ -34,21 +34,4 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
-
-
-  Future<List<UserModel>> getAllUsers() async {
-    try {
-      emit(getUserLoadingState());
-      final usersStream = _usersRepository.getUsers();
-      final users = await usersStream.first;
-      final userList =
-          users.map((userData) => UserModel.fromMap(userData, id: '')).toList();
-      emit(getUserSuccessState());
-      return userList;
-    } catch (e) {
-      emit(getUserErrorState(e.toString()));
-      print(e.toString());
-      return [];
-    }
-  }
 }
