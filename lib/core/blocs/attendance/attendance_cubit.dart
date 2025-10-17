@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:church/core/repositories/users_reopsitory.dart';
 import 'package:church/core/repositories/attendance_repository.dart';
@@ -24,13 +25,13 @@ class AttendanceCubit extends Cubit<AttendanceState> {
   // Get users by type
   Future<List<UserModel>?> getUsersByType(
     String userClass,
-    List<String> userTypes,
+    List<String> userTypes, String gender
   ) async {
     emit(getAllUsersLoading());
     try {
       users = await usersRepository
-          .getUsersByMultipleTypes(userClass, userTypes)
-          .first;
+          .getUsersByMultipleTypes(userClass, userTypes, gender).first;
+      debugPrint(users.toString());
       emit(getAllUsersSuccess());
       return users;
     } catch (e) {

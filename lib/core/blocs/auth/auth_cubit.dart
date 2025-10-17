@@ -26,7 +26,7 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthFailure(loginFailed));
       } else {
         final UserModel model = await UsersRepository().getUserById(user.uid);
-        emit(AuthSuccess(user.uid, model.userType.label, model.userClass));
+        emit(AuthSuccess(user.uid, model.userType.label, model.userClass, model.gender.label));
       }
     } catch (error) {
       emit(AuthFailure(error.toString()));
@@ -90,7 +90,7 @@ class AuthCubit extends Cubit<AuthState> {
           userType: userTypeValue,
           userClass: extraData?['userClass'] ?? '',
         );
-        emit(AuthSuccess(user.uid, userData.userType.label, userData.userClass));
+        emit(AuthSuccess(user.uid, userData.userType.label, userData.userClass, userData.gender.label));
       }
     } catch (error) {
       emit(AuthFailure(error.toString()));

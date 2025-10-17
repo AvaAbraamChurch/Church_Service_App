@@ -12,7 +12,8 @@ class HomeLayout extends StatefulWidget {
   final String userId;
   final String userType;
   final String userClass;
-  const HomeLayout({super.key, required this.userId, required this.userType, required this.userClass});
+  final String gender;
+  const HomeLayout({super.key, required this.userId, required this.userType, required this.userClass, required this.gender});
 
   @override
   State<HomeLayout> createState() => _HomeLayoutState();
@@ -101,7 +102,7 @@ class _HomeLayoutState extends State<HomeLayout>
           ChattingScreen(),
           ProfileScreen(),
           HomeScreen(userId: widget.userId),
-          AttendanceScreen(userId: widget.userId, userType: widget.userType, userClass: widget.userClass,),
+          AttendanceScreen(userId: widget.userId, userType: widget.userType, userClass: widget.userClass, gender: widget.gender,),
           NotificationsScreen(),
 
 

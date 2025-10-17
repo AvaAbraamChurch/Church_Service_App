@@ -50,13 +50,14 @@ class UsersRepository {
             .toList());
   }
 
-  Stream<List<UserModel>> getUsersByMultipleTypes(String userClass, List<String> userTypes) {
+  Stream<List<UserModel>> getUsersByMultipleTypes(String userClass, List<String> userTypes, String gender) {
     return _firestore
         .collection('users')
         .where('userType', whereIn: userTypes).where('userClass', isEqualTo: userClass)
+    .where('gender', isEqualTo: gender)
         .snapshots()
         .map((snapshot) => snapshot.docs
-        .map((doc) => UserModel.fromJson(doc.data()))
+        .map((doc) => UserModel.fromJson(doc.data()..putIfAbsent('id', () => doc.id)))
         .toList());
   }
 

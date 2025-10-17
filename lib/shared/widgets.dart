@@ -186,6 +186,7 @@ Widget customTextField(
 Widget coloredTextField({
   required TextEditingController controller,
   required String label,
+  bool showLabel = true,
   bool isPassword = false,
   Function(String)? onSubmit,
   Function(String)? onChange,
@@ -236,7 +237,7 @@ Widget coloredTextField({
       filled: filled,
       fillColor: fillColor,
       hintTextDirection: textDirection,
-      labelText: label,
+      labelText: showLabel ? label : '',
       hintText: hintText,
       labelStyle: TextStyle(color: labelColor),
       hintStyle: TextStyle(color: hintColor),

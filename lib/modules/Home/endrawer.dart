@@ -1,3 +1,6 @@
+import 'package:church/core/blocs/auth/auth_cubit.dart';
+import 'package:church/modules/Auth/login/login_screen.dart';
+import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import '../../core/styles/colors.dart';
 
@@ -44,7 +47,9 @@ Widget drawer(context) => Drawer(
             title: Text('تسجيل الخروج', style: TextStyle(color: Colors.white)),
             onTap: () {
               // Handle logout
-              Navigator.pop(context);
+              AuthCubit().logOut().then((value){
+                navigateAndFinish(context, LoginScreen());
+              });
             },
           ),
         ],

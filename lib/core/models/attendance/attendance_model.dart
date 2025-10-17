@@ -13,7 +13,7 @@ import '../../utils/attendance_enum.dart';
 /// - checkInTime (optional - when user checked in)
 /// - checkOutTime (optional - when user checked out)
 /// - notes (optional - additional notes)
-/// - eventId (optional - specific event/service reference)
+/// - attendanceType (optional - specific event/service reference)
 /// - recordedBy (optional - who recorded the attendance)
 /// - createdAt (when record was created)
 class AttendanceModel {
@@ -26,7 +26,7 @@ class AttendanceModel {
   final DateTime? checkInTime;
   final DateTime? checkOutTime;
   final String? notes;
-  final String? eventId;
+  final String? attendanceType;
   final String? recordedBy;
   final DateTime createdAt;
 
@@ -40,7 +40,7 @@ class AttendanceModel {
     this.checkInTime,
     this.checkOutTime,
     this.notes,
-    this.eventId,
+    this.attendanceType,
     this.recordedBy,
     required this.createdAt,
   });
@@ -55,7 +55,7 @@ class AttendanceModel {
     DateTime? checkInTime,
     DateTime? checkOutTime,
     String? notes,
-    String? eventId,
+    String? attendanceType,
     String? recordedBy,
     DateTime? createdAt,
   }) {
@@ -69,7 +69,7 @@ class AttendanceModel {
       checkInTime: checkInTime ?? this.checkInTime,
       checkOutTime: checkOutTime ?? this.checkOutTime,
       notes: notes ?? this.notes,
-      eventId: eventId ?? this.eventId,
+      attendanceType: attendanceType ?? this.attendanceType,
       recordedBy: recordedBy ?? this.recordedBy,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -86,7 +86,7 @@ class AttendanceModel {
       if (checkInTime != null) 'checkInTime': checkInTime!.toIso8601String(),
       if (checkOutTime != null) 'checkOutTime': checkOutTime!.toIso8601String(),
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
-      if (eventId != null) 'eventId': eventId,
+      if (attendanceType != null) 'attendanceType': attendanceType,
       if (recordedBy != null) 'recordedBy': recordedBy,
       'createdAt': createdAt.toIso8601String(),
     };
@@ -104,7 +104,7 @@ class AttendanceModel {
       checkInTime: _parseDateTime(data['checkInTime']),
       checkOutTime: _parseDateTime(data['checkOutTime']),
       notes: data['notes']?.toString(),
-      eventId: data['eventId']?.toString(),
+      attendanceType: data['attendanceType']?.toString(),
       recordedBy: data['recordedBy']?.toString(),
       createdAt: _parseDateTime(data['createdAt']) ?? DateTime.now(),
     );
@@ -150,7 +150,7 @@ class AttendanceModel {
         other.checkInTime == checkInTime &&
         other.checkOutTime == checkOutTime &&
         other.notes == notes &&
-        other.eventId == eventId &&
+        other.attendanceType == attendanceType &&
         other.recordedBy == recordedBy &&
         other.createdAt == createdAt;
   }
@@ -167,7 +167,7 @@ class AttendanceModel {
       checkInTime,
       checkOutTime,
       notes,
-      eventId,
+      attendanceType,
       recordedBy,
       createdAt,
     );

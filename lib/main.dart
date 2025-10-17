@@ -1,4 +1,5 @@
 import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/layout/home_layout.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
@@ -58,7 +59,7 @@ void main() async {
   // Decide which screen to show based on token validation
   if (isTokenValid && uId.isNotEmpty) {
     final UserModel currentUser = await authRepository.getCurrentUserData();
-    widget = HomeLayout(userId: uId, userType: currentUser.userType.label, userClass: currentUser.userClass);
+    widget = HomeLayout(userId: uId, userType: currentUser.userType.label, userClass: currentUser.userClass, gender: currentUser.gender.label,);
     print('Navigating to main layout for authenticated user');
   } else {
     widget = LoginScreen();

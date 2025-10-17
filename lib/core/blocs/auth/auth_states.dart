@@ -8,9 +8,10 @@ class AuthSuccess extends AuthState {
   final String uId;
   final String userType;
   final String userClass;
+  final String gender;
 
 
-  AuthSuccess(this.uId, this.userType, this.userClass);
+  AuthSuccess(this.uId, this.userType, this.userClass, this.gender);
 }
 
 class AuthFailure extends AuthState {
