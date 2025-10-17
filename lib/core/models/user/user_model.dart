@@ -1,5 +1,6 @@
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Immutable user model representing an application user.
 ///
@@ -22,7 +23,7 @@ class UserModel {
   final String? address;
   final UserType userType;
   final Gender gender;
-  final String? userClass;
+  final String userClass;
 
   const UserModel({
     required this.id,
@@ -31,9 +32,9 @@ class UserModel {
     required this.email,
     required this.userType,
     required this.gender,
+    required this.userClass,
     this.phoneNumber,
     this.address,
-    this.userClass,
   });
 
   UserModel copyWith({
@@ -86,7 +87,7 @@ class UserModel {
       address: (data['address'] ?? data['addr'])?.toString(),
       userType: userTypeFromJson(data['userType']),
       gender: genderFromJson(data['gender'] ?? data['gender']),
-      userClass: (data['class'] ?? data['userClass'])?.toString(),
+      userClass: (data['class'] ?? data['userClass'])!.toString(),
     );
   }
 
@@ -131,4 +132,10 @@ class UserModel {
         gender,
         userClass,
       );
+
+  static fromDocumentSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
+    return UserModel.fromMap(snapshot.data(), id: snapshot.id);
+  }
+
 }
+

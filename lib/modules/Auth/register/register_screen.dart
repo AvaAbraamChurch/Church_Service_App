@@ -295,7 +295,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         },
         listener: (BuildContext context, state) {
           if (state is AuthLoading) {
-            // showLoadingDialog(context, message: loading);
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => const Center(child: CircularProgressIndicator()),
+            );
           } else {
             Navigator.of(context, rootNavigator: true).pop(); // Close loading dialog if open
           }

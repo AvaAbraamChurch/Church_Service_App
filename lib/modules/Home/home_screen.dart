@@ -8,10 +8,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/styles/colors.dart';
 import 'endrawer.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final String userId; // Replace with actual user ID
   const HomeScreen({super.key, required this.userId});
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   Widget _buildActivityButton({
     required String title,
     required String subtitle,
@@ -73,15 +78,25 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  late final HomeCubit cubit;
+  late final Stream userStream;
+
+  @override
+  void initState() {
+    super.initState();
+    cubit = HomeCubit();
+    userStream = cubit.getUserById(widget.userId).asStream();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (BuildContext context) => HomeCubit(),
+    return BlocProvider.value(
+      value: cubit,
       child: BlocConsumer<HomeCubit, HomeState>(
         builder: (BuildContext context, state) {
           final cubit = HomeCubit.get(context);
           return StreamBuilder(
-              stream: cubit.getUserById(userId).asStream(),
+              stream: userStream,
               builder: (context, snapshot) {
                 return Scaffold(
                   endDrawer: drawer(context),

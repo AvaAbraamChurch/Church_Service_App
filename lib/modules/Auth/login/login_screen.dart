@@ -140,7 +140,7 @@ class LoginScreen extends StatelessWidget {
           } else if (state is AuthSuccess) {
             // Close the loading dialog
             Navigator.of(context, rootNavigator: true).pop();
-            navigateAndFinish(context, HomeLayout(userId: state.uId,));
+            navigateAndFinish(context, HomeLayout(userId: state.uId, userType: state.userType, userClass: state.userClass,));
           } else if (state is AuthFailure) {
             // Close the loading dialog
             final messenger = ScaffoldMessenger.maybeOf(context);

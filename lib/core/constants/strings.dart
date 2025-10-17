@@ -29,6 +29,19 @@ const password = 'كلمة المرور';
 const confirmPassword = 'تأكيد كلمة المرور';
 
 
+const attendance = 'الحضور';
+const markAttendance = 'تسجيل الحضور';
+const viewAttendance = 'عرض الحضور';
+const attendanceHistory = 'تاريخ الحضور';
+const attendanceMarked = 'تم تسجيل الحضور بنجاح';
+const alreadyMarked = 'تم تسجيل الحضور بالفعل لهذا اليوم';
+const notMarkedYet = 'لم يتم تسجيل الحضور بعد';
+const markYourAttendance = 'الرجاء تسجيل حضورك';
+
+const holyMass = 'القداس';
+const bibleClass = 'درس الكتاب';
+const sunday = 'مدارس الأحد';
+const hymns = 'الحان';
 
 const forgotPassword = 'نسيت كلمة المرور؟';
 const login = 'تسجيل الدخول';

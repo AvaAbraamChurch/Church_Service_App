@@ -20,7 +20,7 @@ class HomeCubit extends Cubit<HomeState> {
       emit(getUserLoadingState());
       final userData = await _usersRepository.getUserById(userId);
       if (userData != null) {
-        currentUser = UserModel.fromMap(userData, id: userId);
+        currentUser = userData;
         emit(getUserSuccessState());
         return currentUser;
       } else {

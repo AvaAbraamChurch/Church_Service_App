@@ -69,4 +69,22 @@ ThemeData theme = ThemeData(
       ),
     ),
   ),
+  tabBarTheme: TabBarThemeData(
+    labelColor: Colors.white,
+    unselectedLabelColor: Colors.white70,
+    labelStyle: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.bold,
+      fontFamily: 'Alexandria',
+    ),
+    unselectedLabelStyle: TextStyle(
+      fontSize: 14,
+      fontFamily: 'Alexandria',
+    ),
+    indicator: UnderlineTabIndicator(
+      borderSide: BorderSide(color: Colors.white, width: 2.0),
+      insets: EdgeInsets.symmetric(horizontal: 16.0),
+    ),
+  ),
+
 );

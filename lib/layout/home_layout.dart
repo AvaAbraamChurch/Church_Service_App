@@ -6,11 +6,13 @@ import '../modules/Chat/chat_screen.dart';
 import '../modules/Home/home_screen.dart';
 import '../modules/Notifications/notifications_screen.dart';
 import '../modules/Profile/profile_screen.dart';
-import '../modules/Todo/todo_screen.dart';
+import '../modules/Attendance/attendance_screen.dart';
 
 class HomeLayout extends StatefulWidget {
   final String userId;
-  const HomeLayout({super.key, required this.userId});
+  final String userType;
+  final String userClass;
+  const HomeLayout({super.key, required this.userId, required this.userType, required this.userClass});
 
   @override
   State<HomeLayout> createState() => _HomeLayoutState();
@@ -56,9 +58,12 @@ class _HomeLayoutState extends State<HomeLayout>
   }
 
   @override
-  void initState() {
+  void initState() async {
     super.initState();
     pageController = PageController(initialPage: _tabIndex);
+
+    // await checkAndHandleSession();
+
   }
 
   @override
@@ -96,7 +101,7 @@ class _HomeLayoutState extends State<HomeLayout>
           ChattingScreen(),
           ProfileScreen(),
           HomeScreen(userId: widget.userId),
-          TodoScreen(),
+          AttendanceScreen(userId: widget.userId, userType: widget.userType, userClass: widget.userClass,),
           NotificationsScreen(),
 
 
