@@ -6,8 +6,11 @@ class AuthLoading extends AuthState {}
 
 class AuthSuccess extends AuthState {
   final String uId;
+  final String userType;
+  final String userClass;
 
-  AuthSuccess(this.uId);
+
+  AuthSuccess(this.uId, this.userType, this.userClass);
 }
 
 class AuthFailure extends AuthState {

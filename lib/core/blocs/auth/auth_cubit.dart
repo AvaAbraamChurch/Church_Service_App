@@ -1,3 +1,7 @@
+import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/repositories/users_reopsitory.dart';
+import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/widgets.dart';
 import '../../constants/strings.dart';
@@ -21,7 +25,8 @@ class AuthCubit extends Cubit<AuthState> {
       if (user == null) {
         emit(AuthFailure(loginFailed));
       } else {
-        emit(AuthSuccess(user.uid));
+        final UserModel model = await UsersRepository().getUserById(user.uid);
+        emit(AuthSuccess(user.uid, model.userType.label, model.userClass));
       }
     } catch (error) {
       emit(AuthFailure(error.toString()));
@@ -70,7 +75,22 @@ class AuthCubit extends Cubit<AuthState> {
       if (user == null) {
         emit(AuthFailure(registrationFailed));
       } else {
-        emit(AuthSuccess(user.uid));
+        // Parse gender and userType from strings to enums
+        final genderValue = parseGender(extraData?['gender']?.toString());
+        final userTypeValue = parseUserType(extraData?['userType']?.toString());
+
+        UserModel userData = UserModel(
+          id: user.uid,
+          email: email,
+          username: extraData?['username'] ?? '',
+          fullName: extraData?['fullName'] ?? '',
+          phoneNumber: extraData?['phone'] ?? '',
+          address: extraData?['address'] ?? '',
+          gender: genderValue,
+          userType: userTypeValue,
+          userClass: extraData?['userClass'] ?? '',
+        );
+        emit(AuthSuccess(user.uid, userData.userType.label, userData.userClass));
       }
     } catch (error) {
       emit(AuthFailure(error.toString()));

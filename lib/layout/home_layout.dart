@@ -58,7 +58,7 @@ class _HomeLayoutState extends State<HomeLayout>
   }
 
   @override
-  void initState() async {
+  void initState() {
     super.initState();
     pageController = PageController(initialPage: _tabIndex);
 

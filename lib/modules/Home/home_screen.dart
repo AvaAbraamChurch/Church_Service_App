@@ -4,8 +4,9 @@ import 'package:church/core/utils/userType_enum.dart';
 import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import '../../core/repositories/auth_repository.dart';
 import '../../core/styles/colors.dart';
+import '../../core/utils/session_checker.dart';
 import 'endrawer.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -16,7 +17,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildActivityButton({
     required String title,
     required String subtitle,
@@ -78,12 +79,49 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  final AuthRepository _authRepository = AuthRepository();
+  late SessionChecker _sessionChecker;
+
+
   late final HomeCubit cubit;
   late final Stream userStream;
+
+
+  /// Called when app resumes from background
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Check session when user returns to app
+      _checkSession();
+    }
+  }
+
+  /// Check if session is valid
+  Future<void> _checkSession() async {
+    final isValid = await _sessionChecker.checkAndHandleSession(context);
+    if (!isValid) {
+      // Session expired, user will be redirected to login
+      return;
+    }
+
+    // Optional: Show warning if session expiring within 24 hours
+    _sessionChecker.checkAndWarnIfExpiringSoon(
+      context,
+      warningThreshold: const Duration(hours: 24),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
+
+    _sessionChecker = SessionChecker(_authRepository);
+    WidgetsBinding.instance.addObserver(this);
+
+    // Check session on screen load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSession();
+    });
     cubit = HomeCubit();
     userStream = cubit.getUserById(widget.userId).asStream();
   }
