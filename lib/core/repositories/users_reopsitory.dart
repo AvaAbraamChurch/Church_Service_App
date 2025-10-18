@@ -61,6 +61,16 @@ class UsersRepository {
         .toList());
   }
 
+  Stream<List<UserModel>> getUsersByMultipleTypesForPriest(List<String> userTypes) {
+    return _firestore
+        .collection('users')
+        .where('userType', whereIn: userTypes)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+        .map((doc) => UserModel.fromJson(doc.data()..putIfAbsent('id', () => doc.id)))
+        .toList());
+  }
+
   Future<UserModel> getUserById(String userId) async {
     try {
       final doc = await _firestore.collection('users').doc(userId).get();

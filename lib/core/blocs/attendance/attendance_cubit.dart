@@ -33,6 +33,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
       users = await usersRepository
           .getUsersByMultipleTypes(userClass, userTypes, gender).first;
       emit(getAllUsersSuccess());
+      debugPrint(users.toString());
       return users;
     } catch (e) {
       emit(getAllUsersError(e.toString()));
@@ -40,6 +41,25 @@ class AttendanceCubit extends Cubit<AttendanceState> {
       rethrow;
     }
   }
+
+  // Get users by type and gender
+  Future<List<UserModel>?> getUsersByTypeForPriest(
+      List<String> userTypes
+      ) async {
+    emit(getAllUsersLoading());
+    try {
+      users = await usersRepository
+          .getUsersByMultipleTypesForPriest(userTypes).first;
+      emit(getAllUsersSuccess());
+      debugPrint(users.toString());
+      return users;
+    } catch (e) {
+      emit(getAllUsersError(e.toString()));
+      print(e);
+      rethrow;
+    }
+  }
+
 
   // Get Attendance History for a specific user by user ID
   Future<List<AttendanceModel>> getUserAttendanceHistory(String userId) async {
