@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/styles/colors.dart';
 
 Widget drawer(context) => Drawer(
-  width: MediaQuery.of(context).size.width * 0.5, // Set drawer width to 50% of screen width
+  width: MediaQuery.of(context).size.width * 0.75, // Set drawer width to 75% of screen width
   shadowColor: Colors.grey,
   child: Stack(
     fit: StackFit.expand,
