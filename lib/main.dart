@@ -1,9 +1,4 @@
-import 'package:church/core/models/user/user_model.dart';
-import 'package:church/core/utils/gender_enum.dart';
-import 'package:church/core/utils/userType_enum.dart';
-import 'package:church/layout/home_layout.dart';
-import 'package:church/modules/Auth/login/login_screen.dart';
-import 'package:church/shared/widgets.dart';
+import 'package:church/modules/Splash/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/styles/theme.dart';
@@ -12,7 +7,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/network/local/cache_helper.dart';
-import 'core/repositories/auth_repository.dart';
 
 // Use the navigator key from NotificationsService
 // final GlobalKey<NavigatorState> navigatorKey = NotificationsService.navigatorKey;
@@ -27,54 +21,14 @@ void main() async {
   // Initialize cache helper
   await CacheHelper.init();
 
-  // Check the firebase token validation
-  final authRepository = AuthRepository();
-  bool isTokenValid = false;
-  String uId = '';
-
-  // Check if user has cached login data
-  bool isLoggedIn = authRepository.isLoggedInFromCache();
-  uId = authRepository.getSavedUserId();
-
-
-  // If user appears to be logged in, validate the Firebase token
-  if (isLoggedIn && uId.isNotEmpty) {
-    isTokenValid = await authRepository.validateToken();
-
-    if (isTokenValid) {
-      print('✅ Firebase token is valid. User ID: $uId');
-    } else {
-      print('❌ Firebase token validation failed. Redirecting to login.');
-      // Clear invalid cached data
-      await authRepository.clearUserData();
-      uId = '';
-      isLoggedIn = false;
-    }
-  }
-
   Bloc.observer = MyBlocObserver();
 
-  Widget widget;
-
-  // Decide which screen to show based on token validation
-  if (isTokenValid && uId.isNotEmpty) {
-    final UserModel currentUser = await authRepository.getCurrentUserData();
-    widget = HomeLayout(userId: uId, userType: currentUser.userType.label, userClass: currentUser.userClass, gender: currentUser.gender.label,);
-    print('Navigating to main layout for authenticated user');
-  } else {
-    widget = LoginScreen();
-    print('Navigating to login screen');
-  }
-
-  runApp(MyApp(
-    startWidget: widget,
+  runApp(const MyApp(
+    startWidget: SplashScreen(),
   ));
-
 }
 
 class MyApp extends StatelessWidget {
-
-
   final Widget startWidget;
 
   const MyApp({super.key, required this.startWidget});
@@ -92,7 +46,6 @@ class MyApp extends StatelessWidget {
         Locale('ar'),
       ],
       debugShowCheckedModeBanner: false,
-
       theme: theme,
       home: startWidget,
     );

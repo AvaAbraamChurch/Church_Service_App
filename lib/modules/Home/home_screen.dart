@@ -4,6 +4,7 @@ import 'package:church/core/utils/userType_enum.dart';
 import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/repositories/auth_repository.dart';
 import '../../core/styles/colors.dart';
 import '../../core/utils/session_checker.dart';
@@ -21,7 +22,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildActivityButton({
     required String title,
     required String subtitle,
-    required IconData icon,
+    IconData? icon,
+    String? svgAsset,
     required Color color,
     VoidCallback? onTap,
   }) {
@@ -101,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Icon with decorative background
+                // Icon with decorative background - supports both regular icons and SVG
                 Container(
                   width: 60,
                   height: 60,
@@ -113,11 +115,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       width: 2,
                     ),
                   ),
-                  child: Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 32,
-                  ),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.all(14),
+                  child: svgAsset != null
+                      ? SvgPicture.asset(
+                          svgAsset,
+                          colorFilter: const ColorFilter.mode(
+                            Colors.white,
+                            BlendMode.srcIn,
+                          ),
+                          fit: BoxFit.contain,
+                        )
+                      : Icon(
+                          icon ?? Icons.star,
+                          color: Colors.white,
+                          size: 32,
+                        ),
                 ),
               ],
             ),
@@ -254,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                           _buildActivityButton(
                                             title: 'درس الكتاب',
                                             subtitle: 'الخميس - الساعة ٦م',
-                                            icon: Icons.book_outlined,
+                                            svgAsset: 'assets/svg/book.svg',
                                             color: brown300,
                                             onTap: (){
                                               debugPrint('درس الكتاب');
@@ -263,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                           _buildActivityButton(
                                             title: 'مدارس الأحد',
                                             subtitle: 'الجمعة - الساعة ١٠:٣٠ص',
-                                            icon: Icons.school_outlined,
+                                            svgAsset: 'assets/svg/sunday school.svg',
                                             color: red500,
                                             onTap: (){
                                               debugPrint('مدارس الأحد');
@@ -272,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                           _buildActivityButton(
                                             title: 'القداس',
                                             subtitle: 'الجمعة - الساعة ٧:٣٠ص',
-                                            icon: Icons.church_outlined,
+                                            svgAsset: 'assets/svg/church.svg',
                                             color: sage500,
                                             onTap: (){
                                               debugPrint('القداس');
@@ -281,7 +294,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                           _buildActivityButton(
                                             title: 'مدرسة الشمامسة',
                                             subtitle: 'الخميس - الساعة ٧:٠٠م',
-                                            icon: Icons.local_library_outlined, // Changed icon to a book/library icon to better match a school look
+                                            svgAsset: 'assets/svg/4mamsa.svg', // Replace with your SVG asset path
                                             color: tawny,
                                             onTap: (){
                                               debugPrint('مدرسة الشمامسة');
@@ -300,7 +313,55 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                         );
                       },
-                    fallback: (BuildContext context) => const Center(child: CircularProgressIndicator()),
+                    fallback: (BuildContext context) => Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: teal100,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: teal300.withValues(alpha: 0.3),
+                                  blurRadius: 20,
+                                  spreadRadius: 5,
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: SizedBox(
+                                width: 50,
+                                height: 50,
+                                child: CircularProgressIndicator(
+                                  color: teal500,
+                                  strokeWidth: 4,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          Text(
+                            'جاري التحميل...',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: teal900,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'يرجى الانتظار',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               }

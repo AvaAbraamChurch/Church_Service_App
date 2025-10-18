@@ -175,7 +175,6 @@ class AttendanceRepository {
       final snapshot = await _firestore
           .collection(_collectionName)
           .where('userId', isEqualTo: userId)
-          .orderBy('date', descending: true)
           .get();
 
       return snapshot.docs
@@ -269,4 +268,3 @@ class AttendanceRepository {
     }
   }
 }
-

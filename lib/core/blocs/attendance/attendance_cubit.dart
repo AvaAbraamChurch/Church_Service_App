@@ -21,6 +21,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
   static AttendanceCubit get(context) => BlocProvider.of(context);
 
   List<UserModel>? users;
+  List<AttendanceModel>? attendanceHistory;
 
   // Get users by type
   Future<List<UserModel>?> getUsersByType(
@@ -45,12 +46,12 @@ class AttendanceCubit extends Cubit<AttendanceState> {
     try {
       emit(getUserAttendanceHistoryLoading());
 
-      final attendanceHistory = await attendanceRepository
+      attendanceHistory = await attendanceRepository
           .getAttendanceByUserIdFuture(userId);
 
       emit(getUserAttendanceHistorySuccess());
 
-      return attendanceHistory;
+      return attendanceHistory!;
     } catch (e) {
       emit(getUserAttendanceHistoryError(e.toString()));
       rethrow;

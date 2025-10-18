@@ -115,7 +115,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                 ),
                 backgroundColor: Colors.transparent,
                 body: ConditionalBuilder(
-                  condition: snapshot.hasData && cubit.users!.isNotEmpty,
+                  condition: snapshot.hasData &&
+                             ((widget.userType != child && cubit.users != null && cubit.users!.isNotEmpty) ||
+                              (widget.userType == child && cubit.attendanceHistory != null && cubit.attendanceHistory!.isNotEmpty)),
                   builder: (BuildContext context) {
                     return TabBarView(
                       controller: _tabController,
@@ -132,7 +134,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               ] else if (widget.userType == servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 0)),
                               ] else ...[
-                                Expanded(child: ChildView(cubit)),
+                                Expanded(child: ChildView(cubit, pageIndex: 0)),
                               ],
                             ],
                           ),
@@ -149,7 +151,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               ] else if (widget.userType == servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 1)),
                               ] else ...[
-                                Expanded(child: ChildView(cubit)),
+                                Expanded(child: ChildView(cubit, pageIndex: 1)),
                               ],
                             ],
                           ),
@@ -166,7 +168,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               ] else if (widget.userType == servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 2)),
                               ] else ...[
-                                Expanded(child: ChildView(cubit)),
+                                Expanded(child: ChildView(cubit, pageIndex: 2)),
                               ],
                             ],
                           ),
@@ -183,7 +185,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               ] else if (widget.userType == servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 3)),
                               ] else ...[
-                                Expanded(child: ChildView(cubit)),
+                                Expanded(child: ChildView(cubit, pageIndex: 3)),
                               ],
                             ],
                           ),
@@ -192,10 +194,200 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                     );
                   },
                   fallback: (BuildContext context) => Center(
-                    child: Text(
-                      'No users found.',
-                      style: TextStyle(fontSize: 18, color: brown900),
-                    ),
+                    child: snapshot.connectionState == ConnectionState.waiting
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Modern loading indicator with decorative container
+                              Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  color: teal100,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: teal300.withValues(alpha: 0.3),
+                                      blurRadius: 20,
+                                      spreadRadius: 5,
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 50,
+                                    height: 50,
+                                    child: CircularProgressIndicator(
+                                      color: teal500,
+                                      strokeWidth: 4,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+                              Text(
+                                'جاري التحميل...',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: teal900,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'يرجى الانتظار',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          )
+                        : snapshot.hasError
+                            ? Container(
+                                margin: const EdgeInsets.all(24.0),
+                                padding: const EdgeInsets.all(24.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.red.withValues(alpha: 0.1),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.withValues(alpha: 0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.error_outline,
+                                        size: 50,
+                                        color: Colors.red[400],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Text(
+                                      'حدث خطأ!',
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red[700],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'حدث خطأ أثناء تحميل البيانات',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        setState(() {
+                                          // Trigger a rebuild to retry loading
+                                        });
+                                      },
+                                      icon: const Icon(Icons.refresh, color: Colors.white),
+                                      label: const Text(
+                                        'إعادة المحاولة',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: teal500,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 32,
+                                          vertical: 16,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        elevation: 4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : Container(
+                                margin: const EdgeInsets.all(24.0),
+                                padding: const EdgeInsets.all(32.0),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.white,
+                                      teal100.withValues(alpha: 0.3),
+                                    ],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  ),
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: teal300.withValues(alpha: 0.2),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 100,
+                                      height: 100,
+                                      decoration: BoxDecoration(
+                                        color: teal100,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: teal300,
+                                          width: 3,
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        Icons.people_outline,
+                                        size: 50,
+                                        color: teal700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Text(
+                                      'لا يوجد مستخدمين',
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: teal900,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'لم يتم العثور على أي مستخدمين\nفي هذه الفئة',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey[600],
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                   ),
                 ),
               );
