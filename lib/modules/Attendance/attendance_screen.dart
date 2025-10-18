@@ -45,7 +45,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         child,
       ]).asStream();
     } else if (widget.userType == superServant) {
-      stream = cubit.getUsersByType(widget.userClass, [
+      stream = cubit.getUsersByTypeAndGender([
         servant,
         child,
       ], widget.gender).asStream();
@@ -130,7 +130,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               if (widget.userType == priest) ...[
                                 Expanded(child: PriestView(cubit, pageIndex: 0)),
                               ] else if (widget.userType == superServant) ...[
-                                Expanded(child: SuperServantView(cubit)),
+                                Expanded(child: SuperServantView(cubit, pageIndex: 0)),
                               ] else if (widget.userType == servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 0)),
                               ] else ...[
@@ -147,7 +147,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               if (widget.userType == priest) ...[
                                 Expanded(child: PriestView(cubit, pageIndex: 1)),
                               ] else if (widget.userType == superServant) ...[
-                                Expanded(child: SuperServantView(cubit)),
+                                Expanded(child: SuperServantView(cubit, pageIndex: 0)),
                               ] else if (widget.userType == servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 1)),
                               ] else ...[
@@ -164,7 +164,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               if (widget.userType == priest) ...[
                                 Expanded(child: PriestView(cubit, pageIndex: 2)),
                               ] else if (widget.userType == superServant) ...[
-                                Expanded(child: SuperServantView(cubit)),
+                                Expanded(child: SuperServantView(cubit, pageIndex: 0)),
                               ] else if (widget.userType == servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 2)),
                               ] else ...[
@@ -181,7 +181,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               if (widget.userType == priest) ...[
                                 Expanded(child: PriestView(cubit, pageIndex: 3)),
                               ] else if (widget.userType == superServant) ...[
-                                Expanded(child: SuperServantView(cubit)),
+                                Expanded(child: SuperServantView(cubit, pageIndex: 0)),
                               ] else if (widget.userType == servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 3)),
                               ] else ...[

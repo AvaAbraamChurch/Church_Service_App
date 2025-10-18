@@ -20,8 +20,25 @@ class AttendanceCubit extends Cubit<AttendanceState> {
 
   static AttendanceCubit get(context) => BlocProvider.of(context);
 
+  late final UserModel currentUser;
+
   List<UserModel>? users;
   List<AttendanceModel>? attendanceHistory;
+
+  // Get current user
+  Future<UserModel?> getCurrentUser(String userId) async {
+    emit(getAllUsersLoading());
+    try {
+      currentUser = await usersRepository
+          .getUserById(userId);
+      emit(getAllUsersSuccess());
+      return users!.isNotEmpty ? users!.first : null;
+    } catch (e) {
+      emit(getAllUsersError(e.toString()));
+      print(e);
+      rethrow;
+    }
+  }
 
   // Get users by type
   Future<List<UserModel>?> getUsersByType(
@@ -43,6 +60,25 @@ class AttendanceCubit extends Cubit<AttendanceState> {
   }
 
   // Get users by type and gender
+  Future<List<UserModel>?> getUsersByTypeAndGender(
+      List<String> userTypes, String gender
+      ) async {
+    emit(getAllUsersLoading());
+    try {
+      users = await usersRepository
+          .getUsersByMultipleTypesAndGender(userTypes, gender).first;
+      emit(getAllUsersSuccess());
+      debugPrint(users.toString());
+      return users;
+    } catch (e) {
+      emit(getAllUsersError(e.toString()));
+      print(e);
+      rethrow;
+    }
+  }
+
+
+  // Get users for priest
   Future<List<UserModel>?> getUsersByTypeForPriest(
       List<String> userTypes
       ) async {
