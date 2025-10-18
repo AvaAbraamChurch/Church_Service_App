@@ -31,7 +31,6 @@ class AttendanceCubit extends Cubit<AttendanceState> {
     try {
       users = await usersRepository
           .getUsersByMultipleTypes(userClass, userTypes, gender).first;
-      debugPrint(users.toString());
       emit(getAllUsersSuccess());
       return users;
     } catch (e) {

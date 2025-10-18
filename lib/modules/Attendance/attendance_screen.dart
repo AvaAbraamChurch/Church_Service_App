@@ -121,103 +121,71 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                       controller: _tabController,
                       children: [
                         // Holy Mass tab
-                        SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20.0),
-                            child: SizedBox(
-                              width: MediaQuery.of(context).size.width,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (widget.userType == priest) ...[
-                                    PriestView(cubit),
-                                  ] else if (widget.userType ==
-                                      superServant) ...[
-                                    SuperServantView(cubit),
-                                  ] else if (widget.userType == servant) ...[
-                                    ServantView(cubit: cubit, pageIndex: _tabController.index,),
-                                  ] else ...[
-                                    ChildView(cubit),
-                                  ],
-                                ],
-                              ),
-                            ),
+                        Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            children: [
+                              if (widget.userType == priest) ...[
+                                Expanded(child: PriestView(cubit)),
+                              ] else if (widget.userType == superServant) ...[
+                                Expanded(child: SuperServantView(cubit)),
+                              ] else if (widget.userType == servant) ...[
+                                Expanded(child: ServantView(cubit: cubit, pageIndex: 0)),
+                              ] else ...[
+                                Expanded(child: ChildView(cubit)),
+                              ],
+                            ],
                           ),
                         ),
                         // Sunday tab
-                        SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20.0),
-                            child: SizedBox(
-                              width: MediaQuery.of(context).size.width,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (widget.userType == priest) ...[
-                                    PriestView(cubit),
-                                  ] else if (widget.userType ==
-                                      superServant) ...[
-                                    SuperServantView(cubit),
-                                  ] else if (widget.userType == servant) ...[
-                                    ServantView(cubit: cubit, pageIndex: _tabController.index,),
-                                  ] else ...[
-                                    ChildView(cubit),
-                                  ],
-                                ],
-                              ),
-                            ),
+                        Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            children: [
+                              if (widget.userType == priest) ...[
+                                Expanded(child: PriestView(cubit)),
+                              ] else if (widget.userType == superServant) ...[
+                                Expanded(child: SuperServantView(cubit)),
+                              ] else if (widget.userType == servant) ...[
+                                Expanded(child: ServantView(cubit: cubit, pageIndex: 1)),
+                              ] else ...[
+                                Expanded(child: ChildView(cubit)),
+                              ],
+                            ],
                           ),
                         ),
                         // Hymns tab
-                        SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20.0),
-                            child: SizedBox(
-                              width: MediaQuery.of(context).size.width,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (widget.userType == priest) ...[
-                                    PriestView(cubit),
-                                  ] else if (widget.userType ==
-                                      superServant) ...[
-                                    SuperServantView(cubit),
-                                  ] else if (widget.userType == servant) ...[
-                                    ServantView(cubit: cubit, pageIndex: _tabController.index,),
-                                  ] else ...[
-                                    ChildView(cubit),
-                                  ],
-                                ],
-                              ),
-                            ),
+                        Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            children: [
+                              if (widget.userType == priest) ...[
+                                Expanded(child: PriestView(cubit)),
+                              ] else if (widget.userType == superServant) ...[
+                                Expanded(child: SuperServantView(cubit)),
+                              ] else if (widget.userType == servant) ...[
+                                Expanded(child: ServantView(cubit: cubit, pageIndex: 2)),
+                              ] else ...[
+                                Expanded(child: ChildView(cubit)),
+                              ],
+                            ],
                           ),
                         ),
                         // Bible tab
-                        SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20.0),
-                            child: SizedBox(
-                              width: MediaQuery.of(context).size.width,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (widget.userType == priest) ...[
-                                    PriestView(cubit),
-                                  ] else if (widget.userType ==
-                                      superServant) ...[
-                                    SuperServantView(cubit),
-                                  ] else if (widget.userType == servant) ...[
-                                    ServantView(cubit: cubit, pageIndex: _tabController.index,),
-                                  ] else ...[
-                                    ChildView(cubit),
-                                  ],
-                                ],
-                              ),
-                            ),
+                        Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            children: [
+                              if (widget.userType == priest) ...[
+                                Expanded(child: PriestView(cubit)),
+                              ] else if (widget.userType == superServant) ...[
+                                Expanded(child: SuperServantView(cubit)),
+                              ] else if (widget.userType == servant) ...[
+                                Expanded(child: ServantView(cubit: cubit, pageIndex: 3)),
+                              ] else ...[
+                                Expanded(child: ChildView(cubit)),
+                              ],
+                            ],
                           ),
                         ),
                       ],
