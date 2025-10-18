@@ -23,57 +23,105 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     required String subtitle,
     required IconData icon,
     required Color color,
+    VoidCallback? onTap,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 15.0),
-      // Set the height to make the buttons prominent like in the image
-      height: 80,
+      margin: const EdgeInsets.only(bottom: 16.0),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          colors: [
+            color,
+            color.withValues(alpha: 0.8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         boxShadow: [
-          // Subtle shadow for depth
+          BoxShadow(
+            color: color.withValues(alpha: 0.4),
+            blurRadius: 12,
+            spreadRadius: 2,
+            offset: const Offset(0, 6),
+          ),
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start, // Align to the right for RTL
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            height: 100,
+            padding: const EdgeInsets.all(20.0),
+            child: Row(
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                // Text content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.access_time,
+                            color: Colors.white.withValues(alpha: 0.9),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              subtitle,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
+                const SizedBox(width: 16),
+                // Icon with decorative background
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 32,
                   ),
                 ),
               ],
             ),
-            const Spacer(),
-            // The icon on the far left (which is visually on the right in RTL)
-            Icon(
-              icon,
-              color: Colors.white,
-              size: 30,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -184,7 +232,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               ),
                               SizedBox(height: 10,),
                               ListTile(
-                                title: Text('مرحبا بك...\n${cubit.currentUser!.fullName}', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),),
+                                title: Text('مرحبا بك...\n${cubit.currentUser!.username}', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),),
                                 subtitle: Text('${cubit.currentUser!.userType.label}: ${cubit.currentUser!.userClass}', style: TextStyle(color: brown300, fontSize: 16),),
                               ),
                               SizedBox(height: 20,),
@@ -201,54 +249,43 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     child: SingleChildScrollView(
                                       child: Column(
                                         children: [
-                                          // Search Bar (White background, light teal container)
-                                          Container(
-                                            height: 50,
-                                            margin: const EdgeInsets.only(bottom: 25.0),
-                                            padding: const EdgeInsets.symmetric(horizontal: 15),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius: BorderRadius.circular(10),
-                                              border: Border.all(color: Colors.grey.shade300),
-                                            ),
-                                            child: const Row(
-                                              mainAxisAlignment: MainAxisAlignment.start,
-                                              children: [
-                                                Icon(Icons.search, color: Colors.grey),
-                                                SizedBox(width: 10),
-                                                // This is a placeholder, a TextField would go here
-                                                Text(
-                                                  'بحث',
-                                                  style: TextStyle(color: Colors.grey),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-
+                                          SizedBox(height: 30.0,),
                                           // Activity Buttons
                                           _buildActivityButton(
                                             title: 'درس الكتاب',
                                             subtitle: 'الخميس - الساعة ٦م',
                                             icon: Icons.book_outlined,
                                             color: brown300,
+                                            onTap: (){
+                                              debugPrint('درس الكتاب');
+                                            },
                                           ),
                                           _buildActivityButton(
                                             title: 'مدارس الأحد',
                                             subtitle: 'الجمعة - الساعة ١٠:٣٠ص',
                                             icon: Icons.school_outlined,
                                             color: red500,
+                                            onTap: (){
+                                              debugPrint('مدارس الأحد');
+                                            },
                                           ),
                                           _buildActivityButton(
                                             title: 'القداس',
                                             subtitle: 'الجمعة - الساعة ٧:٣٠ص',
                                             icon: Icons.church_outlined,
                                             color: sage500,
+                                            onTap: (){
+                                              debugPrint('القداس');
+                                            },
                                           ),
                                           _buildActivityButton(
                                             title: 'مدرسة الشمامسة',
                                             subtitle: 'الخميس - الساعة ٧:٠٠م',
                                             icon: Icons.local_library_outlined, // Changed icon to a book/library icon to better match a school look
                                             color: tawny,
+                                            onTap: (){
+                                              debugPrint('مدرسة الشمامسة');
+                                            },
                                           ),
                                           // Add some padding at the bottom for scroll
                                           const SizedBox(height: 20),
