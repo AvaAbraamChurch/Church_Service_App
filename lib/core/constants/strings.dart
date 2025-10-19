@@ -177,6 +177,7 @@ const loginSuccessful = 'تم تسجيل الدخول بنجاح.';
 const logoutSuccessful = 'تم تسجيل الخروج بنجاح.';
 const registrationComplete = 'اكتمل التسجيل. يمكنك الآن تسجيل الدخول.';
 const loginFailed = 'فشل تسجيل الدخول. الرجاء الرجاء المحاولة مرة أخرى.';
-
+const loginLoading = 'جارٍ تسجيل الدخول...';
+const registering = 'جارٍ إنشاء الحساب...';
 
 const sessionExpiredPleaseLoginAgain = 'انتهت الجلسة. الرجاء تسجيل الدخول مرة أخرى.';

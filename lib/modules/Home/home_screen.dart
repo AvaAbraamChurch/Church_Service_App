@@ -349,6 +349,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: teal900,
+                              fontFamily: 'Alexandria',
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -357,6 +358,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey[600],
+                              fontFamily: 'Alexandria',
                             ),
                           ),
                         ],

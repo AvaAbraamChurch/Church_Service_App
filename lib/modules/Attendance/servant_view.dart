@@ -106,7 +106,10 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Attendance submitted successfully for ${attendanceList.length} users'),
+            content: Text(
+              'تم تسجيل الحضور بنجاح لـ ${attendanceList.length} مستخدم',
+              style: TextStyle(fontFamily: 'Alexandria'),
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -247,13 +250,14 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                                   duration: const Duration(milliseconds: 300),
                                   opacity: isPresent ? 1.0 : 0.6,
                                   child: Text(
-                                    isPresent ? 'Present' : 'Tap to mark present',
+                                    isPresent ? 'حاضر' : 'اضغط لتسجيل الحضور',
                                     style: TextStyle(
                                       color: isPresent
                                           ? Colors.white.withValues(alpha: 0.9)
                                           : Colors.grey[600],
                                       fontSize: 12,
                                       fontWeight: FontWeight.w400,
+                                      fontFamily: 'Alexandria',
                                     ),
                                   ),
                                 ),
@@ -353,7 +357,7 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white,
-                                  letterSpacing: 1,
+                                  fontFamily: 'Alexandria',
                                 ),
                               ),
                             ],

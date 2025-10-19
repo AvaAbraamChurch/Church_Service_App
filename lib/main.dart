@@ -7,6 +7,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/network/local/cache_helper.dart';
+import 'shared/connectivity_wrapper.dart';
 
 // Use the navigator key from NotificationsService
 // final GlobalKey<NavigatorState> navigatorKey = NotificationsService.navigatorKey;
@@ -47,7 +48,10 @@ class MyApp extends StatelessWidget {
       ],
       debugShowCheckedModeBanner: false,
       theme: theme,
-      home: startWidget,
+      home: ConnectivityWrapper(
+        checkDelay: Duration(seconds: 5), // Show no internet after 5 seconds
+        child: startWidget,
+      ),
     );
   }
 }

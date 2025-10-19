@@ -52,6 +52,7 @@ dependencies:
   circle_nav_bar: ^2.2.0
   firebase_database: ^11.0.0
   flutter_svg: ^2.2.0
+  connectivity_plus: ^6.1.2
 
 dev_dependencies:
   flutter_test:
@@ -98,7 +99,6 @@ flutter:
     - family: Alexandria
       fonts:
         - asset: assets/fonts/Alexandria/Alexandria-SemiBold.ttf
-          style: normal
   #   - family: Trajan Pro
   #     fonts:
   #       - asset: fonts/TrajanPro.ttf

@@ -172,11 +172,11 @@ class LoginScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'جاري تسجيل الدخول...',
+                        loginLoading,
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.bold,
                           color: teal900,
+                          fontFamily: 'Alexandria',
                         ),
                       ),
                     ],

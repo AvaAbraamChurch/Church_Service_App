@@ -157,7 +157,7 @@ class _SplashScreenState extends State<SplashScreen>
               style: TextStyle(
                 fontSize: 16,
                 color: teal100,
-                letterSpacing: 1,
+                fontFamily: 'Alexandria',
               ),
             ),
             SizedBox(height: MediaQuery.of(context).size.height * 0.1),

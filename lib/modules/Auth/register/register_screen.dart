@@ -340,6 +340,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: teal900,
+                          fontFamily: 'Alexandria',
                         ),
                       ),
                     ],
