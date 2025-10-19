@@ -100,6 +100,7 @@ class _SplashScreenState extends State<SplashScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            SizedBox(height: MediaQuery.of(context).size.height * 0.1,),
             // App Logo/Title
             const Text(
               'Ⲛⲉⲛϣⲏⲣⲓ ⲙ̀ⲡⲟⲩⲣⲟ',
@@ -110,7 +111,7 @@ class _SplashScreenState extends State<SplashScreen>
                 letterSpacing: 2,
               ),
             ),
-            const SizedBox(height: 60),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.1),
 
             // Circular Loading Animation with SVG Images
             SizedBox(
@@ -146,7 +147,7 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
 
-            const SizedBox(height: 60),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.1),
 
             // Loading Text
             Text(
@@ -157,12 +158,14 @@ class _SplashScreenState extends State<SplashScreen>
                 letterSpacing: 1,
               ),
             ),
-            const SizedBox(height: 40),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.1),
             // Footer SVG
 
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: SvgPicture.asset('assets/svg/footer.svg'),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: SvgPicture.asset('assets/svg/footer.svg'),
+              ),
             )
 
           ],
