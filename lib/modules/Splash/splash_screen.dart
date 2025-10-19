@@ -2,7 +2,9 @@ import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/layout/home_layout.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
+import 'package:church/modules/ProfileCompletion/profile_completion_screen.dart';
 import 'package:church/core/repositories/auth_repository.dart';
+import 'package:church/core/services/profile_completion_service.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:flutter/material.dart';
@@ -48,21 +50,34 @@ class _SplashScreenState extends State<SplashScreen>
       final isTokenValid = await _authRepository.validateToken();
 
       if (isTokenValid) {
-        // Get user data and navigate to home
+        // Get user data
         final currentUser = await _authRepository.getCurrentUserData();
 
         if (!mounted) return;
 
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => HomeLayout(
-              userId: userId,
-              userType: currentUser.userType.label,
-              userClass: currentUser.userClass,
-              gender: currentUser.gender.label,
+        // Check if profile completion is needed (first time only)
+        final shouldComplete = await ProfileCompletionService.shouldShowProfileCompletion(currentUser);
+
+        if (shouldComplete) {
+          // Navigate to profile completion screen
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => ProfileCompletionScreen(user: currentUser),
             ),
-          ),
-        );
+          );
+        } else {
+          // Navigate to home
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => HomeLayout(
+                userId: userId,
+                userType: currentUser.userType.label,
+                userClass: currentUser.userClass,
+                gender: currentUser.gender.label,
+              ),
+            ),
+          );
+        }
       } else {
         // Token invalid, clear data and go to login
         await _authRepository.clearUserData();
