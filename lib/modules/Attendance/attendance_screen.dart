@@ -326,70 +326,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                   ],
                                 ),
                               )
-                            : Container(
-                                margin: const EdgeInsets.all(24.0),
-                                padding: const EdgeInsets.all(32.0),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.white,
-                                      teal100.withValues(alpha: 0.3),
-                                    ],
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                  ),
-                                  borderRadius: BorderRadius.circular(24),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: teal300.withValues(alpha: 0.2),
-                                      blurRadius: 20,
-                                      spreadRadius: 2,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 100,
-                                      height: 100,
-                                      decoration: BoxDecoration(
-                                        color: teal100,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: teal300,
-                                          width: 3,
-                                        ),
-                                      ),
-                                      child: Icon(
-                                        Icons.people_outline,
-                                        size: 50,
-                                        color: teal700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    Text(
-                                      'لا يوجد مستخدمين',
-                                      style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        color: teal900,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'لم يتم العثور على أي مستخدمين\nفي هذه الفئة',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey[600],
-                                        height: 1.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            : _buildEmptyState(),
                   ),
                 ),
               );
@@ -399,5 +336,139 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         listener: (BuildContext context, state) {},
       ),
     );
+  }
+
+  Widget _buildEmptyState() {
+    if (widget.userType == child) {
+      return Container(
+        margin: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(32.0),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.white,
+              teal100.withValues(alpha: 0.3),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: teal300.withValues(alpha: 0.2),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: teal100,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: teal300,
+                  width: 3,
+                ),
+              ),
+              child: Icon(
+                Icons.history_edu_outlined,
+                size: 50,
+                color: teal700,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'لا توجد سجلات',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: teal900,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'لم يتم العثور على أي سجلات\nلحضورك في هذه الفئة',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        margin: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(32.0),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.white,
+              teal100.withValues(alpha: 0.3),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: teal300.withValues(alpha: 0.2),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: teal100,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: teal300,
+                  width: 3,
+                ),
+              ),
+              child: Icon(
+                Icons.people_outline,
+                size: 50,
+                color: teal700,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'لا يوجد مستخدمين',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: teal900,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'لم يتم العثور على أي مستخدمين\nفي هذه الفئة',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }
