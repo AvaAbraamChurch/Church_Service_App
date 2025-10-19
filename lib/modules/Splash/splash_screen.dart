@@ -102,13 +102,15 @@ class _SplashScreenState extends State<SplashScreen>
           children: [
             SizedBox(height: MediaQuery.of(context).size.height * 0.1,),
             // App Logo/Title
-            const Text(
-              'Ⲛⲉⲛϣⲏⲣⲓ ⲙ̀ⲡⲟⲩⲣⲟ',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 2,
+            Expanded(
+              child: const Text(
+                'Ⲛⲉⲛϣⲏⲣⲓ ⲙ̀ⲡⲟⲩⲣⲟ',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 2,
+                ),
               ),
             ),
             SizedBox(height: MediaQuery.of(context).size.height * 0.1),
