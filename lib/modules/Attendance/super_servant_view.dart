@@ -42,10 +42,10 @@ class _SuperServantViewState extends State<SuperServantView> {
     searchController.addListener(_filterUsers);
 
     servantsList = widget.cubit.users
-        ?.where((u) => u.userType.label == servant)
+        ?.where((u) => u.userType.code == UserType.servant.code)
         .toList() ?? [];
     chidrenList = widget.cubit.users
-        ?.where((u) => u.userType.label == child)
+        ?.where((u) => u.userType.code == UserType.child.code)
         .toList() ?? [];
 
   }
@@ -272,7 +272,7 @@ class _SuperServantViewState extends State<SuperServantView> {
                 userType: UserType.servant.code,
                 count:
                     widget.cubit.users
-                        ?.where((u) => u.userType.label == servant)
+                        ?.where((u) => u.userType.code == UserType.servant.code)
                         .length ??
                     0,
               ),
@@ -285,7 +285,7 @@ class _SuperServantViewState extends State<SuperServantView> {
                 userType: UserType.child.code,
                 count:
                     widget.cubit.users
-                        ?.where((u) => u.userType.label == child)
+                        ?.where((u) => u.userType.code == UserType.child.code)
                         .length ??
                     0,
               ),
@@ -339,8 +339,6 @@ class _SuperServantViewState extends State<SuperServantView> {
 
             try {
               if (!mounted) return;
-              // Initialize attendance after users are loaded
-              // _initializeAttendanceFrom(users!);
               _initializeAttendanceFrom(selectedUserType == UserType.servant.code ? servantsList : chidrenList);
             } catch (e) {
               if (mounted) {
@@ -453,7 +451,7 @@ class _SuperServantViewState extends State<SuperServantView> {
               ),
               Expanded(
                 child: Text(
-                  selectedUserType == servant ? 'الخدام' : 'المخدومين',
+                  selectedUserType == UserType.servant.code ? 'الخدام' : 'المخدومين',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -471,7 +469,7 @@ class _SuperServantViewState extends State<SuperServantView> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${userType.code == UserType.servant ? servantsList.length : chidrenList.length} مستخدم',
+                  '${userType.code == UserType.servant.code ? servantsList.length : chidrenList.length} مستخدم',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -528,10 +526,10 @@ class _SuperServantViewState extends State<SuperServantView> {
                 )
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: userType.code == UserType.servant ? servantsList.length : chidrenList.length,
+                  itemCount: userType.code == UserType.servant.code ? servantsList.length : chidrenList.length,
                   separatorBuilder: (context, index) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final user = userType.code == UserType.servant ? servantsList[index] : chidrenList[index];
+                    final user = userType.code == UserType.servant.code ? servantsList[index] : chidrenList[index];
                     final userId = user.id;
                     final status = attendanceMap[userId] ?? AttendanceStatus.absent;
 
