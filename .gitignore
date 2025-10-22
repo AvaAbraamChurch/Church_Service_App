@@ -51,6 +51,7 @@ app.*.map.json
 bulk_user_generator.js
 firebase_bulk_user_creator.js
 FIREBASE_BULK_SETUP.md
+ENUM_USAGE_GUIDE.md
 IMAGE_PICKER_IMPLEMENTATION.md
 package.json
 package-lock.json
