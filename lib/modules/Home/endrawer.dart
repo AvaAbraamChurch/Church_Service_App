@@ -4,6 +4,7 @@ import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import '../../core/styles/colors.dart';
+import '../Classes/manage_classes_screen.dart';
 
 Widget drawer(BuildContext context, UserModel userData) => Drawer(
       width: MediaQuery.of(context).size.width * 0.75,
@@ -61,12 +62,11 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                         _buildMenuItem(
                           context: context,
                           icon: Icons.person_rounded,
-                          title: 'الملف الشخصي',
+                          title: 'إدارة الأسر',
                           subtitle: 'عرض وتعديل البيانات',
                           gradient: [brown300, brown500],
                           onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to profile
+                            navigateTo(context, ManageClassesScreen());
                           },
                         ),
 
