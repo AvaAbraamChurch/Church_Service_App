@@ -4,18 +4,22 @@ import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/widgets.dart';
+import 'dart:io';
 import '../../constants/strings.dart';
 import '../../repositories/auth_repository.dart';
+import '../../services/image_upload_service.dart';
 import 'auth_states.dart';
 
 class AuthCubit extends Cubit<AuthState> {
 
   final AuthRepository _authRepository;
+  final ImageUploadService _imageUploadService;
 
   static AuthCubit get(BuildContext context) => BlocProvider.of<AuthCubit>(context);
 
-  AuthCubit({AuthRepository? authRepository})
+  AuthCubit({AuthRepository? authRepository, ImageUploadService? imageUploadService})
       : _authRepository = authRepository ?? AuthRepository(),
+        _imageUploadService = imageUploadService ?? ImageUploadService(),
         super(AuthInitial());
 
   Future<void> logIn(String email, String password) async {
@@ -26,7 +30,7 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthFailure(loginFailed));
       } else {
         final UserModel model = await UsersRepository().getUserById(user.uid);
-        emit(AuthSuccess(user.uid, model.userType.label, model.userClass, model.gender.label));
+        emit(AuthSuccess(user.uid, model.userType, model.userClass, model.gender));
       }
     } catch (error) {
       emit(AuthFailure(error.toString()));
@@ -68,13 +72,27 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // Sign up method
-  Future<void> signUp(String email, String password, {Map<String, dynamic>? extraData}) async {
+  Future<void> signUp(String email, String password, {Map<String, dynamic>? extraData, File? profileImage}) async {
     emit(AuthLoading());
     try {
       final user = await _authRepository.signUpWithEmailAndPassword(email, password, extraData: extraData);
       if (user == null) {
         emit(AuthFailure(registrationFailed));
       } else {
+        // Upload profile image if provided
+        String? profileImageUrl;
+        if (profileImage != null) {
+          try {
+            profileImageUrl = await _imageUploadService.uploadProfileImage(profileImage, user.uid);
+
+            // Update user document with profile image URL
+            await _authRepository.updateUserProfileImage(user.uid, profileImageUrl);
+          } catch (e) {
+            print('Error uploading profile image: $e');
+            // Continue with registration even if image upload fails
+          }
+        }
+
         // Parse gender and userType from strings to enums
         final genderValue = parseGender(extraData?['gender']?.toString());
         final userTypeValue = parseUserType(extraData?['userType']?.toString());
@@ -89,8 +107,9 @@ class AuthCubit extends Cubit<AuthState> {
           gender: genderValue,
           userType: userTypeValue,
           userClass: extraData?['userClass'] ?? '',
+          profileImageUrl: profileImageUrl,
         );
-        emit(AuthSuccess(user.uid, userData.userType.label, userData.userClass, userData.gender.label));
+        emit(AuthSuccess(user.uid, userData.userType, userData.userClass, userData.gender));
       }
     } catch (error) {
       emit(AuthFailure(error.toString()));

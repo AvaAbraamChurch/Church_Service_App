@@ -13,7 +13,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// - address (optional)
 /// - userType (enum)
 /// - gender (enum)
-/// - userClass (named `userClass` to avoid Dart reserved word `class`)
+/// - userClass
+/// - profileImageUrl (optional)
+/// - couponPoints
+/// - createdAt
+/// - updatedAt
+/// -firstLogin boolean always true when created
 class UserModel {
   final String id;
   final String fullName;
@@ -24,6 +29,8 @@ class UserModel {
   final UserType userType;
   final Gender gender;
   final String userClass;
+  final String? profileImageUrl;
+  final int couponPoints;
 
   const UserModel({
     required this.id,
@@ -35,6 +42,8 @@ class UserModel {
     required this.userClass,
     this.phoneNumber,
     this.address,
+    this.profileImageUrl,
+    this.couponPoints = 0,
   });
 
   UserModel copyWith({
@@ -47,6 +56,8 @@ class UserModel {
     UserType? userType,
     Gender? gender,
     String? userClass,
+    String? profileImageUrl,
+    int? couponPoints,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -58,6 +69,8 @@ class UserModel {
       userType: userType ?? this.userType,
       gender: gender ?? this.gender,
       userClass: userClass ?? this.userClass,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      couponPoints: couponPoints ?? this.couponPoints,
     );
   }
 
@@ -69,10 +82,12 @@ class UserModel {
       'email': email,
       if (phoneNumber != null) 'phoneNumber': phoneNumber,
       if (address != null) 'address': address,
+      if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
+      'couponPoints': couponPoints,
       // Store enums as short codes for compactness and consistency
-      'userType': userTypeToJson(userType), // e.g., 'PR','SS','SV','CH'
-      'gender': genderToJson(gender), // 'M' or 'F'
-      if (userClass != null) 'class': userClass,
+      'userType': userType.code, // e.g., 'PR','SS','SV','CH'
+      'gender': gender.code, // 'M' or 'F'
+      'class': userClass,
     };
   }
 
@@ -85,9 +100,11 @@ class UserModel {
       email: (data['email'] ?? '').toString(),
       phoneNumber: (data['phoneNumber'] ?? data['phone'])?.toString(),
       address: (data['address'] ?? data['addr'])?.toString(),
+      profileImageUrl: (data['profileImageUrl'])?.toString(),
       userType: userTypeFromJson(data['userType']),
-      gender: genderFromJson(data['gender'] ?? data['gender']),
+      gender: genderFromJson(data['gender']),
       userClass: (data['class'] ?? data['userClass'])!.toString(),
+      couponPoints: (data['couponPoints'] ?? 0) as int,
     );
   }
 
@@ -102,7 +119,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(id: $id, fullName: $fullName, username: $username, email: $email, phoneNumber: ${phoneNumber ?? 'null'}, address: ${address ?? 'null'}, userType: ${userType.code}, gender: ${gender.code}, userClass: ${userClass ?? 'null'})';
+    return 'UserModel(id: $id, fullName: $fullName, username: $username, email: $email, phoneNumber: ${phoneNumber ?? 'null'}, address: ${address ?? 'null'}, userType: ${userType.code}, gender: ${gender.code}, userClass: $userClass, couponPoints: $couponPoints)';
   }
 
   @override
@@ -136,6 +153,4 @@ class UserModel {
   static fromDocumentSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
     return UserModel.fromMap(snapshot.data(), id: snapshot.id);
   }
-
 }
-

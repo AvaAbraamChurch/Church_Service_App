@@ -1,10 +1,11 @@
 import 'package:church/core/blocs/auth/auth_cubit.dart';
+import 'package:church/core/models/user/user_model.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import '../../core/styles/colors.dart';
 
-Widget drawer(BuildContext context) => Drawer(
+Widget drawer(BuildContext context, UserModel userData) => Drawer(
       width: MediaQuery.of(context).size.width * 0.75,
       backgroundColor: Colors.transparent,
       child: Container(
@@ -37,7 +38,7 @@ Widget drawer(BuildContext context) => Drawer(
               child: Column(
                 children: [
                   // Modern Header Section
-                  _buildModernHeader(context),
+                  _buildModernHeader(context, userData),
 
                   const SizedBox(height: 20),
 
@@ -148,7 +149,7 @@ Widget drawer(BuildContext context) => Drawer(
       ),
     );
 
-Widget _buildModernHeader(BuildContext context) {
+Widget _buildModernHeader(BuildContext context,  UserModel userData) {
   return Container(
     padding: const EdgeInsets.all(24),
     decoration: BoxDecoration(
@@ -220,8 +221,8 @@ Widget _buildModernHeader(BuildContext context) {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'المستخدم',
+                   Text(
+                    userData.fullName,
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,

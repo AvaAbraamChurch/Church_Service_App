@@ -1,3 +1,6 @@
+import 'package:church/core/utils/gender_enum.dart';
+import 'package:church/core/utils/userType_enum.dart';
+
 abstract class AuthState {}
 
 class AuthInitial extends AuthState {}
@@ -6,9 +9,9 @@ class AuthLoading extends AuthState {}
 
 class AuthSuccess extends AuthState {
   final String uId;
-  final String userType;
+  final UserType userType;
   final String userClass;
-  final String gender;
+  final Gender gender;
 
 
   AuthSuccess(this.uId, this.userType, this.userClass, this.gender);

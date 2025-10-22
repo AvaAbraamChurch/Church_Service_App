@@ -1,6 +1,8 @@
 import 'package:church/core/blocs/attendance/attendance_states.dart';
 import 'package:church/core/constants/strings.dart';
 import 'package:church/core/styles/colors.dart';
+import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/modules/Attendance/child_view.dart';
 import 'package:church/modules/Attendance/priest_view.dart';
 import 'package:church/modules/Attendance/servant_view.dart';
@@ -12,9 +14,9 @@ import '../../core/blocs/attendance/attendance_cubit.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final String userId;
-  final String userType;
+  final UserType userType;
   final String userClass;
-  final String gender;
+  final Gender gender;
 
   AttendanceScreen({
     super.key,
@@ -38,22 +40,34 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   void initState() {
     super.initState();
     cubit = AttendanceCubit();
-    if (widget.userType == priest) {
+
+
+    final userTypeEnum = widget.userType;
+    final genderEnum = widget.gender;
+
+    if (userTypeEnum == UserType.priest) {
+      // Priest can see all users: superServants, servants, and children
       stream = cubit.getUsersByTypeForPriest([
-        superServant,
-        servant,
-        child,
-      ]).asStream();
-    } else if (widget.userType == superServant) {
+        userTypeToJson(UserType.superServant),
+        userTypeToJson(UserType.servant),
+        userTypeToJson(UserType.child),
+      ]);
+    } else if (userTypeEnum == UserType.superServant) {
+      // SuperServant can see servants and children of same gender
       stream = cubit.getUsersByTypeAndGender([
-        servant,
-        child,
-      ], widget.gender).asStream();
-    } else if (widget.userType == servant) {
-      stream = cubit.getUsersByType(widget.userClass, [child], widget.gender).asStream();
-    } else {
+        userTypeToJson(UserType.servant),
+        userTypeToJson(UserType.child),
+      ], genderToJson(genderEnum));
+    } else if (userTypeEnum == UserType.servant) {
+      // Servant can see children of same class and gender
+      stream = cubit.getUsersByType(
+        widget.userClass,
+        [userTypeToJson(UserType.child)],
+        genderToJson(genderEnum)
+      );
+    } else if (userTypeEnum == UserType.child) {
       // Get attendance history for children
-      stream = cubit.getUserAttendanceHistory(widget.userId).asStream();
+      stream = cubit.getUserAttendanceHistory(widget.userId);
     }
     _tabController = TabController(length: 4, vsync: this);
   }
@@ -71,6 +85,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       child: BlocConsumer<AttendanceCubit, AttendanceState>(
         builder: (BuildContext context, state) {
           final cubit = AttendanceCubit.get(context);
+          final userTypeEnum = widget.userType;
+          final genderEnum = widget.gender;
+
           return StreamBuilder(
             stream: stream,
             builder: (context, snapshot) {
@@ -116,8 +133,8 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                 backgroundColor: Colors.transparent,
                 body: ConditionalBuilder(
                   condition: snapshot.hasData &&
-                             ((widget.userType != child && cubit.users != null && cubit.users!.isNotEmpty) ||
-                              (widget.userType == child && cubit.attendanceHistory != null && cubit.attendanceHistory!.isNotEmpty)),
+                             ((userTypeEnum != UserType.child && cubit.users != null && cubit.users!.isNotEmpty) ||
+                              (userTypeEnum == UserType.child && cubit.attendanceHistory != null && cubit.attendanceHistory!.isNotEmpty)),
                   builder: (BuildContext context) {
                     return TabBarView(
                       controller: _tabController,
@@ -127,11 +144,11 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                           padding: const EdgeInsets.all(20.0),
                           child: Column(
                             children: [
-                              if (widget.userType == priest) ...[
+                              if (userTypeEnum == UserType.priest) ...[
                                 Expanded(child: PriestView(cubit, pageIndex: 0)),
-                              ] else if (widget.userType == superServant) ...[
-                                Expanded(child: SuperServantView(cubit, pageIndex: 0)),
-                              ] else if (widget.userType == servant) ...[
+                              ] else if (userTypeEnum == UserType.superServant) ...[
+                                Expanded(child: SuperServantView(cubit, gender: genderToJson(genderEnum), pageIndex: 0)),
+                              ] else if (userTypeEnum == UserType.servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 0)),
                               ] else ...[
                                 Expanded(child: ChildView(cubit, pageIndex: 0)),
@@ -144,11 +161,11 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                           padding: const EdgeInsets.all(20.0),
                           child: Column(
                             children: [
-                              if (widget.userType == priest) ...[
+                              if (userTypeEnum == UserType.priest) ...[
                                 Expanded(child: PriestView(cubit, pageIndex: 1)),
-                              ] else if (widget.userType == superServant) ...[
-                                Expanded(child: SuperServantView(cubit, pageIndex: 0)),
-                              ] else if (widget.userType == servant) ...[
+                              ] else if (userTypeEnum == UserType.superServant) ...[
+                                Expanded(child: SuperServantView(cubit, pageIndex: 1, gender: genderToJson(genderEnum),)),
+                              ] else if (userTypeEnum == UserType.servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 1)),
                               ] else ...[
                                 Expanded(child: ChildView(cubit, pageIndex: 1)),
@@ -161,11 +178,11 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                           padding: const EdgeInsets.all(20.0),
                           child: Column(
                             children: [
-                              if (widget.userType == priest) ...[
+                              if (userTypeEnum == UserType.priest) ...[
                                 Expanded(child: PriestView(cubit, pageIndex: 2)),
-                              ] else if (widget.userType == superServant) ...[
-                                Expanded(child: SuperServantView(cubit, pageIndex: 0)),
-                              ] else if (widget.userType == servant) ...[
+                              ] else if (userTypeEnum == UserType.superServant) ...[
+                                Expanded(child: SuperServantView(cubit, pageIndex: 2, gender: genderToJson(genderEnum),)),
+                              ] else if (userTypeEnum == UserType.servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 2)),
                               ] else ...[
                                 Expanded(child: ChildView(cubit, pageIndex: 2)),
@@ -178,11 +195,11 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                           padding: const EdgeInsets.all(20.0),
                           child: Column(
                             children: [
-                              if (widget.userType == priest) ...[
+                              if (userTypeEnum == UserType.priest) ...[
                                 Expanded(child: PriestView(cubit, pageIndex: 3)),
-                              ] else if (widget.userType == superServant) ...[
-                                Expanded(child: SuperServantView(cubit, pageIndex: 0)),
-                              ] else if (widget.userType == servant) ...[
+                              ] else if (userTypeEnum == UserType.superServant) ...[
+                                Expanded(child: SuperServantView(cubit, pageIndex: 3, gender: genderToJson(genderEnum))),
+                              ] else if (userTypeEnum == UserType.servant) ...[
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 3)),
                               ] else ...[
                                 Expanded(child: ChildView(cubit, pageIndex: 3)),
@@ -339,7 +356,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   }
 
   Widget _buildEmptyState() {
-    if (widget.userType == child) {
+    if (widget.userType == UserType.child) {
       return Container(
         margin: const EdgeInsets.all(24.0),
         padding: const EdgeInsets.all(32.0),

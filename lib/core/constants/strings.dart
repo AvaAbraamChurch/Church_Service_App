@@ -159,7 +159,7 @@ const loadingFailed = 'فشل التحميل. الرجاء المحاولة مر
 const authFailed = 'فشل المصادقة. الرجاء التحقق من بيانات الاعتماد الخاصة بك.';
 const sessionExpired = 'انتهت الجلسة. الرجاء تسجيل الدخول مرة أخرى.';
 const registrationFailed = 'فشل التسجيل. الرجاء المحاولة مرة أخرى.';
-const registrationSuccessful = 'تم التسجيل بنجاح. الرجاء تسجيل الدخول.';
+const registrationSuccessful = 'تم إنشاء الحساب بنجاح';
 const passwordResetFailed = 'فشل إعادة تعيين كلمة المرور. الرجاء المحاولة مرة أخرى.';
 const passwordResetEmailSent = 'تم إرسال بريد إلكتروني لإعادة تعيين كلمة المرور.';
 const invalidResetToken = 'رمز إعادة التعيين غير صالح أو منتهي الصلاحية.';
@@ -181,3 +181,18 @@ const loginLoading = 'جارٍ تسجيل الدخول...';
 const registering = 'جارٍ إنشاء الحساب...';
 
 const sessionExpiredPleaseLoginAgain = 'انتهت الجلسة. الرجاء تسجيل الدخول مرة أخرى.';
+
+// Profile image strings
+const profileImage = 'الصورة الشخصية';
+const selectImage = 'اختر صورة';
+const changeImage = 'تغيير الصورة';
+const removeImage = 'إزالة الصورة';
+const imageRequired = 'الصورة الشخصية مطلوبة';
+const imageTooLarge = 'حجم الصورة كبير جدًا. الحد الأقصى 2 ميجابايت';
+const imageSelected = 'تم اختيار الصورة';
+const selectImageFromGallery = 'اختر من المعرض';
+const takePhoto = 'التقط صورة';
+const uploadingImage = 'جاري رفع الصورة...';
+const pleaseWait = 'الرجاء الانتظار...';
+const imageUploadFailed = 'فشل رفع الصورة. الرجاء المحاولة مرة أخرى.';
+const imageUploadSuccessful = 'تم رفع الصورة بنجاح.';

@@ -25,93 +25,93 @@ class AttendanceCubit extends Cubit<AttendanceState> {
   List<UserModel>? users;
   List<AttendanceModel>? attendanceHistory;
 
-  // Get current user
-  Future<UserModel?> getCurrentUser(String userId) async {
+  // Get current user as a stream
+  Stream<UserModel?> getCurrentUser(String userId) {
     emit(getAllUsersLoading());
-    try {
-      currentUser = await usersRepository
-          .getUserById(userId);
-      emit(getAllUsersSuccess());
-      return users!.isNotEmpty ? users!.first : null;
-    } catch (e) {
+    return usersRepository.getUserByIdStream(userId).map((user) {
+      if (user != null) {
+        currentUser = user;
+        emit(getAllUsersSuccess());
+      }
+      return user;
+    }).handleError((e) {
       emit(getAllUsersError(e.toString()));
-      print(e);
-      rethrow;
-    }
+    });
   }
 
   // Get users by type
-  Future<List<UserModel>?> getUsersByType(
+  Stream<List<UserModel>?> getUsersByType(
     String userClass,
     List<String> userTypes, String gender
-  ) async {
+  ) {
     emit(getAllUsersLoading());
-    try {
-      users = await usersRepository
-          .getUsersByMultipleTypes(userClass, userTypes, gender).first;
-      emit(getAllUsersSuccess());
-      debugPrint(users.toString());
-      return users;
-    } catch (e) {
-      emit(getAllUsersError(e.toString()));
-      print(e);
-      rethrow;
-    }
+    return usersRepository
+        .getUsersByMultipleTypes(userClass, userTypes, gender)
+        .map((fetchedUsers) {
+          users = fetchedUsers;
+          debugPrint(users.toString());
+          emit(getAllUsersSuccess());
+          return users;
+        })
+        .handleError((e) {
+          emit(getAllUsersError(e.toString()));
+          debugPrint(e.toString());
+        });
   }
 
   // Get users by type and gender
-  Future<List<UserModel>?> getUsersByTypeAndGender(
+  Stream<List<UserModel>?> getUsersByTypeAndGender(
       List<String> userTypes, String gender
-      ) async {
+      ) {
     emit(getAllUsersLoading());
-    try {
-      users = await usersRepository
-          .getUsersByMultipleTypesAndGender(userTypes, gender).first;
-      emit(getAllUsersSuccess());
-      debugPrint(users.toString());
-      return users;
-    } catch (e) {
-      emit(getAllUsersError(e.toString()));
-      print(e);
-      rethrow;
-    }
+    return usersRepository
+        .getUsersByMultipleTypesAndGender(userTypes, gender)
+        .map((fetchedUsers) {
+          users = fetchedUsers;
+          debugPrint(users.toString());
+          emit(getAllUsersSuccess());
+          return users;
+        })
+        .handleError((e) {
+          emit(getAllUsersError(e.toString()));
+          debugPrint(e.toString());
+        });
   }
 
 
   // Get users for priest
-  Future<List<UserModel>?> getUsersByTypeForPriest(
+  Stream<List<UserModel>?> getUsersByTypeForPriest(
       List<String> userTypes
-      ) async {
+      ) {
     emit(getAllUsersLoading());
-    try {
-      users = await usersRepository
-          .getUsersByMultipleTypesForPriest(userTypes).first;
-      emit(getAllUsersSuccess());
-      debugPrint(users.toString());
-      return users;
-    } catch (e) {
-      emit(getAllUsersError(e.toString()));
-      print(e);
-      rethrow;
-    }
+    return usersRepository
+        .getUsersByMultipleTypesForPriest(userTypes)
+        .map((fetchedUsers) {
+          users = fetchedUsers;
+          debugPrint(users.toString());
+          emit(getAllUsersSuccess());
+          return users;
+        })
+        .handleError((e) {
+          emit(getAllUsersError(e.toString()));
+          debugPrint(e.toString());
+        });
   }
 
 
   // Get Attendance History for a specific user by user ID
-  Future<List<AttendanceModel>> getUserAttendanceHistory(String userId) async {
-    try {
-      emit(getUserAttendanceHistoryLoading());
-
-      attendanceHistory = await attendanceRepository
-          .getAttendanceByUserIdFuture(userId);
-
-      emit(getUserAttendanceHistorySuccess());
-
-      return attendanceHistory!;
-    } catch (e) {
-      emit(getUserAttendanceHistoryError(e.toString()));
-      rethrow;
-    }
+  Stream<List<AttendanceModel>> getUserAttendanceHistory(String userId) {
+    emit(getUserAttendanceHistoryLoading());
+    return attendanceRepository
+        .getAttendanceByUserIdStream(userId)
+        .map((history) {
+          attendanceHistory = history;
+          emit(getUserAttendanceHistorySuccess());
+          return history;
+        })
+        .handleError((e) {
+          emit(getUserAttendanceHistoryError(e.toString()));
+        });
   }
 
   // Take attendance for a user

@@ -1,5 +1,6 @@
 import 'package:church/core/blocs/home/home_cubit.dart';
 import 'package:church/core/blocs/home/home_states.dart';
+import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';
 import 'package:flutter/material.dart';
@@ -145,6 +146,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
 
   late final HomeCubit cubit;
+  late final UserModel currentUser;
   late final Stream userStream;
 
 
@@ -184,6 +186,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _checkSession();
     });
     cubit = HomeCubit();
+    // currentUser = cubit.currentUser!;
     userStream = cubit.getUserById(widget.userId).asStream();
   }
 
@@ -198,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               stream: userStream,
               builder: (context, snapshot) {
                 return Scaffold(
-                  endDrawer: drawer(context),
+                  endDrawer: cubit.currentUser != null ? drawer(context, cubit.currentUser!) : null,
                   backgroundColor: Colors.transparent,
                   body: ConditionalBuilder(
                       condition: cubit.currentUser != null,

@@ -93,4 +93,15 @@ class UsersRepository {
       throw Exception('Error fetching user: $e');
     }
   }
+
+  // Stream alternative to get user by ID
+  Stream<UserModel?> getUserByIdStream(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .snapshots()
+        .map((doc) => doc.exists && doc.data() != null
+            ? UserModel.fromJson(doc.data()!..putIfAbsent('id', () => doc.id))
+            : null);
+  }
 }

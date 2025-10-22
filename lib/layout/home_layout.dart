@@ -1,4 +1,6 @@
 import 'package:church/core/styles/themeScaffold.dart';
+import 'package:church/core/utils/gender_enum.dart';
+import 'package:church/core/utils/userType_enum.dart';
 import 'package:circle_nav_bar/circle_nav_bar.dart';
 import 'package:flutter/material.dart';
 import '../core/styles/colors.dart';
@@ -10,9 +12,9 @@ import '../modules/Attendance/attendance_screen.dart';
 
 class HomeLayout extends StatefulWidget {
   final String userId;
-  final String userType;
+  final UserType userType;
   final String userClass;
-  final String gender;
+  final Gender gender;
   const HomeLayout({super.key, required this.userId, required this.userType, required this.userClass, required this.gender});
 
   @override
@@ -62,9 +64,6 @@ class _HomeLayoutState extends State<HomeLayout>
   void initState() {
     super.initState();
     pageController = PageController(initialPage: _tabIndex);
-
-    // await checkAndHandleSession();
-
   }
 
   @override

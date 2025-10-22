@@ -1,6 +1,7 @@
 import 'package:church/core/models/user/user_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import '../network/local/cache_helper.dart';
 import '../constants/auth_constants.dart';
 
@@ -37,8 +38,8 @@ class AuthRepository {
     await CacheHelper.saveData(key: AuthConstants.cacheKeyLastLoginTime, value: now.millisecondsSinceEpoch);
     await CacheHelper.saveData(key: AuthConstants.cacheKeySessionExpiry, value: sessionExpiry.millisecondsSinceEpoch);
 
-    print('✅ User session saved: $uid');
-    print('📅 Session expires: $sessionExpiry (Duration: ${AuthConstants.sessionTimeout.inDays} days, ${AuthConstants.sessionTimeout.inHours % 24} hours)');
+    debugPrint('✅ User session saved: $uid');
+    debugPrint('📅 Session expires: $sessionExpiry (Duration: ${AuthConstants.sessionTimeout.inDays} days, ${AuthConstants.sessionTimeout.inHours % 24} hours)');
   }
 
   /// Get current user
@@ -70,7 +71,6 @@ class AuthRepository {
         if (sessionExpiryMs != null) {
           final sessionExpiry = DateTime.fromMillisecondsSinceEpoch(sessionExpiryMs);
           if (DateTime.now().isAfter(sessionExpiry)) {
-            print('❌ Custom session timeout expired at: $sessionExpiry');
             await _clearUserCache();
             return false;
           }
@@ -81,7 +81,6 @@ class AuthRepository {
 
       // Check if user exists
       if (user == null) {
-        print('❌ Token validation failed: No user logged in');
         await _clearUserCache();
         return false;
       }
@@ -92,7 +91,6 @@ class AuthRepository {
 
       // Check if user still exists after reload
       if (reloadedUser == null) {
-        print('❌ Token validation failed: User session expired');
         await _clearUserCache();
         return false;
       }
@@ -103,7 +101,6 @@ class AuthRepository {
       // Check if Firebase token is expired
       final expirationTime = tokenResult.expirationTime;
       if (expirationTime != null && expirationTime.isBefore(DateTime.now())) {
-        print('❌ Token validation failed: Firebase token expired at $expirationTime');
         await _clearUserCache();
         return false;
       }
@@ -112,14 +109,12 @@ class AuthRepository {
       if (AuthConstants.autoRefreshTokens && expirationTime != null) {
         final timeUntilExpiry = expirationTime.difference(DateTime.now());
         if (timeUntilExpiry < AuthConstants.tokenRefreshThreshold) {
-          print('🔄 Token expiring soon, refreshing...');
           await reloadedUser.getIdToken(true);
         }
       }
 
       // Verify token claims are valid
       if (tokenResult.token == null || tokenResult.token!.isEmpty) {
-        print('❌ Token validation failed: Invalid token');
         await _clearUserCache();
         return false;
       }
@@ -130,15 +125,12 @@ class AuthRepository {
         await _saveUserSessionToCache(reloadedUser.uid, reloadedUser.email ?? '');
       }
 
-      print('✅ Token validation successful for user: ${reloadedUser.uid}');
       return true;
 
     } on FirebaseAuthException catch (e) {
-      print('❌ Token validation failed: Firebase Auth error - ${e.code}: ${e.message}');
       await _clearUserCache();
       return false;
     } catch (e) {
-      print('❌ Token validation failed: Unexpected error - $e');
       await _clearUserCache();
       return false;
     }
@@ -169,7 +161,6 @@ class AuthRepository {
     final email = getSavedEmail();
     if (uid.isNotEmpty && email.isNotEmpty) {
       await _saveUserSessionToCache(uid, email);
-      print('♻️ Session extended for user: $uid');
     }
   }
 
@@ -219,7 +210,6 @@ class AuthRepository {
 
       // Save user session to cache with custom expiry
       await _saveUserSessionToCache(user.uid, email);
-      print('✅ User registered and session saved: ${user.uid}');
     }
     return user;
   }
@@ -228,7 +218,6 @@ class AuthRepository {
     await _firebaseAuth.signOut();
     // Clear cache on sign out
     await _clearUserCache();
-    print('✅ User signed out and cache cleared');
   }
 
   Future<DocumentSnapshot<Map<String, dynamic>>?> getUserData() async {
@@ -240,5 +229,47 @@ class AuthRepository {
   //Forget password
   Future<void> sendPasswordResetEmail(String email) async {
     await _firebaseAuth.sendPasswordResetEmail(email: email);
+  }
+
+  /// Update user profile image URL in Firestore
+  Future<void> updateUserProfileImage(String userId, String imageUrl) async {
+    await _firestore.collection('users').doc(userId).update({
+      'profileImageUrl': imageUrl,
+    });
+  }
+
+  /// Change password for the current user
+  /// Requires re-authentication with current password for security
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null || user.email == null) {
+      throw Exception('No user is currently logged in');
+    }
+
+    // Re-authenticate user with current password
+    final credential = EmailAuthProvider.credential(
+      email: user.email!,
+      password: currentPassword,
+    );
+
+    try {
+      // Re-authenticate to ensure user knows the current password
+      await user.reauthenticateWithCredential(credential);
+
+      // Update password
+      await user.updatePassword(newPassword);
+
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password') {
+        throw Exception('كلمة المرور الحالية غير صحيحة');
+      } else if (e.code == 'weak-password') {
+        throw Exception('كلمة المرور الجديدة ضعيفة جداً');
+      } else {
+        throw Exception('حدث خطأ: ${e.message}');
+      }
+    }
   }
 }

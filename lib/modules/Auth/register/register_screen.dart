@@ -1,6 +1,8 @@
 import 'package:church/core/blocs/auth/auth_states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/blocs/auth/auth_cubit.dart';
 import '../../../core/constants/strings.dart';
@@ -9,6 +11,8 @@ import '../../../core/styles/themeScaffold.dart';
 import '../../../shared/widgets.dart';
 import '../../../core/utils/gender_enum.dart';
 import '../../../core/utils/userType_enum.dart';
+import '../../../core/services/image_upload_service.dart';
+import '../login/login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -33,6 +37,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // Dropdown selections
   Gender? _gender;
   UserType? _userType;
+
+  // Image selection
+  File? _selectedImage;
+  final ImageUploadService _imageService = ImageUploadService();
 
   // Paging
   final PageController _pageController = PageController();
@@ -82,9 +90,107 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
-  void _onSave(AuthCubit cubit) {
+  void _showImageSourceDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              selectImage,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Alexandria',
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Icon(Icons.photo_library, color: teal500),
+              title: const Text(
+                selectImageFromGallery,
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                await _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.camera_alt, color: teal500),
+              title: const Text(
+                takePhoto,
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                await _pickImage(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final File? imageFile;
+      if (source == ImageSource.gallery) {
+        imageFile = await _imageService.pickImageFromGallery();
+      } else {
+        imageFile = await _imageService.pickImageFromCamera();
+      }
+
+      if (imageFile != null) {
+        // Validate file size
+        if (!_imageService.validateImageSize(imageFile)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(imageTooLarge),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        setState(() {
+          _selectedImage = imageFile;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(imageSelected),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _onSave(AuthCubit cubit) async {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) return;
+
     if (_gender == null || _userType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(fillAllFields)),
@@ -92,21 +198,107 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    final data = {
-      'fullName': _fullNameController.text.trim(),
-      'username': _usernameController.text.trim(),
-      'gender': _gender!.label, // Arabic value
-      'address': _addressController.text.trim(),
-      'email': _emailController.text.trim(),
-      'phone': _phoneController.text.trim(),
-      'userType': _userType!.label, // Arabic value
-      'userClass': _userClassController.text.trim(),
-    };
+    // Validate image is selected
+    if (_selectedImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(imageRequired)),
+      );
+      return;
+    }
 
-    // ignore: avoid_print
-    print(data);
-    cubit.signUp(_emailController.text.trim(), _passwordController.text.trim(), extraData: data);
+    // Show loading dialog
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => Center(
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: teal100,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: teal300.withValues(alpha: 0.3),
+                        blurRadius: 15,
+                        spreadRadius: 3,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: CircularProgressIndicator(
+                        color: teal500,
+                        strokeWidth: 3,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  uploadingImage,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: teal900,
+                    fontFamily: 'Alexandria',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  loading,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                    fontFamily: 'Alexandria',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
+    try {
+      // Create user account with profile image
+      final data = {
+        'fullName': _fullNameController.text.trim(),
+        'username': _usernameController.text.trim(),
+        'gender': _gender!.code, // String code 'M' or 'F'
+        'address': _addressController.text.trim(),
+        'email': _emailController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'userType': _userType!.code, // String code 'PR', 'SS', 'SV' or 'CH'
+        'userClass': _userClassController.text.trim(),
+      };
+
+      await cubit.signUp(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+        extraData: data,
+        profileImage: _selectedImage,
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Close loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$error: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -148,7 +340,75 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                SizedBox(height: MediaQuery.of(context).size.height * 0.05),
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                                // Profile Image Selection
+                                Center(
+                                  child: GestureDetector(
+                                    onTap: _showImageSourceDialog,
+                                    child: Container(
+                                      width: 120,
+                                      height: 120,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: _selectedImage != null ? Colors.transparent : teal100,
+                                        border: Border.all(
+                                          color: teal500,
+                                          width: 3,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: teal300.withValues(alpha: 0.3),
+                                            blurRadius: 10,
+                                            spreadRadius: 2,
+                                          ),
+                                        ],
+                                      ),
+                                      child: _selectedImage != null
+                                          ? ClipOval(
+                                              child: Image.file(
+                                                _selectedImage!,
+                                                fit: BoxFit.cover,
+                                                width: 120,
+                                                height: 120,
+                                              ),
+                                            )
+                                          : Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.add_a_photo,
+                                                  size: 40,
+                                                  color: teal500,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  selectImage,
+                                                  style: TextStyle(
+                                                    color: teal900,
+                                                    fontSize: 12,
+                                                    fontFamily: 'Alexandria',
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ],
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Center(
+                                  child: Text(
+                                    '$profileImage (${imageTooLarge.split('.')[1]})',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontFamily: 'Alexandria',
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                const SizedBox(height: 16.0),
                                 coloredTextField(
                                   enabledBorder: InputBorder.none,
                                   prefixIcon: Icons.abc,
@@ -360,7 +620,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(registrationSuccessful)),
             );
-            Navigator.of(context).pop(); // Go back to previous screen (e.g., login)
+            navigateAndFinish(context, LoginScreen());
           }
         },
       ),

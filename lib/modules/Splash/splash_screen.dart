@@ -71,9 +71,9 @@ class _SplashScreenState extends State<SplashScreen>
             MaterialPageRoute(
               builder: (context) => HomeLayout(
                 userId: userId,
-                userType: currentUser.userType.label,
+                userType: currentUser.userType,
                 userClass: currentUser.userClass,
-                gender: currentUser.gender.label,
+                gender: currentUser.gender,
               ),
             ),
           );

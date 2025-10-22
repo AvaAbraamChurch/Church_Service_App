@@ -5,7 +5,6 @@ import 'package:church/core/models/attendance/attendance_model.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
-import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:flutter/material.dart';
 
@@ -13,7 +12,8 @@ class PriestView extends StatefulWidget {
   final AttendanceCubit cubit;
   final int pageIndex;
 
-  const PriestView(this.cubit, {Key? key, required this.pageIndex}) : super(key: key);
+  const PriestView(this.cubit, {Key? key, required this.pageIndex})
+    : super(key: key);
 
   @override
   State<PriestView> createState() => _PriestViewState();
@@ -25,7 +25,12 @@ class _PriestViewState extends State<PriestView> {
 
   // Step 2: User attendance tracking
   final Map<String, AttendanceStatus> attendanceMap = {};
+  // Users lists
   List<UserModel> filteredUsers = [];
+  List<UserModel> selectedGroupUsers = [];
+  List<UserModel> superServants = [];
+  List<UserModel> servants = [];
+  List<UserModel> children = [];
   final searchController = TextEditingController();
   bool isSubmitting = false;
 
@@ -33,6 +38,21 @@ class _PriestViewState extends State<PriestView> {
   void initState() {
     super.initState();
     searchController.addListener(_filterUsers);
+    superServants =
+        widget.cubit.users
+            ?.where((u) => u.userType.code == UserType.superServant.code)
+            .toList() ??
+        [];
+    servants =
+        widget.cubit.users
+            ?.where((u) => u.userType.code == UserType.servant.code)
+            .toList() ??
+        [];
+    children =
+        widget.cubit.users
+            ?.where((u) => u.userType.code == UserType.child.code)
+            .toList() ??
+        [];
   }
 
   @override
@@ -43,22 +63,33 @@ class _PriestViewState extends State<PriestView> {
 
   void _initializeAttendance() {
     attendanceMap.clear();
-    if (widget.cubit.users != null) {
-      for (var user in widget.cubit.users!) {
-        attendanceMap[user.id] = AttendanceStatus.absent;
-      }
-      filteredUsers = List.from(widget.cubit.users!);
+    // Choose the selected group by Arabic label
+    List<UserModel> baseList;
+    if (selectedUserType == superServant) {
+      baseList = superServants;
+    } else if (selectedUserType == servant) {
+      baseList = servants;
+    } else {
+      baseList = children;
     }
+
+    for (var user in baseList) {
+      attendanceMap[user.id] = AttendanceStatus.absent;
+    }
+    selectedGroupUsers = List<UserModel>.from(baseList);
+    filteredUsers = List<UserModel>.from(baseList);
   }
 
   void _filterUsers() {
-    final query = searchController.text.toLowerCase();
+    final query = normalizeArabic(searchController.text.toLowerCase());
     setState(() {
       if (query.isEmpty) {
-        filteredUsers = List.from(widget.cubit.users ?? []);
+        filteredUsers = List.from(selectedGroupUsers);
       } else {
-        filteredUsers = widget.cubit.users!
-            .where((user) => normalizeArabic(user.fullName.toLowerCase()).contains(query))
+        filteredUsers = selectedGroupUsers
+            .where(
+              (user) => normalizeArabic(user.fullName.toLowerCase()).contains(query),
+            )
             .toList();
       }
     });
@@ -89,7 +120,7 @@ class _PriestViewState extends State<PriestView> {
       final today = DateTime(now.year, now.month, now.day);
 
       final attendanceList = attendanceMap.entries.map((entry) {
-        final user = widget.cubit.users!.firstWhere((u) => u.id == entry.key);
+        final user = selectedGroupUsers.firstWhere((u) => u.id == entry.key);
 
         return AttendanceModel(
           id: '',
@@ -110,14 +141,20 @@ class _PriestViewState extends State<PriestView> {
         setState(() {
           attendanceMap.clear();
           selectedUserType = null;
+          selectedGroupUsers = [];
+          filteredUsers = [];
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('تم تسجيل الحضور بنجاح لـ ${attendanceList.length} مستخدم'),
+            content: Text(
+              'تم تسجيل الحضور بنجاح لـ ${attendanceList.length} مستخدم',
+            ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
@@ -128,7 +165,9 @@ class _PriestViewState extends State<PriestView> {
             content: Text('خطأ في تسجيل الحضور: $e'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
@@ -183,7 +222,11 @@ class _PriestViewState extends State<PriestView> {
                   color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.how_to_reg, color: Colors.white, size: 28),
+                child: const Icon(
+                  Icons.how_to_reg,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -225,7 +268,11 @@ class _PriestViewState extends State<PriestView> {
                 icon: Icons.admin_panel_settings,
                 color: brown300,
                 userType: superServant,
-                count: widget.cubit.users?.where((u) => u.userType.label == superServant).length ?? 0,
+                count:
+                    widget.cubit.users
+                        ?.where((u) => u.userType.label == superServant)
+                        .length ??
+                    0,
               ),
               const SizedBox(height: 16),
               _buildUserTypeCard(
@@ -234,7 +281,11 @@ class _PriestViewState extends State<PriestView> {
                 icon: Icons.people,
                 color: red500,
                 userType: servant,
-                count: widget.cubit.users?.where((u) => u.userType.label == servant).length ?? 0,
+                count:
+                    widget.cubit.users
+                        ?.where((u) => u.userType.label == servant)
+                        .length ??
+                    0,
               ),
               const SizedBox(height: 16),
               _buildUserTypeCard(
@@ -243,7 +294,11 @@ class _PriestViewState extends State<PriestView> {
                 icon: Icons.child_care,
                 color: sage500,
                 userType: child,
-                count: widget.cubit.users?.where((u) => u.userType.label == child).length ?? 0,
+                count:
+                    widget.cubit.users
+                        ?.where((u) => u.userType.label == child)
+                        .length ??
+                    0,
               ),
             ],
           ),
@@ -281,17 +336,26 @@ class _PriestViewState extends State<PriestView> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () async {
+          onTap: () {
             setState(() {
-              selectedUserType = userType;
+              selectedUserType = userType; // Arabic label stored
+              // Refresh master lists from cubit
+              superServants = widget.cubit.users
+                      ?.where((u) => u.userType.code == UserType.superServant.code)
+                      .toList() ??
+                  [];
+              servants = widget.cubit.users
+                      ?.where((u) => u.userType.code == UserType.servant.code)
+                      .toList() ??
+                  [];
+              children = widget.cubit.users
+                      ?.where((u) => u.userType.code == UserType.child.code)
+                      .toList() ??
+                  [];
+
+              // Initialize selection
+              _initializeAttendance();
             });
-
-            // Load users of selected type
-            await widget.cubit.getUsersByTypeForPriest(
-              [userType],
-            );
-
-            _initializeAttendance();
           },
           borderRadius: BorderRadius.circular(20),
           child: Padding(
@@ -327,14 +391,14 @@ class _PriestViewState extends State<PriestView> {
                       const SizedBox(height: 6),
                       Text(
                         subtitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                       ),
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: color.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
@@ -351,11 +415,7 @@ class _PriestViewState extends State<PriestView> {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: color,
-                  size: 24,
-                ),
+                Icon(Icons.arrow_forward_ios, color: color, size: 24),
               ],
             ),
           ),
@@ -382,6 +442,8 @@ class _PriestViewState extends State<PriestView> {
                     selectedUserType = null;
                     attendanceMap.clear();
                     searchController.clear();
+                    selectedGroupUsers = [];
+                    filteredUsers = [];
                   });
                 },
                 icon: const Icon(Icons.arrow_back, color: teal900),
@@ -401,7 +463,10 @@ class _PriestViewState extends State<PriestView> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: teal300,
                   borderRadius: BorderRadius.circular(12),
@@ -441,7 +506,10 @@ class _PriestViewState extends State<PriestView> {
                 hintStyle: TextStyle(color: Colors.grey[400]),
                 prefixIcon: Icon(Icons.search, color: teal500),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
               ),
             ),
           ),
@@ -568,10 +636,7 @@ class _PriestViewState extends State<PriestView> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
-          colors: [
-            Colors.white,
-            statusColor.withValues(alpha: 0.05),
-          ],
+          colors: [Colors.white, statusColor.withValues(alpha: 0.05)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -622,7 +687,10 @@ class _PriestViewState extends State<PriestView> {
                         ),
                         const SizedBox(height: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: statusColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(12),
@@ -743,11 +811,7 @@ class _PriestViewState extends State<PriestView> {
             ),
             child: Column(
               children: [
-                Icon(
-                  icon,
-                  color: isSelected ? Colors.white : color,
-                  size: 20,
-                ),
+                Icon(icon, color: isSelected ? Colors.white : color, size: 20),
                 const SizedBox(height: 4),
                 Text(
                   label,
@@ -765,4 +829,3 @@ class _PriestViewState extends State<PriestView> {
     );
   }
 }
-
