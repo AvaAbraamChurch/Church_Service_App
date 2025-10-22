@@ -48,3 +48,10 @@ app.*.map.json
 /android/app/release
 
 /node_modules
+bulk_user_generator.js
+firebase_bulk_user_creator.js
+FIREBASE_BULK_SETUP.md
+IMAGE_PICKER_IMPLEMENTATION.md
+package.json
+package-lock.json
+serviceAccountKey.json
