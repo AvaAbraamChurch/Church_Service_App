@@ -2,6 +2,8 @@ import 'package:church/core/constants/strings.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/repositories/users_reopsitory.dart';
 import 'package:church/core/repositories/auth_repository.dart';
+import 'package:church/core/repositories/classes_repository.dart';
+import 'package:church/core/models/Classes/classes_model.dart';
 import 'package:church/core/services/profile_completion_service.dart';
 import 'package:church/core/services/image_upload_service.dart';
 import 'package:church/core/styles/colors.dart';
@@ -41,17 +43,18 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
   late TextEditingController _usernameController;
   late TextEditingController _addressController;
   late TextEditingController _phoneController;
-  late TextEditingController _userClassController;
 
   bool _isLoading = false;
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
   Gender? _selectedGender;
+  Model? _selectedClass;
   File? _selectedImage;
   final ImageUploadService _imageService = ImageUploadService();
   final UsersRepository _userRepository = UsersRepository();
   final AuthRepository _authRepository = AuthRepository();
+  final ClassesRepository _classesRepository = ClassesRepository();
 
   @override
   void initState() {
@@ -69,7 +72,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     _phoneController = TextEditingController(
       text: widget.user.phoneNumber ?? '',
     );
-    _userClassController = TextEditingController(text: widget.user.userClass);
 
     // Initialize gender from user model
     _selectedGender = widget.user.gender;
@@ -82,7 +84,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     _usernameController.addListener(_updateButtonState);
     _addressController.addListener(_updateButtonState);
     _phoneController.addListener(_updateButtonState);
-    _userClassController.addListener(_updateButtonState);
 
     // Setup animations
     _animationController = AnimationController(
@@ -122,7 +123,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     _usernameController.removeListener(_updateButtonState);
     _addressController.removeListener(_updateButtonState);
     _phoneController.removeListener(_updateButtonState);
-    _userClassController.removeListener(_updateButtonState);
 
     _animationController.dispose();
     _currentPasswordController.dispose();
@@ -132,7 +132,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     _usernameController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
-    _userClassController.dispose();
     super.dispose();
   }
 
@@ -321,7 +320,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
       // Church info step
       return _addressController.text.trim().isNotEmpty &&
           _phoneController.text.trim().isNotEmpty &&
-          _userClassController.text.trim().isNotEmpty;
+          _selectedClass != null;
     }
   }
 
@@ -411,8 +410,9 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
         'address': _addressController.text.trim(),
         'phoneNumber': _phoneController.text.trim(),
         'gender': _selectedGender!.code,
-        'userClass': _userClassController.text.trim(),
+        'userClass': _selectedClass!.name ?? '',
         if (profileImageUrl != null) 'profileImage': profileImageUrl,
+        'firstLogin': false,
       };
 
       await _userRepository.updateUser(widget.user.id, updatedData);
@@ -427,7 +427,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
             builder: (context) => HomeLayout(
               userId: widget.user.id,
               userType: widget.user.userType,
-              userClass: _userClassController.text.trim(),
+              userClass: _selectedClass!.name ?? '',
               gender: _selectedGender!,
             ),
           ),
@@ -1051,17 +1051,199 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
 
         const SizedBox(height: 20),
 
+        // Class Dropdown from Database
         _buildModernFieldCard(
           title: 'الفصل / الخدمة',
           icon: Icons.class_,
           color: teal500,
-          child: coloredTextField(
-            enabledBorder: InputBorder.none,
-            prefixIcon: Icons.class_,
-            fillColor: teal500,
-            controller: _userClassController,
-            label: 'الفصل / الخدمة',
-            validator: _requiredValidator,
+          child: StreamBuilder<List<Model>>(
+            stream: _classesRepository.getAllClasses(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [teal500, Color(0xFF007D8A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'جاري تحميل الأسر...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Alexandria',
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: red500.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: red500, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: red500.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: red500, size: 24),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'خطأ في تحميل الأسر',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Alexandria',
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final classes = snapshot.data ?? [];
+
+              if (classes.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_rounded, color: Colors.orange, size: 24),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'لا توجد أسر متاحة حالياً',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Alexandria',
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [teal500, Color(0xFF007D8A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: DropdownButtonFormField<Model>(
+                    value: _selectedClass,
+                    decoration: InputDecoration(
+                      hintText: 'اختر الفصل / الخدمة',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontFamily: 'Alexandria',
+                        fontSize: 14,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.group_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 18,
+                      ),
+                    ),
+                    dropdownColor: teal500,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontFamily: 'Alexandria',
+                    ),
+                    icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 28),
+                    items: classes.map((classItem) {
+                      return DropdownMenuItem<Model>(
+                        value: classItem,
+                        child: Text(
+                          classItem.name ?? '',
+                          style: const TextStyle(
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (Model? value) {
+                      setState(() => _selectedClass = value);
+                    },
+                    validator: (value) {
+                      if (value == null) {
+                        return 'الرجاء اختيار الفصل / الخدمة';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],

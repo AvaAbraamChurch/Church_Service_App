@@ -483,7 +483,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$points نقطة',
+                    '$points كوبون',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,

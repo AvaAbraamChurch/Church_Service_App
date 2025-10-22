@@ -55,29 +55,6 @@ class _SplashScreenState extends State<SplashScreen>
 
         if (!mounted) return;
 
-        // Check if profile completion is needed (first time only)
-        final shouldComplete = await ProfileCompletionService.shouldShowProfileCompletion(currentUser);
-
-        if (shouldComplete) {
-          // Navigate to profile completion screen
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => ProfileCompletionScreen(user: currentUser),
-            ),
-          );
-        } else {
-          // Navigate to home
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => HomeLayout(
-                userId: userId,
-                userType: currentUser.userType,
-                userClass: currentUser.userClass,
-                gender: currentUser.gender,
-              ),
-            ),
-          );
-        }
       } else {
         // Token invalid, clear data and go to login
         await _authRepository.clearUserData();

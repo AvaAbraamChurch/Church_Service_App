@@ -1,5 +1,6 @@
 import 'package:church/core/blocs/auth/auth_cubit.dart';
 import 'package:church/core/blocs/auth/auth_states.dart';
+import 'package:church/modules/ProfileCompletion/profile_completion_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/strings.dart';
@@ -187,7 +188,11 @@ class LoginScreen extends StatelessWidget {
           } else if (state is AuthSuccess) {
             // Close the loading dialog
             Navigator.of(context, rootNavigator: true).pop();
-            navigateAndFinish(context, HomeLayout(userId: state.uId, userType: state.userType, userClass: state.userClass, gender: state.gender,));
+            if (state.isFirstLogin == true) {
+              navigateAndFinish(context, ProfileCompletionScreen(user: state.user));
+            } else {
+              navigateAndFinish(context, HomeLayout(userId: state.uId, userType: state.userType, userClass: state.userClass, gender: state.gender,));
+            }
           } else if (state is AuthFailure) {
             // Close the loading dialog
             final messenger = ScaffoldMessenger.maybeOf(context);

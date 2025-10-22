@@ -283,7 +283,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'gender': _gender!.code, // String code 'M' or 'F'
         'address': _addressController.text.trim(),
         'email': _emailController.text.trim(),
-        'phone': _phoneController.text.trim(),
+        'phoneNumber': _phoneController.text.trim(),
         'userType': _userType!.code, // String code 'PR', 'SS', 'SV' or 'CH'
         'userClass': _selectedClass!.name ?? '', // Use selected class name
       };

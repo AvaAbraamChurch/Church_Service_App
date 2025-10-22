@@ -1,3 +1,4 @@
+import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 
@@ -8,13 +9,15 @@ class AuthInitial extends AuthState {}
 class AuthLoading extends AuthState {}
 
 class AuthSuccess extends AuthState {
+  final UserModel user;
   final String uId;
   final UserType userType;
   final String userClass;
   final Gender gender;
+  final bool isFirstLogin;
 
 
-  AuthSuccess(this.uId, this.userType, this.userClass, this.gender);
+  AuthSuccess(this.user,this.uId, this.userType, this.userClass, this.gender, this.isFirstLogin);
 }
 
 class AuthFailure extends AuthState {
