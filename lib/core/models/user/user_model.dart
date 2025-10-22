@@ -18,7 +18,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// - couponPoints
 /// - createdAt
 /// - updatedAt
-/// -firstLogin boolean always true when created
+/// - firstLogin boolean always true when created
 class UserModel {
   final String id;
   final String fullName;
@@ -31,6 +31,9 @@ class UserModel {
   final String userClass;
   final String? profileImageUrl;
   final int couponPoints;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final bool firstLogin;
 
   const UserModel({
     required this.id,
@@ -44,6 +47,9 @@ class UserModel {
     this.address,
     this.profileImageUrl,
     this.couponPoints = 0,
+    this.createdAt,
+    this.updatedAt,
+    this.firstLogin = true,
   });
 
   UserModel copyWith({
@@ -58,6 +64,7 @@ class UserModel {
     String? userClass,
     String? profileImageUrl,
     int? couponPoints,
+    bool? firstLogin,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -71,6 +78,7 @@ class UserModel {
       userClass: userClass ?? this.userClass,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       couponPoints: couponPoints ?? this.couponPoints,
+      firstLogin: firstLogin ?? this.firstLogin,
     );
   }
 
@@ -88,6 +96,7 @@ class UserModel {
       'userType': userType.code, // e.g., 'PR','SS','SV','CH'
       'gender': gender.code, // 'M' or 'F'
       'class': userClass,
+      'firstLogin': firstLogin,
     };
   }
 
@@ -105,13 +114,11 @@ class UserModel {
       gender: genderFromJson(data['gender']),
       userClass: (data['class'] ?? data['userClass'])!.toString(),
       couponPoints: (data['couponPoints'] ?? 0) as int,
+      firstLogin: (data['firstLogin'] ?? true) as bool,
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        ...toMap(),
-      };
+  Map<String, dynamic> toJson() => {'id': id, ...toMap()};
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel.fromMap(json, id: (json['id'] ?? '').toString());
@@ -119,7 +126,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(id: $id, fullName: $fullName, username: $username, email: $email, phoneNumber: ${phoneNumber ?? 'null'}, address: ${address ?? 'null'}, userType: ${userType.code}, gender: ${gender.code}, userClass: $userClass, couponPoints: $couponPoints)';
+    return 'UserModel(id: $id, fullName: $fullName, username: $username, email: $email, phoneNumber: ${phoneNumber ?? 'null'}, address: ${address ?? 'null'}, userType: ${userType.code}, gender: ${gender.code}, userClass: $userClass, couponPoints: $couponPoints, profileImageUrl: ${profileImageUrl ?? 'null'}, firstLogin: $firstLogin)';
   }
 
   @override
@@ -134,21 +141,27 @@ class UserModel {
         other.address == address &&
         other.userType == userType &&
         other.gender == gender &&
-        other.userClass == userClass;
+        other.userClass == userClass &&
+        other.profileImageUrl == profileImageUrl &&
+        other.couponPoints == couponPoints &&
+        other.firstLogin == firstLogin;
   }
 
   @override
   int get hashCode => Object.hash(
-        id,
-        fullName,
-        username,
-        email,
-        phoneNumber,
-        address,
-        userType,
-        gender,
-        userClass,
-      );
+    id,
+    fullName,
+    username,
+    email,
+    phoneNumber,
+    address,
+    userType,
+    gender,
+    userClass,
+    profileImageUrl,
+    couponPoints,
+    firstLogin,
+  );
 
   static fromDocumentSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
     return UserModel.fromMap(snapshot.data(), id: snapshot.id);
