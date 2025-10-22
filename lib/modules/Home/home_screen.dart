@@ -280,7 +280,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                             title: 'مدارس الأحد',
                                             subtitle: 'الجمعة - الساعة ١٠:٣٠ص',
                                             svgAsset: 'assets/svg/sunday school.svg',
-                                            color: red500,
+                                            color: sage900,
                                             onTap: (){
                                               debugPrint('مدارس الأحد');
                                             },

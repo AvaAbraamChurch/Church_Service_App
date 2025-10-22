@@ -12,6 +12,8 @@ import '../../../shared/widgets.dart';
 import '../../../core/utils/gender_enum.dart';
 import '../../../core/utils/userType_enum.dart';
 import '../../../core/services/image_upload_service.dart';
+import '../../../core/repositories/classes_repository.dart';
+import '../../../core/models/Classes/classes_model.dart';
 import '../login/login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -32,15 +34,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _userClassController = TextEditingController();
 
   // Dropdown selections
   Gender? _gender;
   UserType? _userType;
+  Model? _selectedClass;
 
   // Image selection
   File? _selectedImage;
   final ImageUploadService _imageService = ImageUploadService();
+  final ClassesRepository _classesRepository = ClassesRepository();
 
   // Paging
   final PageController _pageController = PageController();
@@ -191,7 +194,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) return;
 
-    if (_gender == null || _userType == null) {
+    if (_gender == null || _userType == null || _selectedClass == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(fillAllFields)),
       );
@@ -282,7 +285,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
         'userType': _userType!.code, // String code 'PR', 'SS', 'SV' or 'CH'
-        'userClass': _userClassController.text.trim(),
+        'userClass': _selectedClass!.name ?? '', // Use selected class name
       };
 
       await cubit.signUp(
@@ -309,246 +312,168 @@ class _RegisterScreenState extends State<RegisterScreen> {
         builder: (BuildContext context, state) {
           final cubit = AuthCubit.get(context);
           return ThemedScaffold(
-            body: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.15),
-                  Text(
-                    register,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Step indicator bound to current page
-                  RegistrationStepIndicator(currentStep: _currentPage + 1, totalSteps: 2),
-                  const SizedBox(height: 16),
-
-                  // Form with horizontal paging of fields
-                  Expanded(
-                    child: Form(
-                      key: _formKey,
-                      child: PageView(
-                        controller: _pageController,
-                        onPageChanged: (i) => setState(() => _currentPage = i),
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    // Header with gradient
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [teal500.withValues(alpha: 0.2), teal700.withValues(alpha: 0.1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Page 1
-                          SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                                // Profile Image Selection
-                                Center(
-                                  child: GestureDetector(
-                                    onTap: _showImageSourceDialog,
-                                    child: Container(
-                                      width: 120,
-                                      height: 120,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: _selectedImage != null ? Colors.transparent : teal100,
-                                        border: Border.all(
-                                          color: teal500,
-                                          width: 3,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: teal300.withValues(alpha: 0.3),
-                                            blurRadius: 10,
-                                            spreadRadius: 2,
-                                          ),
-                                        ],
-                                      ),
-                                      child: _selectedImage != null
-                                          ? ClipOval(
-                                              child: Image.file(
-                                                _selectedImage!,
-                                                fit: BoxFit.cover,
-                                                width: 120,
-                                                height: 120,
-                                              ),
-                                            )
-                                          : Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.add_a_photo,
-                                                  size: 40,
-                                                  color: teal500,
-                                                ),
-                                                const SizedBox(height: 8),
-                                                Text(
-                                                  selectImage,
-                                                  style: TextStyle(
-                                                    color: teal900,
-                                                    fontSize: 12,
-                                                    fontFamily: 'Alexandria',
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              ],
-                                            ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Center(
-                                  child: Text(
-                                    '$profileImage (${imageTooLarge.split('.')[1]})',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 11,
-                                      fontFamily: 'Alexandria',
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                                const SizedBox(height: 16.0),
-                                coloredTextField(
-                                  enabledBorder: InputBorder.none,
-                                  prefixIcon: Icons.abc,
-                                  fillColor: brown300,
-                                  controller: _fullNameController,
-                                  label: fullName,
-                                  validator: _requiredValidator,
-                                ),
-                                const SizedBox(height: 16.0),
-                                coloredTextField(
-                                  enabledBorder: InputBorder.none,
-                                  prefixIcon: Icons.person,
-                                  fillColor: red500,
-                                  controller: _usernameController,
-                                  label: username,
-                                  validator: _requiredValidator,
-                                ),
-                                const SizedBox(height: 16.0),
-                                coloredDropdownMenu<Gender>(
-                                  width: MediaQuery.of(context).size.width,
-                                  fillColor: sage500,
-                                  enabledBorder: InputBorder.none,
-                                  hintText: gender,
-                                  dropdownMenuEntries: [
-                                    DropdownMenuEntry<Gender>(value: Gender.male, label: male),
-                                    DropdownMenuEntry<Gender>(value: Gender.female, label: female),
-                                  ],
-                                  onSelected: (Gender? val) {
-                                    setState(() => _gender = val);
-                                  },
-                                ),
-                                const SizedBox(height: 16.0),
-                                coloredTextField(
-                                  enabledBorder: InputBorder.none,
-                                  prefixIcon: Icons.location_on_rounded,
-                                  fillColor: tawny,
-                                  controller: _addressController,
-                                  label: address,
-                                  validator: _requiredValidator,
-                                ),
-                                const SizedBox(height: 8.0),
-                              ],
+                          Text(
+                            register,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Alexandria',
                             ),
                           ),
-
-                          // Page 2
-                          SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(height: MediaQuery.of(context).size.height * 0.05),
-                                coloredTextField(
-                                  enabledBorder: InputBorder.none,
-                                  prefixIcon: Icons.mail_outline,
-                                  fillColor: brown300,
-                                  controller: _emailController,
-                                  label: email,
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: _emailValidator,
-                                ),
-                                const SizedBox(height: 16.0),
-                                coloredTextField(
-                                  enabledBorder: InputBorder.none,
-                                  prefixIcon: Icons.phone,
-                                  fillColor: red500,
-                                  controller: _phoneController,
-                                  label: phone,
-                                  keyboardType: TextInputType.phone,
-                                  validator: _phoneValidator,
-                                ),
-                                const SizedBox(height: 16.0),
-                                coloredDropdownMenu<UserType>(
-                                  width: MediaQuery.of(context).size.width,
-                                  fillColor: sage500,
-                                  enabledBorder: InputBorder.none,
-                                  hintText: userType,
-                                  dropdownMenuEntries: const [
-                                    DropdownMenuEntry<UserType>(value: UserType.priest, label: priest),
-                                    DropdownMenuEntry<UserType>(value: UserType.superServant, label: superServant),
-                                    DropdownMenuEntry<UserType>(value: UserType.servant, label: servant),
-                                    DropdownMenuEntry<UserType>(value: UserType.child, label: child),
-                                  ],
-                                  onSelected: (UserType? val) {
-                                    setState(() => _userType = val);
-                                    print(_userType?.label);
-                                  },
-                                ),
-                                const SizedBox(height: 16.0),
-                                coloredTextField(
-                                  enabledBorder: InputBorder.none,
-                                  prefixIcon: Icons.lock_outline,
-                                  fillColor: tawny,
-                                  controller: _passwordController,
-                                  label: password,
-                                  isPassword: true,
-                                  validator: _passwordValidator,
-                                ),
-                                const SizedBox(height: 16.0),
-                                coloredTextField(
-                                  enabledBorder: InputBorder.none,
-                                  prefixIcon: Icons.lock,
-                                  fillColor: teal500,
-                                  controller: _confirmPasswordController,
-                                  label: confirmPassword,
-                                  isPassword: true,
-                                  validator: _confirmValidator,
-                                ),
-                                const SizedBox(height: 8.0),
-                              ],
+                          const SizedBox(height: 8),
+                          Text(
+                            'املأ البيانات لإنشاء حسابك',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 16,
+                              fontFamily: 'Alexandria',
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 24),
 
-                  const SizedBox(height: 16),
+                    // Modern Step indicator
+                    _buildStepIndicator(),
+                    const SizedBox(height: 24),
 
-                  // Save action (validates entire form)
-                  ElevatedButton(
-                    onPressed: () => _onSave(cubit),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      backgroundColor: teal100,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10.0),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 18.0,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Alexandria',
+                    // Form with horizontal paging
+                    Expanded(
+                      child: Form(
+                        key: _formKey,
+                        child: PageView(
+                          controller: _pageController,
+                          onPageChanged: (i) => setState(() => _currentPage = i),
+                          children: [
+                            _buildPersonalInfoPage(),
+                            _buildAccountInfoPage(),
+                            _buildChurchInfoPage(),
+                          ],
+                        ),
                       ),
                     ),
-                    child: Text(save),
-                  ),
 
-                  const SizedBox(height: 8),
-                ],
+                    const SizedBox(height: 16),
+
+                    // Navigation buttons
+                    Row(
+                      children: [
+                        if (_currentPage > 0)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                _pageController.previousPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                );
+                              },
+                              icon: const Icon(Icons.arrow_back_rounded),
+                              label: Text(back),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white, width: 2),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'Alexandria',
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (_currentPage > 0) const SizedBox(width: 12),
+                        Expanded(
+                          flex: _currentPage > 0 ? 2 : 1,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (_currentPage < 2) {
+                                _pageController.nextPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                );
+                              } else {
+                                _onSave(cubit);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: teal100,
+                              foregroundColor: teal900,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Alexandria',
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(_currentPage < 2 ? next : save),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  _currentPage < 2 ? Icons.arrow_forward_rounded : Icons.check_rounded,
+                                  size: 24,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Login redirect
+                    Center(
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => LoginScreen()),
+                          );
+                        },
+                        child: Text(
+                          alreadyHaveAccount,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -622,6 +547,801 @@ class _RegisterScreenState extends State<RegisterScreen> {
             );
             navigateAndFinish(context, LoginScreen());
           }
+        },
+      ),
+    );
+  }
+
+  // Modern step indicator with circles
+  Widget _buildStepIndicator() {
+    return Row(
+      children: List.generate(3, (index) {
+        final isActive = index <= _currentPage;
+        final isCompleted = index < _currentPage;
+
+        return Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isCompleted
+                        ? teal300
+                        : isActive
+                            ? teal500.withValues(alpha: 0.3)
+                            : Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: isActive
+                      ? const LinearGradient(
+                          colors: [teal500, teal700],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: isActive ? null : Colors.white.withValues(alpha: 0.2),
+                  boxShadow: isActive
+                      ? [
+                          BoxShadow(
+                            color: teal500.withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: isCompleted
+                      ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
+                      : Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.5),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                ),
+              ),
+              if (index < 2) const SizedBox(width: 8),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  // Page 1: Personal Information
+  Widget _buildPersonalInfoPage() {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'المعلومات الشخصية',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Alexandria',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'أدخل بياناتك الشخصية الأساسية',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 14,
+              fontFamily: 'Alexandria',
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Profile Image Selection
+          Center(
+            child: GestureDetector(
+              onTap: _showImageSourceDialog,
+              child: Container(
+                width: 130,
+                height: 130,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: _selectedImage != null
+                      ? null
+                      : LinearGradient(
+                          colors: [teal500.withValues(alpha: 0.3), teal700.withValues(alpha: 0.2)],
+                        ),
+                  border: Border.all(
+                    color: teal300,
+                    width: 4,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: teal500.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: _selectedImage != null
+                    ? ClipOval(
+                        child: Image.file(
+                          _selectedImage!,
+                          fit: BoxFit.cover,
+                          width: 130,
+                          height: 130,
+                        ),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.add_a_photo_rounded,
+                            size: 48,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            selectImage,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 14,
+                              fontFamily: 'Alexandria',
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(
+              'الحد الأقصى 2 ميجابايت',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 12,
+                fontFamily: 'Alexandria',
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          _buildModernTextField(
+            controller: _fullNameController,
+            label: fullName,
+            icon: Icons.person_rounded,
+            validator: _requiredValidator,
+            gradient: const LinearGradient(
+              colors: [brown300, Color(0xFFCDA86C)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          _buildModernTextField(
+            controller: _usernameController,
+            label: username,
+            icon: Icons.account_circle_rounded,
+            validator: _requiredValidator,
+            gradient: const LinearGradient(
+              colors: [sage100, sage500],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          _buildModernGenderDropdown(),
+          const SizedBox(height: 20),
+
+          _buildModernTextField(
+            controller: _addressController,
+            label: address,
+            icon: Icons.location_on_rounded,
+            validator: _requiredValidator,
+            gradient: const LinearGradient(
+              colors: [tawny, Color(0xFFD0A377)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  // Page 2: Account Information
+  Widget _buildAccountInfoPage() {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'معلومات الحساب',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Alexandria',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'أدخل بيانات تسجيل الدخول الخاصة بك',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 14,
+              fontFamily: 'Alexandria',
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          _buildModernTextField(
+            controller: _emailController,
+            label: email,
+            icon: Icons.email_rounded,
+            keyboardType: TextInputType.emailAddress,
+            validator: _emailValidator,
+            gradient: const LinearGradient(
+              colors: [brown300, Color(0xFFCDA86C)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          _buildModernTextField(
+            controller: _phoneController,
+            label: phone,
+            icon: Icons.phone_rounded,
+            keyboardType: TextInputType.phone,
+            validator: _phoneValidator,
+            gradient: const LinearGradient(
+              colors: [sage100, sage500],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          _buildModernTextField(
+            controller: _passwordController,
+            label: password,
+            icon: Icons.lock_rounded,
+            isPassword: true,
+            validator: _passwordValidator,
+            gradient: const LinearGradient(
+              colors: [tawny, Color(0xFFD0A377)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          _buildModernTextField(
+            controller: _confirmPasswordController,
+            label: confirmPassword,
+            icon: Icons.lock_outline_rounded,
+            isPassword: true,
+            validator: _confirmValidator,
+            gradient: const LinearGradient(
+              colors: [teal500, teal700],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  // Page 3: Church Information
+  Widget _buildChurchInfoPage() {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'معلومات الكنيسة',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Alexandria',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'أدخل معلومات خدمتك في الكنيسة',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 14,
+              fontFamily: 'Alexandria',
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          _buildModernUserTypeDropdown(),
+          const SizedBox(height: 20),
+
+          // Classes Dropdown from Database
+          StreamBuilder<List<Model>>(
+            stream: _classesRepository.getAllClasses(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [brown300, Color(0xFFCDA86C)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'جاري تحميل الأسر...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Alexandria',
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: red500.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: red500, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: red500.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: red500, size: 24),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'خطأ في تحميل الأسر',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Alexandria',
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final classes = snapshot.data ?? [];
+
+              if (classes.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.orange, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_rounded, color: Colors.orange, size: 24),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'لا توجد أسر متاحة حالياً',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Alexandria',
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [brown300, Color(0xFFCDA86C)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: DropdownButtonFormField<Model>(
+                    value: _selectedClass,
+                    decoration: InputDecoration(
+                      hintText: selectClassroom,
+                      hintStyle: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontFamily: 'Alexandria',
+                        fontSize: 14,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.group_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 18,
+                      ),
+                    ),
+                    dropdownColor: brown300,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontFamily: 'Alexandria',
+                    ),
+                    icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 28),
+                    items: classes.map((classItem) {
+                      return DropdownMenuItem<Model>(
+                        value: classItem,
+                        child: Text(
+                          classItem.name ?? '',
+                          style: const TextStyle(
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (Model? value) {
+                      setState(() => _selectedClass = value);
+                    },
+                    validator: (value) {
+                      if (value == null) {
+                        return 'الرجاء اختيار الأسرة';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // Info card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  teal500.withValues(alpha: 0.2),
+                  teal700.withValues(alpha: 0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: teal300.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_rounded,
+                  color: teal300,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'تأكد من اختيار الأسرة الصحيحة التي تنتمي إليها',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 13,
+                      fontFamily: 'Alexandria',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Modern text field with gradient background and shadow
+  Widget _buildModernTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required Gradient gradient,
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    bool isPassword = false,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        obscureText: isPassword,
+        textAlign: TextAlign.right,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontFamily: 'Alexandria',
+          fontWeight: FontWeight.w500,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.9),
+            fontFamily: 'Alexandria',
+            fontSize: 16,
+          ),
+          floatingLabelStyle: const TextStyle(
+            color: Colors.white,
+            fontFamily: 'Alexandria',
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+          prefixIcon: Icon(
+            icon,
+            color: Colors.white,
+            size: 24,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 18,
+          ),
+          errorStyle: const TextStyle(
+            fontFamily: 'Alexandria',
+            fontSize: 12,
+          ),
+        ),
+        validator: validator,
+      ),
+    );
+  }
+
+  // Modern gender dropdown with gradient
+  Widget _buildModernGenderDropdown() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [sage500, Color(0xFFB8BF9D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: DropdownButtonFormField<Gender>(
+        value: _gender,
+        decoration: InputDecoration(
+          hintText: gender,
+          hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontFamily: 'Alexandria',
+            fontSize: 16,
+          ),
+          prefixIcon: const Icon(
+            Icons.wc_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 18,
+          ),
+        ),
+        dropdownColor: sage500,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontFamily: 'Alexandria',
+        ),
+        icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 28),
+        items: const [
+          DropdownMenuItem(
+            value: Gender.male,
+            child: Text(
+              male,
+              style: TextStyle(fontFamily: 'Alexandria'),
+            ),
+          ),
+          DropdownMenuItem(
+            value: Gender.female,
+            child: Text(
+              female,
+              style: TextStyle(fontFamily: 'Alexandria'),
+            ),
+          ),
+        ],
+        onChanged: (Gender? value) {
+          setState(() => _gender = value);
+        },
+        validator: (value) {
+          if (value == null) {
+            return 'الرجاء اختيار الجنس';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  // Modern user type dropdown with gradient
+  Widget _buildModernUserTypeDropdown() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [sage500, Color(0xFFB8BF9D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: DropdownButtonFormField<UserType>(
+        value: _userType,
+        decoration: InputDecoration(
+          hintText: userType,
+          hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontFamily: 'Alexandria',
+            fontSize: 16,
+          ),
+          prefixIcon: const Icon(
+            Icons.badge_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 18,
+          ),
+        ),
+        dropdownColor: sage500,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontFamily: 'Alexandria',
+        ),
+        icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 28),
+        items: const [
+          DropdownMenuItem(
+            value: UserType.priest,
+            child: Text(
+              priest,
+              style: TextStyle(fontFamily: 'Alexandria'),
+            ),
+          ),
+          DropdownMenuItem(
+            value: UserType.superServant,
+            child: Text(
+              superServant,
+              style: TextStyle(fontFamily: 'Alexandria'),
+            ),
+          ),
+          DropdownMenuItem(
+            value: UserType.servant,
+            child: Text(
+              servant,
+              style: TextStyle(fontFamily: 'Alexandria'),
+            ),
+          ),
+          DropdownMenuItem(
+            value: UserType.child,
+            child: Text(
+              child,
+              style: TextStyle(fontFamily: 'Alexandria'),
+            ),
+          ),
+        ],
+        onChanged: (UserType? value) {
+          setState(() => _userType = value);
+        },
+        validator: (value) {
+          if (value == null) {
+            return 'الرجاء اختيار نوع المستخدم';
+          }
+          return null;
         },
       ),
     );
