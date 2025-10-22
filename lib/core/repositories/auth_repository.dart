@@ -127,7 +127,7 @@ class AuthRepository {
 
       return true;
 
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException {
       await _clearUserCache();
       return false;
     } catch (e) {

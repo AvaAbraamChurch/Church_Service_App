@@ -18,7 +18,7 @@ class AttendanceScreen extends StatefulWidget {
   final String userClass;
   final Gender gender;
 
-  AttendanceScreen({
+  const AttendanceScreen({
     super.key,
     required this.userId,
     required this.userType,

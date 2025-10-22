@@ -1,18 +1,13 @@
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
-import 'package:church/layout/home_layout.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
-import 'package:church/modules/ProfileCompletion/profile_completion_screen.dart';
 import 'package:church/core/repositories/auth_repository.dart';
-import 'package:church/core/services/profile_completion_service.dart';
-import 'package:church/core/utils/userType_enum.dart';
-import 'package:church/core/utils/gender_enum.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:math';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();

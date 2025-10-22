@@ -19,15 +19,10 @@ class HomeCubit extends Cubit<HomeState> {
     try {
       emit(getUserLoadingState());
       final userData = await _usersRepository.getUserById(userId);
-      if (userData != null) {
-        currentUser = userData;
-        emit(getUserSuccessState());
-        return currentUser;
-      } else {
-        emit(getUserErrorState('User not found'));
-        return null;
-      }
-    } catch (e) {
+      currentUser = userData;
+      emit(getUserSuccessState());
+      return currentUser;
+        } catch (e) {
       emit(getUserErrorState(e.toString()));
       print(e.toString());
       return null;

@@ -13,7 +13,7 @@ class ServantView extends StatefulWidget {
   final AttendanceCubit cubit;
   final pageIndex;
 
-  const ServantView({Key? key, required this.cubit, required this.pageIndex}) : super(key: key);
+  const ServantView({super.key, required this.cubit, required this.pageIndex});
 
   @override
   State<ServantView> createState() => _ServantViewState();

@@ -12,8 +12,7 @@ class PriestView extends StatefulWidget {
   final AttendanceCubit cubit;
   final int pageIndex;
 
-  const PriestView(this.cubit, {Key? key, required this.pageIndex})
-    : super(key: key);
+  const PriestView(this.cubit, {super.key, required this.pageIndex});
 
   @override
   State<PriestView> createState() => _PriestViewState();
@@ -627,7 +626,7 @@ class _PriestViewState extends State<PriestView> {
       case AttendanceStatus.excused:
         statusColor = Colors.blue;
         statusIcon = Icons.info;
-        statusText = 'معذور';
+        statusText = 'معتذر';
         break;
     }
 
@@ -765,7 +764,7 @@ class _PriestViewState extends State<PriestView> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _buildStatusButton(
-                      label: 'معذور',
+                      label: 'معتذر',
                       icon: Icons.info,
                       color: Colors.blue,
                       isSelected: status == AttendanceStatus.excused,

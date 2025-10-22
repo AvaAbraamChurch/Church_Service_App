@@ -13,8 +13,7 @@ class SuperServantView extends StatefulWidget {
   final int pageIndex;
   final String gender;
 
-  const SuperServantView(this.cubit, {Key? key, required this.gender, required this.pageIndex})
-    : super(key: key);
+  const SuperServantView(this.cubit, {super.key, required this.gender, required this.pageIndex});
 
   @override
   State<SuperServantView> createState() => _SuperServantViewState();
@@ -344,7 +343,7 @@ class _SuperServantViewState extends State<SuperServantView> {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('تمعذر تحميل المستخدمين: $e'),
+                    content: Text('تمعتذر تحميل المستخدمين: $e'),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -633,7 +632,7 @@ class _SuperServantViewState extends State<SuperServantView> {
       case AttendanceStatus.excused:
         statusColor = Colors.blue;
         statusIcon = Icons.info;
-        statusText = 'معذر';
+        statusText = 'معتذر';
         break;
     }
 
@@ -771,7 +770,7 @@ class _SuperServantViewState extends State<SuperServantView> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _buildStatusButton(
-                      label: 'معذر',
+                      label: 'معتذر',
                       icon: Icons.info,
                       color: Colors.blue,
                       isSelected: status == AttendanceStatus.excused,

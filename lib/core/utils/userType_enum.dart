@@ -62,7 +62,7 @@ String _normalizeArabic(String s) {
     '\u0652', // SUKUN
     '\u0670', // SUPERSCRIPT ALEF
   ];
-  final pattern = RegExp('[' + diacritics.join() + ']');
+  final pattern = RegExp('[${diacritics.join()}]');
   return s.replaceAll(' ', '').replaceAll(pattern, '');
 }
 

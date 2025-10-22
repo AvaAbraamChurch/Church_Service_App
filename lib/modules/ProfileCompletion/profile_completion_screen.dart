@@ -1205,7 +1205,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                       prefixIcon: const Icon(
                         Icons.group_rounded,
                         color: Colors.white,
-                        size: 20,
+                        size: 18,
                       ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(

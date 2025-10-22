@@ -11,7 +11,7 @@ class ChildView extends StatelessWidget {
   final AttendanceCubit cubit;
   final int pageIndex;
 
-  const ChildView(this.cubit, {Key? key, required this.pageIndex}) : super(key: key);
+  const ChildView(this.cubit, {super.key, required this.pageIndex});
 
   Color _getStatusColor(AttendanceStatus status) {
     switch (status) {

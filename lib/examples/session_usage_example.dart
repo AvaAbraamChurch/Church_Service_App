@@ -4,7 +4,7 @@ import '../../core/utils/session_checker.dart';
 
 /// Example: Home Screen with Session Check
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
