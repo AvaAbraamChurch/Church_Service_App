@@ -1,7 +1,9 @@
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
+import 'package:church/layout/home_layout.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:church/core/repositories/auth_repository.dart';
+import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:math';
@@ -47,30 +49,21 @@ class _SplashScreenState extends State<SplashScreen>
       if (isTokenValid) {
         // Get user data
         final currentUser = await _authRepository.getCurrentUserData();
-
         if (!mounted) return;
-
+        navigateAndFinish(context, HomeLayout(userId: currentUser.id, userType: currentUser.userType, userClass: currentUser.userClass, gender: currentUser.gender));
       } else {
         // Token invalid, clear data and go to login
         await _authRepository.clearUserData();
 
         if (!mounted) return;
 
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => LoginScreen(),
-          ),
-        );
+        navigateAndFinish(context, LoginScreen());
       }
     } else {
       // Not logged in, go to login
       if (!mounted) return;
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => LoginScreen(),
-        ),
-      );
+      navigateAndFinish(context, LoginScreen());
     }
   }
 

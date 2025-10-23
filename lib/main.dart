@@ -48,10 +48,7 @@ class MyApp extends StatelessWidget {
       ],
       debugShowCheckedModeBanner: false,
       theme: theme,
-      home: ConnectivityWrapper(
-        checkDelay: Duration(seconds: 5), // Show no internet after 5 seconds
-        child: startWidget,
-      ),
+      home: startWidget,
     );
   }
 }
