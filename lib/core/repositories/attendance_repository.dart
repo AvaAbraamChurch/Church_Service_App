@@ -72,7 +72,6 @@ class AttendanceRepository {
   Stream<List<AttendanceModel>> getAttendanceStream() {
     return _firestore
         .collection(_collectionName)
-        .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => AttendanceModel.fromMap(doc.data(), id: doc.id))
@@ -100,7 +99,6 @@ class AttendanceRepository {
     return _firestore
         .collection(_collectionName)
         .where('userType', isEqualTo: userTypeToJson(userType))
-        .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => AttendanceModel.fromMap(doc.data(), id: doc.id))
@@ -113,7 +111,6 @@ class AttendanceRepository {
       final snapshot = await _firestore
           .collection(_collectionName)
           .where('userType', isEqualTo: userTypeToJson(userType))
-          .orderBy('date', descending: true)
           .get();
 
       return snapshot.docs
@@ -131,7 +128,6 @@ class AttendanceRepository {
     return _firestore
         .collection(_collectionName)
         .where('userType', whereIn: userTypeStrings)
-        .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => AttendanceModel.fromMap(doc.data(), id: doc.id))
@@ -146,7 +142,6 @@ class AttendanceRepository {
       final snapshot = await _firestore
           .collection(_collectionName)
           .where('userType', whereIn: userTypeStrings)
-          .orderBy('date', descending: true)
           .get();
 
       return snapshot.docs
@@ -162,7 +157,6 @@ class AttendanceRepository {
     return _firestore
         .collection(_collectionName)
         .where('userId', isEqualTo: userId)
-        .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => AttendanceModel.fromMap(doc.data(), id: doc.id))
@@ -191,7 +185,6 @@ class AttendanceRepository {
         .collection(_collectionName)
         .where('date', isGreaterThanOrEqualTo: startDate.toIso8601String())
         .where('date', isLessThanOrEqualTo: endDate.toIso8601String())
-        .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => AttendanceModel.fromMap(doc.data(), id: doc.id))
@@ -205,7 +198,6 @@ class AttendanceRepository {
           .collection(_collectionName)
           .where('date', isGreaterThanOrEqualTo: startDate.toIso8601String())
           .where('date', isLessThanOrEqualTo: endDate.toIso8601String())
-          .orderBy('date', descending: true)
           .get();
 
       return snapshot.docs
