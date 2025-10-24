@@ -16,7 +16,9 @@ const Color brown500 = Color(0xFFB97C3A); // Medium (Main Color)
 const Color brown300 = Color(0xFFD3A34E); // Lighter
 const Color brown100 = Color(0xFFF9E4C9); // Lightest
 
-const Color red500 = Color(0xFFFF4D6D);
+const Color red700 = Color(0xFFE63946); // Darker red
+const Color red500 = Color(0xFFFF4D6D); // Medium red
+const Color red300 = Color(0xFFFF758F); // Lighter red
 const Color sage50 = Color(0xFFF5F6F1);
 const Color sage100 = Color(0xFFE6E8D9);
 const Color sage300 = Color(0xFFC3C9B3);
