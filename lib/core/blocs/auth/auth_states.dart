@@ -43,3 +43,5 @@ class AuthUserDataError extends AuthState {
 }
 
 class AuthPasswordResetEmailSent extends AuthState {}
+
+class AuthPasswordChanged extends AuthState {}

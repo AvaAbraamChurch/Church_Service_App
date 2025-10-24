@@ -1,16 +1,22 @@
 // filepath: c:\Users\Andrew\Desktop\Church_Apps\Github\church\lib\modules\Profile\profile_screen.dart
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/modules/Store/admin_dashboard.dart';
+import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/models/user/user_model.dart';
 import '../../core/repositories/users_reopsitory.dart';
 import '../../core/services/image_upload_service.dart';
 import '../../core/styles/colors.dart';
 import '../../core/constants/strings.dart';
+import '../../core/blocs/auth/auth_cubit.dart';
+import '../../core/blocs/auth/auth_states.dart';
+import '../Store/store_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -149,6 +155,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  void _showChangePasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => _ChangePasswordDialog(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
@@ -229,7 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 30),
 
                   // Coupon Points Card
-                  _buildCouponPointsCard(user.couponPoints),
+                  _buildCouponPointsCard(user.couponPoints, user),
                   const SizedBox(height: 30),
 
                   // Profile Image
@@ -390,13 +403,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   // Action Buttons
                   if (!isEditing)
-                    _buildActionButton(
-                      label: edit,
-                      icon: Icons.edit,
-                      color: teal500,
-                      onPressed: () {
-                        setState(() => isEditing = true);
-                      },
+                    Column(
+                      children: [
+                        _buildActionButton(
+                          label: edit,
+                          icon: Icons.edit,
+                          color: teal500,
+                          onPressed: () {
+                            setState(() => isEditing = true);
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildActionButton(
+                          label: 'تغيير كلمة المرور',
+                          icon: Icons.lock_reset,
+                          color: Colors.orange,
+                          onPressed: _showChangePasswordDialog,
+                        ),
+                      ],
                     )
                   else
                     Row(
@@ -431,10 +455,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildCouponPointsCard(int points) {
+  Widget _buildCouponPointsCard(int points, UserModel user) {
+    if (user.userType.code == UserType.superServant.code || user.userType.code == UserType.servant.code){
+      return GestureDetector(
+        onTap: () {
+          navigateTo(context, AdminDashboard(currentUser: user));
+        },
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [teal700, teal300],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: teal500.withValues(alpha: 0.4),
+                blurRadius: 15,
+                spreadRadius: 2,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'إدارة المعرض',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Subtitle prompt click to view store
+                    Text(
+                      'اضغط لإدارة معرض الكوبونات',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.white.withValues(alpha: 0.7),
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      );
+
+    }
+
+    // Child view
     return GestureDetector(
       onTap: () {
-        debugPrint('Coupon Points Card Tapped');
+        navigateTo(context, StoreScreen());
       },
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -679,6 +765,262 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ChangePasswordDialog extends StatefulWidget {
+  const _ChangePasswordDialog();
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final _currentPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _obscureCurrentPassword = true;
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmPassword = true;
+
+  @override
+  void dispose() {
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.grey[900],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: teal300.withValues(alpha: 0.3), width: 1),
+      ),
+      title: Row(
+        children: [
+          Icon(Icons.lock_reset, color: teal300, size: 28),
+          const SizedBox(width: 12),
+          const Text(
+            'تغيير كلمة المرور',
+            style: TextStyle(color: Colors.white, fontSize: 20),
+          ),
+        ],
+      ),
+      content: BlocConsumer<AuthCubit, AuthState>(
+        listener: (context, state) {
+          if (state is AuthPasswordChanged) {
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('تم تغيير كلمة المرور بنجاح'),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          } else if (state is AuthFailure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.error),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          final isLoading = state is AuthLoading;
+          return SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Current Password
+                  TextFormField(
+                    controller: _currentPasswordController,
+                    obscureText: _obscureCurrentPassword,
+                    enabled: !isLoading,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'كلمة المرور الحالية',
+                      labelStyle: TextStyle(color: teal300),
+                      prefixIcon: Icon(Icons.lock_outline, color: teal300),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureCurrentPassword ? Icons.visibility_off : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () => setState(() => _obscureCurrentPassword = !_obscureCurrentPassword),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.05),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: teal300.withValues(alpha: 0.3)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: teal300.withValues(alpha: 0.3)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: teal300, width: 2),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'الرجاء إدخال كلمة المرور الحالية';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // New Password
+                  TextFormField(
+                    controller: _newPasswordController,
+                    obscureText: _obscureNewPassword,
+                    enabled: !isLoading,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'كلمة المرور الجديدة',
+                      labelStyle: TextStyle(color: teal300),
+                      prefixIcon: Icon(Icons.lock, color: teal300),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureNewPassword ? Icons.visibility_off : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () => setState(() => _obscureNewPassword = !_obscureNewPassword),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.05),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: teal300.withValues(alpha: 0.3)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: teal300.withValues(alpha: 0.3)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: teal300, width: 2),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'الرجاء إدخال كلمة المرور الجديدة';
+                      }
+                      if (value.length < 6) {
+                        return 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Confirm Password
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    obscureText: _obscureConfirmPassword,
+                    enabled: !isLoading,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'تأكيد كلمة المرور',
+                      labelStyle: TextStyle(color: teal300),
+                      prefixIcon: Icon(Icons.lock_clock, color: teal300),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.05),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: teal300.withValues(alpha: 0.3)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: teal300.withValues(alpha: 0.3)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: teal300, width: 2),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'الرجاء تأكيد كلمة المرور';
+                      }
+                      if (value != _newPasswordController.text) {
+                        return 'كلمة المرور غير متطابقة';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            'إلغاء',
+            style: TextStyle(color: Colors.grey[400]),
+          ),
+        ),
+        BlocBuilder<AuthCubit, AuthState>(
+          builder: (context, state) {
+            final isLoading = state is AuthLoading;
+            return ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () {
+                      if (_formKey.currentState!.validate()) {
+                        AuthCubit.get(context).changePassword(
+                          currentPassword: _currentPasswordController.text,
+                          newPassword: _newPasswordController.text,
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: teal500,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text('تغيير'),
+            );
+          },
+        ),
+      ],
     );
   }
 }

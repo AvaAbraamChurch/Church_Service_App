@@ -1,13 +1,15 @@
 import 'package:church/modules/Splash/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'core/styles/theme.dart';
 import 'shared/bloc_observer.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/network/local/cache_helper.dart';
-import 'shared/connectivity_wrapper.dart';
+import 'core/providers/cart_provider.dart';
+import 'core/blocs/auth/auth_cubit.dart';
 
 // Use the navigator key from NotificationsService
 // final GlobalKey<NavigatorState> navigatorKey = NotificationsService.navigatorKey;
@@ -36,19 +38,25 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      // navigatorKey: navigatorKey, // This now uses the NotificationsService navigator key
-      localizationsDelegates: [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: [
-        Locale('ar'),
-      ],
-      debugShowCheckedModeBanner: false,
-      theme: theme,
-      home: startWidget,
+    return BlocProvider(
+      create: (context) => AuthCubit(),
+      child: ChangeNotifierProvider(
+        create: (_) => CartProvider(),
+        child: MaterialApp(
+          // navigatorKey: navigatorKey, // This now uses the NotificationsService navigator key
+          localizationsDelegates: [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: [
+            Locale('ar'),
+          ],
+          debugShowCheckedModeBanner: false,
+          theme: theme,
+          home: startWidget,
+        ),
+      ),
     );
   }
 }
