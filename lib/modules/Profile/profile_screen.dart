@@ -30,6 +30,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ImageUploadService _imageUploadService = ImageUploadService();
   final _formKey = GlobalKey<FormState>();
 
+  late final stream;
+
   bool isEditing = false;
   bool isLoading = false;
   File? _selectedImage;
@@ -44,6 +46,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    stream = _usersRepository.getUserByIdStream(FirebaseAuth.instance.currentUser!.uid);
     nameController = TextEditingController();
     usernameController = TextEditingController();
     emailController = TextEditingController();
@@ -173,7 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return StreamBuilder<UserModel?>(
-      stream: _usersRepository.getUserByIdStream(currentUserId),
+      stream: stream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
