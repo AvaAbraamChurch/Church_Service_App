@@ -42,6 +42,10 @@ const holyMass = 'القداس';
 const bibleClass = 'درس الكتاب';
 const sunday = 'مدارس الأحد';
 const hymns = 'الحان';
+const visit = 'إفتقاد';
+
+const homeVisit = 'إفتقاد منزلي';
+const phoneVisit = 'إفتقاد هاتفى';
 
 const forgotPassword = 'نسيت كلمة المرور؟';
 const login = 'تسجيل الدخول';

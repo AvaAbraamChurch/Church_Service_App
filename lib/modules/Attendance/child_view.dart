@@ -67,12 +67,16 @@ class ChildView extends StatelessWidget {
         return hymns;
       case 3:
         return bibleClass;
+      case 4:
+        return visit;
       default:
         return '';
     }
   }
 
-  Map<String, List<AttendanceModel>> _groupByMonth(List<AttendanceModel> records) {
+  Map<String, List<AttendanceModel>> _groupByMonth(
+    List<AttendanceModel> records,
+  ) {
     final Map<String, List<AttendanceModel>> grouped = {};
 
     for (var record in records) {
@@ -99,11 +103,7 @@ class ChildView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.history,
-              size: 80,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.history, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'لا يوجد سجل حضور',
@@ -116,10 +116,7 @@ class ChildView extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'سيظهر سجل الحضور لـ $attendanceType هنا',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
           ],
@@ -142,7 +139,11 @@ class ChildView extends StatelessWidget {
           children: [
             // Month header
             Padding(
-              padding: const EdgeInsets.only(top: 16.0, bottom: 12.0, right: 4.0),
+              padding: const EdgeInsets.only(
+                top: 16.0,
+                bottom: 12.0,
+                right: 4.0,
+              ),
               child: Row(
                 children: [
                   Container(
@@ -164,7 +165,10 @@ class ChildView extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: teal100,
                       borderRadius: BorderRadius.circular(12),
@@ -203,7 +207,9 @@ class ChildView extends StatelessWidget {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: _getStatusColor(record.status).withValues(alpha: 0.15),
+                      color: _getStatusColor(
+                        record.status,
+                      ).withValues(alpha: 0.15),
                       blurRadius: 8,
                       spreadRadius: 0,
                       offset: const Offset(0, 4),
@@ -231,10 +237,14 @@ class ChildView extends StatelessWidget {
                             width: 56,
                             height: 56,
                             decoration: BoxDecoration(
-                              color: _getStatusColor(record.status).withValues(alpha: 0.15),
+                              color: _getStatusColor(
+                                record.status,
+                              ).withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: _getStatusColor(record.status).withValues(alpha: 0.3),
+                                color: _getStatusColor(
+                                  record.status,
+                                ).withValues(alpha: 0.3),
                                 width: 2,
                               ),
                             ),
@@ -251,7 +261,10 @@ class ChildView extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  DateFormat('EEEE، d MMMM', 'ar').format(record.date),
+                                  DateFormat(
+                                    'EEEE، d MMMM',
+                                    'ar',
+                                  ).format(record.date),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -268,7 +281,9 @@ class ChildView extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      _getAttendanceTypeText(record.attendanceType),
+                                      _getAttendanceTypeText(
+                                        record.attendanceType,
+                                      ),
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Colors.white,
@@ -288,7 +303,10 @@ class ChildView extends StatelessWidget {
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        DateFormat('h:mm a', 'ar').format(record.checkInTime!),
+                                        DateFormat(
+                                          'h:mm a',
+                                          'ar',
+                                        ).format(record.checkInTime!),
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: Colors.white,
@@ -303,13 +321,18 @@ class ChildView extends StatelessWidget {
                           const SizedBox(width: 12),
                           // Status badge
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: _getStatusColor(record.status),
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: _getStatusColor(record.status).withValues(alpha: 0.4),
+                                  color: _getStatusColor(
+                                    record.status,
+                                  ).withValues(alpha: 0.4),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -337,4 +360,3 @@ class ChildView extends StatelessWidget {
     );
   }
 }
-

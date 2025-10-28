@@ -69,7 +69,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       // Get attendance history for children
       stream = cubit.getUserAttendanceHistory(widget.userId);
     }
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -92,42 +92,164 @@ class _AttendanceScreenState extends State<AttendanceScreen>
             stream: stream,
             builder: (context, snapshot) {
               return Scaffold(
-                appBar: AppBar(
-                  title: Text(
-                    attendance,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                appBar: PreferredSize(
+                  preferredSize: Size.fromHeight(MediaQuery.of(context).size.height * 0.18),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [teal500, teal300],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: teal500.withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  ),
-                  backgroundColor: teal300,
-                  toolbarHeight: MediaQuery.of(context).size.height * 0.1,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(
-                      bottom: Radius.circular(60),
+                    child: SafeArea(
+                      child: Column(
+                        children: [
+                          // Top toolbar with title
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                            child: Text(
+                              attendance,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 1.2,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 4,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Modern TabBar
+                          Container(
+                            margin: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: TabBar(
+                              controller: _tabController,
+                              dividerColor: Colors.transparent,
+                              indicator: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.white, Colors.white.withValues(alpha: 0.9)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              indicatorPadding: EdgeInsets.all(4),
+                              labelColor: teal900,
+                              unselectedLabelColor: Colors.white,
+                              labelStyle: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Alexandria',
+                              ),
+                              unselectedLabelStyle: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'Alexandria',
+                              ),
+                              isScrollable: true,
+                              tabAlignment: TabAlignment.center,
+                              padding: EdgeInsets.zero,
+                              tabs: [
+                                Tab(
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.church, size: 18),
+                                        SizedBox(width: 6),
+                                        Text(holyMass),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Tab(
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.auto_stories, size: 18),
+                                        SizedBox(width: 6),
+                                        Text(sunday),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Tab(
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.music_note, size: 18),
+                                        SizedBox(width: 6),
+                                        Text(hymns),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Tab(
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.menu_book, size: 18),
+                                        SizedBox(width: 6),
+                                        Text(bibleClass),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Tab(
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.home_outlined, size: 18),
+                                        SizedBox(width: 6),
+                                        Text(visit),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  bottom: TabBar(
-                    onTap: (val){
-
-                    },
-                    dividerColor: Colors.transparent,
-                    controller: _tabController,
-                    indicatorColor: Colors.transparent,
-                    indicatorWeight: 3,
-                    indicatorAnimation: TabIndicatorAnimation.elastic,
-                    indicatorPadding: EdgeInsets.all(5),
-                    isScrollable: true,
-                    labelColor: teal900,
-                    unselectedLabelColor: Colors.white70,
-                    tabAlignment: TabAlignment.center,
-                    tabs: [
-                      Tab(text: holyMass),
-                      Tab(text: sunday),
-                      Tab(text: hymns),
-                      Tab(text: bibleClass),
-                    ],
                   ),
                 ),
                 backgroundColor: Colors.transparent,
@@ -203,6 +325,23 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                 Expanded(child: ServantView(cubit: cubit, pageIndex: 3)),
                               ] else ...[
                                 Expanded(child: ChildView(cubit, pageIndex: 3)),
+                              ],
+                            ],
+                          ),
+                        ),
+                        // Visit tab
+                        Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            children: [
+                              if (userTypeEnum == UserType.priest) ...[
+                                Expanded(child: PriestView(cubit, pageIndex: 4)),
+                              ] else if (userTypeEnum == UserType.superServant) ...[
+                                Expanded(child: SuperServantView(cubit, pageIndex: 4, gender: genderToJson(genderEnum))),
+                              ] else if (userTypeEnum == UserType.servant) ...[
+                                Expanded(child: ServantView(cubit: cubit, pageIndex: 4)),
+                              ] else ...[
+                                Expanded(child: ChildView(cubit, pageIndex: 4)),
                               ],
                             ],
                           ),

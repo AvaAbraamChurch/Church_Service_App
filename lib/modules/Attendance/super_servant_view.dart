@@ -13,7 +13,12 @@ class SuperServantView extends StatefulWidget {
   final int pageIndex;
   final String gender;
 
-  const SuperServantView(this.cubit, {super.key, required this.gender, required this.pageIndex});
+  const SuperServantView(
+    this.cubit, {
+    super.key,
+    required this.gender,
+    required this.pageIndex,
+  });
 
   @override
   State<SuperServantView> createState() => _SuperServantViewState();
@@ -25,6 +30,7 @@ class _SuperServantViewState extends State<SuperServantView> {
 
   // Step 2: User attendance tracking
   final Map<String, AttendanceStatus> attendanceMap = {};
+
   // Local copy of loaded users based on selected type and gender
   List<UserModel> _loadedUsers = [];
   List<UserModel> filteredUsers = [];
@@ -32,6 +38,7 @@ class _SuperServantViewState extends State<SuperServantView> {
   List<UserModel> chidrenList = [];
   final searchController = TextEditingController();
   bool isSubmitting = false;
+
   // Loading indicator for fetching users based on selected type and gender
   bool isLoadingUsers = false;
 
@@ -40,13 +47,16 @@ class _SuperServantViewState extends State<SuperServantView> {
     super.initState();
     searchController.addListener(_filterUsers);
 
-    servantsList = widget.cubit.users
-        ?.where((u) => u.userType.code == UserType.servant.code)
-        .toList() ?? [];
-    chidrenList = widget.cubit.users
-        ?.where((u) => u.userType.code == UserType.child.code)
-        .toList() ?? [];
-
+    servantsList =
+        widget.cubit.users
+            ?.where((u) => u.userType.code == UserType.servant.code)
+            .toList() ??
+        [];
+    chidrenList =
+        widget.cubit.users
+            ?.where((u) => u.userType.code == UserType.child.code)
+            .toList() ??
+        [];
   }
 
   @override
@@ -63,13 +73,16 @@ class _SuperServantViewState extends State<SuperServantView> {
     _loadedUsers = List<UserModel>.from(users);
     filteredUsers = List.from(widget.cubit.users!);
 
-    servantsList = widget.cubit.users
-        ?.where((u) => u.userType.code == UserType.servant.code)
-        .toList() ?? [];
-    chidrenList = widget.cubit.users
-        ?.where((u) => u.userType.code == UserType.child.code)
-        .toList() ?? [];
-
+    servantsList =
+        widget.cubit.users
+            ?.where((u) => u.userType.code == UserType.servant.code)
+            .toList() ??
+        [];
+    chidrenList =
+        widget.cubit.users
+            ?.where((u) => u.userType.code == UserType.child.code)
+            .toList() ??
+        [];
   }
 
   void _filterUsers() {
@@ -81,8 +94,8 @@ class _SuperServantViewState extends State<SuperServantView> {
         filteredUsers = widget.cubit.users!
             .where(
               (user) =>
-              normalizeArabic(user.fullName.toLowerCase()).contains(query),
-        )
+                  normalizeArabic(user.fullName.toLowerCase()).contains(query),
+            )
             .toList();
       }
     });
@@ -98,6 +111,8 @@ class _SuperServantViewState extends State<SuperServantView> {
         return hymns;
       case 3:
         return bibleClass;
+      case 4:
+        return visit;
       default:
         return '';
     }
@@ -327,18 +342,26 @@ class _SuperServantViewState extends State<SuperServantView> {
           onTap: () async {
             setState(() {
               selectedUserType = userType;
-              servantsList = widget.cubit.users
-                  ?.where((u) => u.userType.code == UserType.servant.code)
-                  .toList() ?? [];
-              chidrenList = widget.cubit.users
-                  ?.where((u) => u.userType.code == UserType.child.code)
-                  .toList() ?? [];
+              servantsList =
+                  widget.cubit.users
+                      ?.where((u) => u.userType.code == UserType.servant.code)
+                      .toList() ??
+                  [];
+              chidrenList =
+                  widget.cubit.users
+                      ?.where((u) => u.userType.code == UserType.child.code)
+                      .toList() ??
+                  [];
               isLoadingUsers = true;
             });
 
             try {
               if (!mounted) return;
-              _initializeAttendanceFrom(selectedUserType == UserType.servant.code ? servantsList : chidrenList);
+              _initializeAttendanceFrom(
+                selectedUserType == UserType.servant.code
+                    ? servantsList
+                    : chidrenList,
+              );
             } catch (e) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -419,7 +442,8 @@ class _SuperServantViewState extends State<SuperServantView> {
             ),
           ),
         ),
-      ));
+      ),
+    );
   }
 
   Widget _buildAttendanceTaking(UserType userType) {
@@ -450,7 +474,9 @@ class _SuperServantViewState extends State<SuperServantView> {
               ),
               Expanded(
                 child: Text(
-                  selectedUserType == UserType.servant.code ? 'الخدام' : 'المخدومين',
+                  selectedUserType == UserType.servant.code
+                      ? 'الخدام'
+                      : 'المخدومين',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -525,12 +551,18 @@ class _SuperServantViewState extends State<SuperServantView> {
                 )
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: userType.code == UserType.servant.code ? servantsList.length : chidrenList.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  itemCount: userType.code == UserType.servant.code
+                      ? servantsList.length
+                      : chidrenList.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final user = userType.code == UserType.servant.code ? servantsList[index] : chidrenList[index];
+                    final user = userType.code == UserType.servant.code
+                        ? servantsList[index]
+                        : chidrenList[index];
                     final userId = user.id;
-                    final status = attendanceMap[userId] ?? AttendanceStatus.absent;
+                    final status =
+                        attendanceMap[userId] ?? AttendanceStatus.absent;
 
                     return _buildUserAttendanceCard(user, status);
                   },
@@ -565,7 +597,9 @@ class _SuperServantViewState extends State<SuperServantView> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: (isSubmitting || isLoadingUsers) ? null : _submitAttendance,
+                onTap: (isSubmitting || isLoadingUsers)
+                    ? null
+                    : _submitAttendance,
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   height: 56,
@@ -786,7 +820,8 @@ class _SuperServantViewState extends State<SuperServantView> {
             ],
           ),
         ),
-      ));
+      ),
+    );
   }
 
   Widget _buildStatusButton({

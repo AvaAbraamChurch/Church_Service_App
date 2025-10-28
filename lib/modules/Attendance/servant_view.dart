@@ -89,7 +89,7 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
           userName: user.fullName,
           userType: user.userType,
           date: today,
-          attendanceType: widget.pageIndex == 0 ? holyMass : widget.pageIndex == 1 ? sunday : widget.pageIndex == 2 ? hymns : widget.pageIndex == 3 ? bibleClass : '',
+          attendanceType: widget.pageIndex == 0 ? holyMass : widget.pageIndex == 1 ? sunday : widget.pageIndex == 2 ? hymns : widget.pageIndex == 3 ? bibleClass : widget.pageIndex == 4 ? visit : '',
           status: entry.value,
           checkInTime: entry.value == AttendanceStatus.present ? now : null,
           createdAt: now,

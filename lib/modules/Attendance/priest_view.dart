@@ -104,6 +104,8 @@ class _PriestViewState extends State<PriestView> {
         return hymns;
       case 3:
         return bibleClass;
+        case 4:
+        return visit;
       default:
         return '';
     }
