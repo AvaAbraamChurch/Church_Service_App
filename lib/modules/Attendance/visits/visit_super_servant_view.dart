@@ -6,6 +6,8 @@ import 'package:church/core/utils/visit_enum.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/styles/colors.dart';
+
 /// SuperServant can create visits for children and see servant visit history
 class VisitSuperServantView extends StatefulWidget {
   final List<UserModel> users;
@@ -147,24 +149,20 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
           Container(
             padding: const EdgeInsets.all(24.0),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.purple.shade500.withValues(alpha: 0.1), Colors.purple.shade300.withValues(alpha: 0.05)],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-              ),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.purple.shade200, width: 1),
+              border: Border.all(color: teal300, width: 1),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.purple.shade500,
+                    color: teal500,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.purple.shade500.withValues(alpha: 0.3),
+                        color: teal500.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -182,7 +180,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Colors.purple.shade900,
+                          color: teal900,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -208,7 +206,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.purple.shade100.withValues(alpha: 0.5),
+                  color: teal500.withValues(alpha: 0.1),
                   blurRadius: 20,
                   spreadRadius: 2,
                   offset: const Offset(0, 4),
@@ -225,10 +223,10 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.purple.shade50,
+                          color: teal100,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.add_circle_outline, color: Colors.purple.shade700, size: 24),
+                        child: Icon(Icons.add_circle_outline, color: teal700, size: 24),
                       ),
                       const SizedBox(width: 12),
                       Text(
@@ -236,7 +234,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.purple.shade900,
+                          color: teal900,
                         ),
                       ),
                     ],
@@ -262,12 +260,12 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                       },
                       decoration: InputDecoration(
                         labelText: 'ابحث عن مخدوم',
-                        labelStyle: TextStyle(color: Colors.purple.shade700),
+                        labelStyle: TextStyle(color: teal700),
                         hintText: 'اكتب اسم المخدوم للبحث...',
                         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        prefixIcon: Icon(Icons.search, color: Colors.purple.shade500),
+                        prefixIcon: Icon(Icons.search, color: teal500),
                         suffixIcon: childSearchQuery.isNotEmpty
                             ? IconButton(
                                 icon: Icon(Icons.clear, color: Colors.grey[600]),
@@ -295,10 +293,10 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                       value: selectedChild,
                       decoration: InputDecoration(
                         labelText: 'اختر المخدوم',
-                        labelStyle: TextStyle(color: Colors.purple.shade700),
+                        labelStyle: TextStyle(color: teal700),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        prefixIcon: Icon(Icons.person_outline, color: Colors.purple.shade500),
+                        prefixIcon: Icon(Icons.person_outline, color: teal500),
                       ),
                       dropdownColor: Colors.white,
                       items: children.map((child) {
@@ -333,7 +331,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.purple.shade900,
+                      color: teal900,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -353,7 +351,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                             decoration: BoxDecoration(
                               gradient: isSelected
                                   ? LinearGradient(
-                                      colors: [Colors.purple.shade500, Colors.purple.shade400],
+                                      colors: [teal500, teal300],
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                     )
@@ -361,13 +359,13 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                               color: isSelected ? null : Colors.grey[100],
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: isSelected ? Colors.purple.shade500 : Colors.grey.shade300,
+                                color: isSelected ? teal500 : Colors.grey.shade300,
                                 width: 2,
                               ),
                               boxShadow: isSelected
                                   ? [
                                       BoxShadow(
-                                        color: Colors.purple.shade500.withValues(alpha: 0.3),
+                                        color: teal500.withValues(alpha: 0.3),
                                         blurRadius: 8,
                                         offset: const Offset(0, 4),
                                       ),
@@ -378,7 +376,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                               children: [
                                 Icon(
                                   type == VisitType.home ? Icons.home : Icons.phone,
-                                  color: isSelected ? Colors.white : Colors.purple.shade700,
+                                  color: isSelected ? Colors.white : teal700,
                                   size: 28,
                                 ),
                                 const SizedBox(height: 8),
@@ -387,7 +385,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: isSelected ? Colors.white : Colors.purple.shade900,
+                                    color: isSelected ? Colors.white : teal900,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -406,7 +404,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.purple.shade900,
+                      color: teal900,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -426,12 +424,12 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                       },
                       decoration: InputDecoration(
                         labelText: 'ابحث عن خادم',
-                        labelStyle: TextStyle(color: Colors.purple.shade700),
+                        labelStyle: TextStyle(color: teal700),
                         hintText: 'اكتب اسم الخادم للبحث...',
                         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        prefixIcon: Icon(Icons.search, color: Colors.purple.shade500),
+                        prefixIcon: Icon(Icons.search, color: teal500),
                         suffixIcon: servantSearchQuery.isNotEmpty
                             ? IconButton(
                                 icon: Icon(Icons.clear, color: Colors.grey[600]),
@@ -455,7 +453,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                         final isCurrentUser = servant.id == widget.currentUser.id;
                         return Chip(
                           avatar: CircleAvatar(
-                            backgroundColor: isCurrentUser ? Colors.green : Colors.purple.shade500,
+                            backgroundColor: isCurrentUser ? Colors.green : teal500,
                             child: Text(
                               servant.fullName[0],
                               style: const TextStyle(color: Colors.white, fontSize: 12),
@@ -477,8 +475,8 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                               selectedServants.remove(servant);
                             });
                           },
-                          backgroundColor: isCurrentUser ? Colors.green[50] : Colors.purple.shade50,
-                          labelStyle: TextStyle(color: isCurrentUser ? Colors.green[900] : Colors.purple.shade900),
+                          backgroundColor: isCurrentUser ? Colors.green[50] : teal100,
+                          labelStyle: TextStyle(color: isCurrentUser ? Colors.green[900] : teal900),
                         );
                       }).toList(),
                     ),
@@ -501,7 +499,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? (isCurrentUser ? Colors.green[50] : Colors.purple.shade50)
+                                ? (isCurrentUser ? Colors.green[50] : teal50)
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(8),
                             border: isCurrentUser ? Border.all(color: Colors.green, width: 1.5) : null,
@@ -515,7 +513,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                                     style: TextStyle(
                                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                       color: isSelected
-                                          ? (isCurrentUser ? Colors.green[900] : Colors.purple.shade900)
+                                          ? (isCurrentUser ? Colors.green[900] : teal900)
                                           : Colors.black87,
                                     ),
                                   ),
@@ -548,7 +546,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                                 }
                               });
                             },
-                            activeColor: isCurrentUser ? Colors.green : Colors.purple.shade500,
+                            activeColor: isCurrentUser ? Colors.green : teal500,
                             checkColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -573,14 +571,14 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                       style: const TextStyle(fontSize: 15),
                       decoration: InputDecoration(
                         labelText: 'ملاحظات (اختياري)',
-                        labelStyle: TextStyle(color: Colors.purple.shade700),
+                        labelStyle: TextStyle(color: teal700),
                         hintText: 'أضف أي ملاحظات حول الزيارة...',
                         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(16),
                         prefixIcon: Padding(
                           padding: const EdgeInsets.only(bottom: 40),
-                          child: Icon(Icons.note_alt_outlined, color: Colors.purple.shade500),
+                          child: Icon(Icons.note_alt_outlined, color: teal500),
                         ),
                       ),
                     ),
@@ -593,14 +591,14 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                     height: 56,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.purple.shade500, Colors.purple.shade400],
+                        colors: [teal500, teal300],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.purple.shade500.withValues(alpha: 0.4),
+                          color: teal500.withValues(alpha: 0.4),
                           blurRadius: 12,
                           offset: const Offset(0, 6),
                         ),
@@ -644,7 +642,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.purple.shade100, Colors.purple.shade50],
+                colors: [teal100, teal50],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -652,14 +650,14 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
             ),
             child: Row(
               children: [
-                Icon(Icons.history, color: Colors.purple.shade700, size: 24),
+                Icon(Icons.history, color: teal700, size: 24),
                 const SizedBox(width: 12),
                 Text(
                   'سجل الإفتقادات',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.purple.shade900,
+                    color: teal900,
                   ),
                 ),
               ],
@@ -709,14 +707,14 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                     height: 50,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.purple.shade500, Colors.purple.shade300],
+                        colors: [teal500, teal300],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.purple.shade500.withValues(alpha: 0.3),
+                          color: teal500.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 3),
                         ),
@@ -738,27 +736,27 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: Colors.purple.shade900,
+                      color: teal900,
                     ),
                   ),
                   subtitle: Container(
                     margin: const EdgeInsets.only(top: 6),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.purple.shade50,
+                      color: teal50,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.event_note, size: 14, color: Colors.purple.shade700),
+                        Icon(Icons.event_note, size: 14, color: teal700),
                         const SizedBox(width: 6),
                         Text(
                           'عدد الإفتقادات: ${visits.length}',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Colors.purple.shade700,
+                            color: teal700,
                           ),
                         ),
                       ],
@@ -767,10 +765,10 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                   trailing: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.purple.shade50,
+                      color: teal50,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.keyboard_arrow_down, color: Colors.purple.shade700),
+                    child: Icon(Icons.keyboard_arrow_down, color: teal700),
                   ),
                   children: visits.map((visit) => _buildVisitTile(visit)).toList(),
                 ),
@@ -886,14 +884,14 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.people_outline, size: 16, color: Colors.purple.shade500),
+                      Icon(Icons.people_outline, size: 16, color: teal500),
                       const SizedBox(width: 8),
                       Text(
                         'الخدام المشاركين:',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Colors.purple.shade900,
+                          color: teal900,
                         ),
                       ),
                     ],
@@ -906,16 +904,16 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.purple.shade50,
+                          color: teal50,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.purple.shade200),
+                          border: Border.all(color: teal300),
                         ),
                         child: Text(
                           name,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: Colors.purple.shade900,
+                            color: teal900,
                           ),
                         ),
                       );

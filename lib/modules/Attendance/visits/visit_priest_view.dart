@@ -149,11 +149,7 @@ class _VisitPriestViewState extends State<VisitPriestView> {
           Container(
             padding: const EdgeInsets.all(24.0),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [teal500.withValues(alpha: 0.1), teal300.withValues(alpha: 0.05)],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-              ),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: teal300, width: 1),
             ),
