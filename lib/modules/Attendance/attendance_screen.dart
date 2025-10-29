@@ -7,6 +7,10 @@ import 'package:church/modules/Attendance/child_view.dart';
 import 'package:church/modules/Attendance/priest_view.dart';
 import 'package:church/modules/Attendance/servant_view.dart';
 import 'package:church/modules/Attendance/super_servant_view.dart';
+import 'package:church/modules/Attendance/visits/visit_priest_view.dart';
+import 'package:church/modules/Attendance/visits/visit_super_servant_view.dart';
+import 'package:church/modules/Attendance/visits/visit_servant_view.dart';
+import 'package:church/modules/Attendance/visits/visit_child_view.dart';
 import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -41,9 +45,15 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     super.initState();
     cubit = AttendanceCubit();
 
-
     final userTypeEnum = widget.userType;
     final genderEnum = widget.gender;
+
+    // Load current user first
+    cubit.getCurrentUser(widget.userId).first.then((user) {
+      if (user != null) {
+        cubit.currentUser = user;
+      }
+    });
 
     if (userTypeEnum == UserType.priest) {
       // Priest can see all users: superServants, servants, and children
@@ -332,18 +342,33 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                         // Visit tab
                         Padding(
                           padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            children: [
-                              if (userTypeEnum == UserType.priest) ...[
-                                Expanded(child: PriestView(cubit, pageIndex: 4)),
-                              ] else if (userTypeEnum == UserType.superServant) ...[
-                                Expanded(child: SuperServantView(cubit, pageIndex: 4, gender: genderToJson(genderEnum))),
-                              ] else if (userTypeEnum == UserType.servant) ...[
-                                Expanded(child: ServantView(cubit: cubit, pageIndex: 4)),
-                              ] else ...[
-                                Expanded(child: ChildView(cubit, pageIndex: 4)),
-                              ],
-                            ],
+                          child: Builder(
+                            builder: (context) {
+                              if (userTypeEnum == UserType.priest) {
+                                return VisitPriestView(
+                                  users: cubit.users ?? [],
+                                  currentUser: cubit.currentUser,
+                                  attendanceCubit: cubit,
+                                );
+                              } else if (userTypeEnum == UserType.superServant) {
+                                return VisitSuperServantView(
+                                  users: cubit.users ?? [],
+                                  currentUser: cubit.currentUser,
+                                  attendanceCubit: cubit,
+                                );
+                              } else if (userTypeEnum == UserType.servant) {
+                                return VisitServantView(
+                                  users: cubit.users ?? [],
+                                  currentUser: cubit.currentUser,
+                                  attendanceCubit: cubit,
+                                );
+                              } else {
+                                return VisitChildView(
+                                  currentUser: cubit.currentUser,
+                                  attendanceCubit: cubit,
+                                );
+                              }
+                            },
                           ),
                         ),
                       ],

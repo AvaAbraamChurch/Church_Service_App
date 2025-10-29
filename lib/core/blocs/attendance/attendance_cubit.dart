@@ -1,3 +1,4 @@
+import 'package:church/core/repositories/visit_repository.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:church/core/repositories/users_reopsitory.dart';
@@ -5,17 +6,21 @@ import 'package:church/core/repositories/attendance_repository.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/models/attendance/attendance_model.dart';
 
+import '../../models/attendance/visit_model.dart';
 import 'attendance_states.dart';
 
 class AttendanceCubit extends Cubit<AttendanceState> {
   final UsersRepository usersRepository;
   final AttendanceRepository attendanceRepository;
+  final VisitRepository visitRepository;
 
   AttendanceCubit({
     UsersRepository? usersRepository,
     AttendanceRepository? attendanceRepository,
+    VisitRepository? visitRepository,
   }) : usersRepository = usersRepository ?? UsersRepository(),
        attendanceRepository = attendanceRepository ?? AttendanceRepository(),
+       visitRepository = visitRepository ?? VisitRepository(),
        super(AttendanceInitial());
 
   static AttendanceCubit get(context) => BlocProvider.of(context);
@@ -156,4 +161,54 @@ class AttendanceCubit extends Cubit<AttendanceState> {
       rethrow;
     }
   }
+
+
+  ///=====================================================Visit Functions=====================================================
+
+  /// Create or merge a visit: if a visit exists for the same child/day/type,
+  /// servants are merged (arrayUnion). Returns the visit id.
+  Future<String> createOrMergeVisit(VisitModel visit) async {
+    try {
+      emit(VisitLoading());
+      final id = await visitRepository.addOrMergeVisit(visit);
+      emit(CreateVisitSuccess(id));
+      return id;
+    } catch (e) {
+      final msg = e.toString();
+      emit(VisitError(msg));
+      rethrow;
+    }
+  }
+
+  /// Add a single servant to an existing visit by id
+  Future<void> addServantToVisit({
+    required String visitId,
+    required String servantId,
+    required String servantName,
+  }) async {
+    try {
+      emit(VisitLoading());
+      await visitRepository.addServantToVisit(
+        visitId: visitId,
+        servantId: servantId,
+        servantName: servantName,
+      );
+      emit(AddServantSuccess());
+    } catch (e) {
+      emit(VisitError(e.toString()));
+      rethrow;
+    }
+  }
+
+  /// Stream visits for a child for UI views
+  /// Note: No state emissions here since StreamBuilder handles loading/success/error states
+  Stream<List<VisitModel>> getVisitsForChild(String childId) {
+    return visitRepository.getVisitsByChildIdStream(childId);
+  }
+
+
+
+
+
+
 }

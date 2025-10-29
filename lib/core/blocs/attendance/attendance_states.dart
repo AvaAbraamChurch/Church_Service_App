@@ -1,3 +1,5 @@
+import '../../models/attendance/visit_model.dart';
+
 abstract class AttendanceState {}
 
 class AttendanceInitial extends AttendanceState {}
@@ -103,3 +105,36 @@ class takeAttendanceError extends AttendanceState {
 
   takeAttendanceError(this.error);
 }
+
+class VisitLoading extends AttendanceState {}
+
+class VisitError extends AttendanceState {
+  final String message;
+  VisitError(this.message);
+}
+
+// Creation / merge
+class CreateVisitSuccess extends AttendanceState {
+  final String visitId;
+  CreateVisitSuccess(this.visitId);
+}
+
+// Add servant to visit
+class AddServantSuccess extends AttendanceState {}
+
+// Fetch visits for child
+class GetChildVisitsLoading extends AttendanceState {}
+
+class GetChildVisitsSuccess extends AttendanceState {
+  final List<VisitModel> visits;
+  GetChildVisitsSuccess(this.visits);
+}
+
+class GetChildVisitsError extends AttendanceState {
+  final String message;
+  GetChildVisitsError(this.message);
+}
+
+
+
+
