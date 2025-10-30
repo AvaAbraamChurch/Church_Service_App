@@ -23,17 +23,17 @@ void main() async {
   );
 
 
-  // final remoteConfig = FirebaseRemoteConfig.instance;
-  // remoteConfig.onConfigUpdated.listen((event) async {
-  //   await remoteConfig.activate();
-  //
-  //   // Use the new config values here.
-  // });
+  final remoteConfig = FirebaseRemoteConfig.instance;
+  remoteConfig.onConfigUpdated.listen((event) async {
+    await remoteConfig.activate();
 
-  // await remoteConfig.setConfigSettings(RemoteConfigSettings(
-  //   fetchTimeout: const Duration(minutes: 1),
-  //   minimumFetchInterval: const Duration(hours: 1),
-  // ));
+    // Use the new config values here.
+  });
+
+  await remoteConfig.setConfigSettings(RemoteConfigSettings(
+    fetchTimeout: const Duration(minutes: 1),
+    minimumFetchInterval: const Duration(hours: 1),
+  ));
 
 
 

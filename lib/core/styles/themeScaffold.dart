@@ -9,6 +9,8 @@ class ThemedScaffold extends StatelessWidget {
   final Widget? appBar;
   final Widget? bottomNavigationBar;
   final Widget? floatingActionButton;
+  final FloatingActionButtonAnimator? floatingActionButtonAnimator;
+  final FloatingActionButtonLocation? floatingActionButtonLocation;
   final Widget? drawer;
   final String? backgroundImagePath; // Made nullable to allow remote config default
 
@@ -18,6 +20,8 @@ class ThemedScaffold extends StatelessWidget {
     this.appBar,
     this.bottomNavigationBar,
     this.floatingActionButton,
+    this.floatingActionButtonAnimator,
+    this.floatingActionButtonLocation,
     this.drawer,
     this.backgroundImagePath, // Optional: uses remote config if not provided
   });
@@ -62,6 +66,8 @@ class ThemedScaffold extends StatelessWidget {
           body: body,
           bottomNavigationBar: bottomNavigationBar,
           floatingActionButton: floatingActionButton,
+          floatingActionButtonAnimator: floatingActionButtonAnimator,
+          floatingActionButtonLocation: floatingActionButtonLocation,
           drawer: drawer,
         ),
       ],

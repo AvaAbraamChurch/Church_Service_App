@@ -138,6 +138,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
           );
         },
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           if (_currentUserId == null) return;
