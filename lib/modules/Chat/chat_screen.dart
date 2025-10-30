@@ -1,38 +1,529 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/models/messages/message_model.dart';
+import '../../core/repositories/messages_repository.dart';
 import '../../core/styles/colors.dart';
+import '../../core/styles/themeScaffold.dart';
 
-class ChattingScreen extends StatelessWidget {
-  const ChattingScreen({super.key});
+class ChattingScreen extends StatefulWidget {
+  final String receiverId;
+  final String receiverName;
+  final String? receiverImageUrl;
+
+  const ChattingScreen({
+    super.key,
+    required this.receiverId,
+    required this.receiverName,
+    this.receiverImageUrl,
+  });
+
+  @override
+  State<ChattingScreen> createState() => _ChattingScreenState();
+}
+
+class _ChattingScreenState extends State<ChattingScreen> {
+  final MessagesRepository _messagesRepository = MessagesRepository();
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  String? _currentUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    _markMessagesAsRead();
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _markMessagesAsRead() {
+    if (_currentUserId != null) {
+      _messagesRepository.markConversationAsSeen(
+        currentUserId: _currentUserId!,
+        otherUserId: widget.receiverId,
+      );
+    }
+  }
+
+  void _sendMessage() {
+    if (_messageController.text.trim().isEmpty || _currentUserId == null) {
+      return;
+    }
+
+    final message = MessageModel(
+      senderId: _currentUserId!,
+      receiverId: widget.receiverId,
+      text: _messageController.text.trim(),
+      type: MessageType.text,
+      timestamp: DateTime.now(),
+      isSeen: false,
+    );
+
+    _messagesRepository.sendMessage(message);
+    _messageController.clear();
+
+    // Scroll to bottom after sending
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-        stream: null,
-        builder: (context, snapshot) {
-          return Scaffold(
-            backgroundColor: Colors.transparent,
-            body: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: SizedBox(
-                    width: MediaQuery.of(context).size.width,
+    if (_currentUserId == null) {
+      return ThemedScaffold(
+        body: const Center(
+          child: Text(
+            'يجب تسجيل الدخول أولاً',
+            style: TextStyle(color: Colors.white, fontSize: 18),
+          ),
+        ),
+      );
+    }
+
+    return ThemedScaffold(
+      appBar: _buildAppBar(),
+      body: Column(
+        children: [
+          // Messages List
+          Expanded(
+            child: StreamBuilder<List<MessageModel>>(
+              stream: _messagesRepository.getConversation(
+                userId1: _currentUserId!,
+                userId2: widget.receiverId,
+              ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: teal300),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'حدث خطأ في تحميل الرسائل',
+                      style: TextStyle(color: red300, fontSize: 16),
+                    ),
+                  );
+                }
+
+                final messages = snapshot.data ?? [];
+
+                if (messages.isEmpty) {
+                  return Center(
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SizedBox(height: MediaQuery.of(context).padding.top,),
-                        Text('خدمة ابتدائي - بنين', style: TextStyle(color: brown300),),
-                        SizedBox(height: 10,),
-                        Text('مرحبا بك\n في تطبيق خدماتي', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),),
-                        SizedBox(height: 20,),
+                        Icon(Icons.chat_bubble_outline, size: 80, color: teal300.withValues(alpha: 0.3)),
+                        const SizedBox(height: 16),
+                        Text(
+                          'لا توجد رسائل بعد',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 18),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'ابدأ المحادثة بإرسال رسالة',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
+                        ),
                       ],
                     ),
-                  ),
-                )
+                  );
+                }
+
+                // Scroll to bottom when new messages arrive
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_scrollController.hasClients) {
+                    _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+                  }
+                });
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  itemCount: messages.length,
+                  reverse: false,
+                  itemBuilder: (context, index) {
+                    final message = messages[messages.length - 1 - index];
+                    final isMe = message.senderId == _currentUserId;
+                    final showTimestamp = _shouldShowTimestamp(messages, index);
+
+                    return Column(
+                      children: [
+                        if (showTimestamp) _buildDateDivider(message.timestamp),
+                        _buildMessageBubble(message, isMe),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
-          );
-        }
+          ),
+
+          // Message Input
+          _buildMessageInput(),
+        ],
+      ),
     );
   }
+
+  PreferredSizeWidget _buildAppBar() {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(70),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [teal700.withValues(alpha: 0.9), teal900.withValues(alpha: 0.9)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                ),
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: teal300,
+                  backgroundImage: widget.receiverImageUrl != null
+                      ? NetworkImage(widget.receiverImageUrl!)
+                      : null,
+                  child: widget.receiverImageUrl == null
+                      ? Text(
+                          widget.receiverName[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: teal900,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.receiverName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'نشط الآن',
+                        style: TextStyle(
+                          color: teal100.withValues(alpha: 0.8),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    // Add more options
+                  },
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(MessageModel message, bool isMe) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isMe) ...[
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: brown300,
+              backgroundImage: widget.receiverImageUrl != null
+                  ? NetworkImage(widget.receiverImageUrl!)
+                  : null,
+              child: widget.receiverImageUrl == null
+                  ? Text(
+                      widget.receiverName[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: isMe
+                    ? LinearGradient(
+                        colors: [teal500, teal700],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : LinearGradient(
+                        colors: [brown500.withValues(alpha: 0.9), brown700.withValues(alpha: 0.9)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(20),
+                  topRight: const Radius.circular(20),
+                  bottomLeft: Radius.circular(isMe ? 20 : 4),
+                  bottomRight: Radius.circular(isMe ? 4 : 20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message.text,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _formatTime(message.timestamp),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 11,
+                        ),
+                      ),
+                      if (isMe) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          message.isSeen ? Icons.done_all : Icons.done,
+                          size: 16,
+                          color: message.isSeen ? teal100 : Colors.white.withValues(alpha: 0.7),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isMe) const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateDivider(DateTime? timestamp) {
+    if (timestamp == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.3), thickness: 1)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: teal900.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _formatDate(timestamp),
+                style: TextStyle(
+                  color: teal100,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.3), thickness: 1)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageInput() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: teal900.withValues(alpha: 0.7),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            // Attachment button
+            Container(
+              decoration: BoxDecoration(
+                color: teal700.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                onPressed: () {
+                  // TODO: Implement attachment functionality
+                },
+                icon: const Icon(Icons.add, color: teal100),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Text input field
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: teal300.withValues(alpha: 0.3)),
+                ),
+                child: TextField(
+                  controller: _messageController,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  decoration: InputDecoration(
+                    hintText: 'اكتب رسالة...',
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  maxLines: null,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendMessage(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Send button
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [teal500, teal700],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: teal500.withValues(alpha: 0.5),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                onPressed: _sendMessage,
+                icon: const Icon(Icons.send_rounded, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _shouldShowTimestamp(List<MessageModel> messages, int index) {
+    if (index == 0) return true;
+
+    final currentIndex = messages.length - 1 - index;
+    final previousIndex = messages.length - index;
+
+    // Check if indices are valid
+    if (currentIndex < 0 || currentIndex >= messages.length ||
+        previousIndex < 0 || previousIndex >= messages.length) {
+      return false;
+    }
+
+    final currentMessage = messages[currentIndex];
+    final previousMessage = messages[previousIndex];
+
+    if (currentMessage.timestamp == null || previousMessage.timestamp == null) {
+      return false;
+    }
+
+    return !_isSameDay(currentMessage.timestamp!, previousMessage.timestamp!);
+  }
+
+  bool _isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
+  }
+
+  String _formatTime(DateTime? timestamp) {
+    if (timestamp == null) return '';
+    return DateFormat('HH:mm').format(timestamp);
+  }
+
+  String _formatDate(DateTime timestamp) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+
+    if (messageDate == today) {
+      return 'اليوم';
+    } else if (messageDate == yesterday) {
+      return 'أمس';
+    } else {
+      return DateFormat('dd/MM/yyyy').format(timestamp);
+    }
+  }
 }
+

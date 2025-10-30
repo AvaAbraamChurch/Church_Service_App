@@ -3,7 +3,6 @@ import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
-import 'core/styles/theme.dart';
 import 'shared/bloc_observer.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -24,17 +23,17 @@ void main() async {
   );
 
 
-  final remoteConfig = FirebaseRemoteConfig.instance;
-  remoteConfig.onConfigUpdated.listen((event) async {
-    await remoteConfig.activate();
+  // final remoteConfig = FirebaseRemoteConfig.instance;
+  // remoteConfig.onConfigUpdated.listen((event) async {
+  //   await remoteConfig.activate();
+  //
+  //   // Use the new config values here.
+  // });
 
-    // Use the new config values here.
-  });
-
-  await remoteConfig.setConfigSettings(RemoteConfigSettings(
-    fetchTimeout: const Duration(minutes: 1),
-    minimumFetchInterval: const Duration(hours: 1),
-  ));
+  // await remoteConfig.setConfigSettings(RemoteConfigSettings(
+  //   fetchTimeout: const Duration(minutes: 1),
+  //   minimumFetchInterval: const Duration(hours: 1),
+  // ));
 
 
 

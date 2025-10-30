@@ -5,6 +5,7 @@ import 'package:circle_nav_bar/circle_nav_bar.dart';
 import 'package:flutter/material.dart';
 import '../core/styles/colors.dart';
 import '../modules/Chat/chat_screen.dart';
+import '../modules/Chat/conversations_list_screen.dart';
 import '../modules/Home/home_screen.dart';
 import '../modules/Notifications/notifications_screen.dart';
 import '../modules/Profile/profile_screen.dart';
@@ -98,7 +99,7 @@ class _HomeLayoutState extends State<HomeLayout>
           tabIndex = index;
           },
         children: [
-          ChattingScreen(),
+          ConversationsListScreen(),
           ProfileScreen(),
           HomeScreen(userId: widget.userId),
           AttendanceScreen(userId: widget.userId, userType: widget.userType, userClass: widget.userClass, gender: widget.gender,),
