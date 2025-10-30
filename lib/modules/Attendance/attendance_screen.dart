@@ -106,6 +106,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                   preferredSize: Size.fromHeight(MediaQuery.of(context).size.height * 0.18),
                   child: Container(
                     decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(60),
+                        bottomRight: Radius.circular(60),
+                      ),
                       gradient: LinearGradient(
                         colors: [teal500, teal300],
                         begin: Alignment.topLeft,
