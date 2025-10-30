@@ -172,3 +172,95 @@ exports.getRemoteConfig = functions.https.onCall(async (data, context) => {
   }
 });
 
+/**
+ * Send push notification when a new message is created in Firestore
+ * Expected messages documents structure:
+ * {
+ *   senderId: string,
+ *   receiverId: string,
+ *   text: string,
+ *   timestamp: Timestamp,
+ *   ...
+ * }
+ */
+exports.sendMessageNotification = functions.firestore
+  .document('messages/{messageId}')
+  .onCreate(async (snap, context) => {
+    try {
+      const message = snap.data();
+      if (!message) return null;
+
+      const receiverId = message.receiverId;
+      const senderId = message.senderId;
+      const text = message.text || '';
+
+      if (!receiverId) return null;
+
+      const userRef = admin.firestore().collection('users').doc(receiverId);
+      const userDoc = await userRef.get();
+      if (!userDoc.exists) return null;
+
+      const userData = userDoc.data() || {};
+
+      // Support both array of tokens (fcmTokens) and legacy single token (fcmToken)
+      let tokens = [];
+      if (Array.isArray(userData.fcmTokens) && userData.fcmTokens.length > 0) {
+        tokens = userData.fcmTokens;
+      } else if (typeof userData.fcmToken === 'string' && userData.fcmToken.length > 0) {
+        tokens = [userData.fcmToken];
+      }
+
+      if (tokens.length === 0) {
+        console.log(`No FCM tokens for user ${receiverId}`);
+        return null;
+      }
+
+      // Build notification payload
+      const payload = {
+        notification: {
+          title: userData.displayName ? `${userData.displayName}` : 'New message',
+          body: text || 'You have a new message',
+        },
+        data: {
+          click_action: 'FLUTTER_NOTIFICATION_CLICK',
+          senderId: senderId || '',
+          messageId: context.params.messageId || '',
+        },
+      };
+
+      // Send to multiple tokens
+      const response = await admin.messaging().sendToDevice(tokens, payload);
+
+      // Collect tokens that are invalid and remove them
+      const tokensToRemove = [];
+      if (response && response.results) {
+        response.results.forEach((result, idx) => {
+          const error = result.error;
+          if (error) {
+            console.error('Error sending to', tokens[idx], error);
+            // If token is invalid or not registered, remove it from the DB
+            if (
+              error.code === 'messaging/invalid-registration-token' ||
+              error.code === 'messaging/registration-token-not-registered'
+            ) {
+              tokensToRemove.push(tokens[idx]);
+            }
+          }
+        });
+      }
+
+      // Remove invalid tokens from user document
+      for (const tkn of tokensToRemove) {
+        try {
+          await userRef.update({ fcmTokens: admin.firestore.FieldValue.arrayRemove(tkn) });
+        } catch (e) {
+          console.warn('Failed to remove token from user doc', e);
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('sendMessageNotification error:', error);
+      return null;
+    }
+  });

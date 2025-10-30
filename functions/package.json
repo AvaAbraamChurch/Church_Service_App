@@ -3,10 +3,12 @@
   "description": "Cloud Functions for Church App",
   "scripts": {
     "lint": "echo Linting... && echo Lint complete",
-    "serve": "firebase emulators:start --only functions",
+    "serve": "firebase emulators:start --only functions,firestore,ui",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
+    "dev": "nodemon --exec \"npm run serve\"",
     "deploy": "firebase deploy --only functions",
+    "test-message": "firebase emulators:exec \"node test_send_message.js\"",
     "logs": "firebase functions:log"
   },
   "engines": {
@@ -15,11 +17,11 @@
   "main": "index.js",
   "dependencies": {
     "firebase-admin": "^12.0.0",
-    "firebase-functions": "^5.0.0"
+    "firebase-functions": "^5.0.0",
+    "nodemon": "^3.1.10"
   },
   "devDependencies": {
     "firebase-functions-test": "^3.1.0"
   },
   "private": true
 }
-
