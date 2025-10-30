@@ -50,6 +50,8 @@ app.*.map.json
 /node_modules
 /Bulk_email_generator
 
+/md_files
+
 /functions/node_modules
 /functions/package-lock.json
 /functions/.env
