@@ -1,0 +1,11 @@
+{
+  "enable_custom_theme": false,
+  "theme_primary_color": "#D4FFEE",
+  "theme_secondary_color": "#003844",
+  "theme_scaffold_background_color": "#003844",
+  "theme_scaffold_background_image": "assets/images/bg.png",
+  "theme_appbar_background_color": "#D4FFEE",
+  "theme_is_dark_mode": false,
+  "theme_font_family": "Alexandria"
+}
+

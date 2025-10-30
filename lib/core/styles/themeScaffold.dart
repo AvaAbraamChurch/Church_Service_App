@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../utils/remote config/remote_config.dart';
 
-// You will need to replace 'assets/images/background.png' with your image path.
+// Default background image (used as fallback)
 const String _kDefaultBackgroundImage = 'assets/images/bg.png';
 
 class ThemedScaffold extends StatelessWidget {
@@ -9,7 +10,7 @@ class ThemedScaffold extends StatelessWidget {
   final Widget? bottomNavigationBar;
   final Widget? floatingActionButton;
   final Widget? drawer;
-  final String backgroundImagePath;
+  final String? backgroundImagePath; // Made nullable to allow remote config default
 
   const ThemedScaffold({
     super.key,
@@ -18,18 +19,36 @@ class ThemedScaffold extends StatelessWidget {
     this.bottomNavigationBar,
     this.floatingActionButton,
     this.drawer,
-    this.backgroundImagePath = _kDefaultBackgroundImage, // Default image
+    this.backgroundImagePath, // Optional: uses remote config if not provided
   });
 
   @override
   Widget build(BuildContext context) {
+    // Get background image from Remote Config if not explicitly provided
+    final remoteConfig = RemoteConfigService();
+    final String effectiveBackgroundImage = backgroundImagePath ??
+        remoteConfig.scaffoldBackgroundImage;
+
     return Stack(
       children: [
         // 1. Background Image
         Positioned.fill(
           child: Image.asset(
-            backgroundImagePath,
+            effectiveBackgroundImage,
             fit: BoxFit.cover, // Ensures the image covers the entire screen
+            errorBuilder: (context, error, stackTrace) {
+              // Fallback to default background if image fails to load
+              return Image.asset(
+                _kDefaultBackgroundImage,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  // If even the default fails, show a colored background
+                  return Container(
+                    color: remoteConfig.scaffoldBackgroundColor,
+                  );
+                },
+              );
+            },
           ),
         ),
 
@@ -44,8 +63,6 @@ class ThemedScaffold extends StatelessWidget {
           bottomNavigationBar: bottomNavigationBar,
           floatingActionButton: floatingActionButton,
           drawer: drawer,
-          // You can also apply the themed colors here if needed
-          // or rely on the theme you defined for AppBar, Nav Bar, etc.
         ),
       ],
     );

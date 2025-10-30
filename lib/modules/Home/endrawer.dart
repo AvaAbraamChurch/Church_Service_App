@@ -1,5 +1,7 @@
 import 'package:church/core/blocs/auth/auth_cubit.dart';
 import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/modules/Admin/admin_dashboard_screen.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
@@ -99,6 +101,23 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                         ),
 
                         const SizedBox(height: 12),
+
+                        // Admin Dashboard - Only for priests
+                        if (userData.userType == UserType.priest || userData.id == 'h2xPvUO88qVuVwFed9YDqV33E2A2')
+                          _buildMenuItem(
+                            context: context,
+                            icon: Icons.admin_panel_settings_rounded,
+                            title: 'لوحة التحكم',
+                            subtitle: 'إدارة إعدادات المظهر',
+                            gradient: [Colors.purple[400]!, Colors.purple[600]!],
+                            onTap: () {
+                              Navigator.pop(context);
+                              navigateTo(context, const AdminDashboardScreen());
+                            },
+                          ),
+
+                        if (userData.userType == UserType.priest)
+                          const SizedBox(height: 12),
 
                         _buildMenuItem(
                           context: context,

@@ -1,4 +1,5 @@
 import 'package:church/modules/Splash/splash_screen.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +10,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/network/local/cache_helper.dart';
 import 'core/providers/cart_provider.dart';
+import 'core/providers/theme_provider.dart';
 import 'core/blocs/auth/auth_cubit.dart';
 
 // Use the navigator key from NotificationsService
@@ -20,6 +22,21 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+
+  final remoteConfig = FirebaseRemoteConfig.instance;
+  remoteConfig.onConfigUpdated.listen((event) async {
+    await remoteConfig.activate();
+
+    // Use the new config values here.
+  });
+
+  await remoteConfig.setConfigSettings(RemoteConfigSettings(
+    fetchTimeout: const Duration(minutes: 1),
+    minimumFetchInterval: const Duration(hours: 1),
+  ));
+
+
 
   // Initialize cache helper
   await CacheHelper.init();
@@ -40,21 +57,28 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => AuthCubit(),
-      child: ChangeNotifierProvider(
-        create: (_) => CartProvider(),
-        child: MaterialApp(
-          // navigatorKey: navigatorKey, // This now uses the NotificationsService navigator key
-          localizationsDelegates: [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: [
-            Locale('ar'),
-          ],
-          debugShowCheckedModeBanner: false,
-          theme: theme,
-          home: startWidget,
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => CartProvider()),
+          ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ],
+        child: Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            return MaterialApp(
+              // navigatorKey: navigatorKey, // This now uses the NotificationsService navigator key
+              localizationsDelegates: [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: [
+                Locale('ar'),
+              ],
+              debugShowCheckedModeBanner: false,
+              theme: themeProvider.currentTheme,
+              home: startWidget,
+            );
+          },
         ),
       ),
     );
