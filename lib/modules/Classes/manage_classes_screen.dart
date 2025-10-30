@@ -44,6 +44,9 @@ class _ManageClassesScreenState extends State<ManageClassesScreen> {
     final TextEditingController nameController = TextEditingController(
       text: classToEdit?.name ?? '',
     );
+    final TextEditingController descriptionController = TextEditingController(
+      text: classToEdit?.description ?? '',
+    );
     final isEditing = classToEdit != null;
 
     showDialog(
@@ -69,137 +72,177 @@ class _ManageClassesScreenState extends State<ManageClassesScreen> {
             ],
           ),
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Icon header
-              Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [teal500, teal700],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon header
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [teal500, teal700],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: teal500.withValues(alpha: 0.4),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: teal500.withValues(alpha: 0.4),
-                      blurRadius: 15,
-                      spreadRadius: 2,
+                  child: Icon(
+                    isEditing ? Icons.edit_rounded : Icons.add_rounded,
+                    color: Colors.white,
+                    size: 36,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Title
+                Text(
+                  isEditing ? 'تعديل الأسرة' : 'إضافة أسرة جديدة',
+                  style: const TextStyle(
+                    color: teal700,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                // Name input field
+                TextField(
+                  controller: nameController,
+                  textAlign: TextAlign.right,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'اسم الأسرة',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    prefixIcon: const Icon(Icons.group_rounded, color: teal500),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: teal500, width: 2),
+                    ),
+                  ),
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                // Description input field
+                TextField(
+                  controller: descriptionController,
+                  textAlign: TextAlign.right,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'الوصف (اختياري)',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.only(bottom: 50),
+                      child: Icon(Icons.description_rounded, color: teal500),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: teal500, width: 2),
+                    ),
+                  ),
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 28),
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'إلغاء',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final name = nameController.text.trim();
+                          if (name.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              _buildSnackBar('الرجاء إدخال اسم الأسرة', isError: true),
+                            );
+                            return;
+                          }
+
+                          final description = descriptionController.text.trim();
+                          Navigator.pop(dialogContext);
+
+                          if (isEditing) {
+                            await _cubit.updateClass(
+                              classToEdit.id!,
+                              name,
+                              description: description.isEmpty ? null : description,
+                            );
+                          } else {
+                            await _cubit.addClass(
+                              name,
+                              description: description.isEmpty ? null : description,
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: teal500,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          isEditing ? 'تحديث' : 'إضافة',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                child: Icon(
-                  isEditing ? Icons.edit_rounded : Icons.add_rounded,
-                  color: Colors.white,
-                  size: 36,
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Title
-              Text(
-                isEditing ? 'تعديل الأسرة' : 'إضافة أسرة جديدة',
-                style: const TextStyle(
-                  color: teal700,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 22,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              // Input field
-              TextField(
-                controller: nameController,
-                textAlign: TextAlign.right,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'اسم الأسرة',
-                  hintStyle: TextStyle(color: Colors.grey[400]),
-                  prefixIcon: const Icon(Icons.group_rounded, color: teal500),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: teal500, width: 2),
-                  ),
-                ),
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 28),
-              // Action buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'إلغاء',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final name = nameController.text.trim();
-                        if (name.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            _buildSnackBar('الرجاء إدخال اسم الأسرة', isError: true),
-                          );
-                          return;
-                        }
-
-                        Navigator.pop(dialogContext);
-
-                        if (isEditing) {
-                          await _cubit.updateClass(classToEdit.id!, name);
-                        } else {
-                          await _cubit.addClass(name);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: teal500,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        isEditing ? 'تحديث' : 'إضافة',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -637,7 +680,7 @@ class _ManageClassesScreenState extends State<ManageClassesScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 16),
-                                    // Class name
+                                    // Class name and description
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -651,14 +694,18 @@ class _ManageClassesScreenState extends State<ManageClassesScreen> {
                                             ),
                                             textAlign: TextAlign.right,
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'أسرة',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey[600],
+                                          if (classItem.description != null &&
+                                              classItem.description!.isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              classItem.description!,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey[600],
+                                              ),
+                                              textAlign: TextAlign.right,
                                             ),
-                                          ),
+                                          ],
                                         ],
                                       ),
                                     ),

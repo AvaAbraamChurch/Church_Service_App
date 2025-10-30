@@ -41,10 +41,11 @@ class ClassesRepository {
   }
 
   /// Add a new class
-  Future<String> addClass(String name) async {
+  Future<String> addClass(String name, {String? description}) async {
     try {
       final docRef = await _firestore.collection('classes').add({
         'name': name,
+        'description': description,
         'createdAt': FieldValue.serverTimestamp(),
       });
       return docRef.id;
@@ -54,10 +55,11 @@ class ClassesRepository {
   }
 
   /// Update an existing class
-  Future<void> updateClass(String id, String name) async {
+  Future<void> updateClass(String id, String name, {String? description}) async {
     try {
       await _firestore.collection('classes').doc(id).update({
         'name': name,
+        'description': description,
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {

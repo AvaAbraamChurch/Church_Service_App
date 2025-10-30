@@ -20,7 +20,7 @@ class ClassesCubit extends Cubit<ClassesState> {
   }
 
   /// Add a new class
-  Future<void> addClass(String name) async {
+  Future<void> addClass(String name, {String? description}) async {
     if (name.trim().isEmpty) {
       emit(ClassValidationError('الرجاء إدخال اسم الأسرة'));
       return;
@@ -36,7 +36,7 @@ class ClassesCubit extends Cubit<ClassesState> {
         return;
       }
 
-      await _repository.addClass(name.trim());
+      await _repository.addClass(name.trim(), description: description?.trim());
       emit(ClassAdded());
     } catch (e) {
       emit(ClassesError('فشل في إضافة الأسرة: $e'));
@@ -44,7 +44,7 @@ class ClassesCubit extends Cubit<ClassesState> {
   }
 
   /// Update an existing class
-  Future<void> updateClass(String id, String name) async {
+  Future<void> updateClass(String id, String name, {String? description}) async {
     if (name.trim().isEmpty) {
       emit(ClassValidationError('الرجاء إدخال اسم الأسرة'));
       return;
@@ -60,7 +60,7 @@ class ClassesCubit extends Cubit<ClassesState> {
         return;
       }
 
-      await _repository.updateClass(id, name.trim());
+      await _repository.updateClass(id, name.trim(), description: description?.trim());
       emit(ClassUpdated());
     } catch (e) {
       emit(ClassesError('فشل في تحديث الأسرة: $e'));
