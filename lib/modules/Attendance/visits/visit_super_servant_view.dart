@@ -11,7 +11,7 @@ import '../../../core/styles/colors.dart';
 /// SuperServant can create visits for children and see servant visit history
 class VisitSuperServantView extends StatefulWidget {
   final List<UserModel> users;
-  final UserModel currentUser;
+  final UserModel? currentUser;
   final AttendanceCubit attendanceCubit;
 
   const VisitSuperServantView({
@@ -38,8 +38,10 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
   @override
   void initState() {
     super.initState();
-    // Auto-select current user as a servant
-    selectedServants.add(widget.currentUser);
+    // Auto-select current user as a servant if available
+    if (widget.currentUser != null) {
+      selectedServants.add(widget.currentUser!);
+    }
   }
 
   @override
@@ -53,7 +55,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
   List<UserModel> get children {
     // Only children of same gender
     final allChildren = widget.users
-        .where((u) => u.userType == UserType.child && u.gender == widget.currentUser.gender)
+        .where((u) => u.userType == UserType.child && u.gender == widget.currentUser!.gender)
         .toList()
       ..sort((a, b) => a.fullName.compareTo(b.fullName));
 
@@ -69,7 +71,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
   List<UserModel> get servants {
     // Only servants of same gender
     final allServants = widget.users
-        .where((u) => u.userType == UserType.servant && u.gender == widget.currentUser.gender)
+        .where((u) => u.userType == UserType.servant && u.gender == widget.currentUser!.gender)
         .toList()
       ..sort((a, b) => a.fullName.compareTo(b.fullName));
 
@@ -121,7 +123,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
         setState(() {
           selectedChild = null;
           selectedServants.clear();
-          selectedServants.add(widget.currentUser); // Keep current user selected
+          selectedServants.add(widget.currentUser!); // Keep current user selected
           notesController.clear();
           childSearchController.clear();
           servantSearchController.clear();
@@ -450,7 +452,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                       spacing: 8,
                       runSpacing: 8,
                       children: selectedServants.map((servant) {
-                        final isCurrentUser = servant.id == widget.currentUser.id;
+                        final isCurrentUser = servant.id == widget.currentUser!.id;
                         return Chip(
                           avatar: CircleAvatar(
                             backgroundColor: isCurrentUser ? Colors.green : teal500,
@@ -494,7 +496,7 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                       itemBuilder: (context, index) {
                         final servant = servants[index];
                         final isSelected = selectedServants.contains(servant);
-                        final isCurrentUser = servant.id == widget.currentUser.id;
+                        final isCurrentUser = servant.id == widget.currentUser!.id;
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(

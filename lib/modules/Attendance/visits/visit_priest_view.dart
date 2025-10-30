@@ -11,7 +11,7 @@ import 'package:intl/intl.dart';
 /// Priest can create visits for all user types and see all visits history
 class VisitPriestView extends StatefulWidget {
   final List<UserModel> users;
-  final UserModel currentUser;
+  final UserModel? currentUser;
   final AttendanceCubit attendanceCubit;
 
   const VisitPriestView({
@@ -38,8 +38,10 @@ class _VisitPriestViewState extends State<VisitPriestView> {
   @override
   void initState() {
     super.initState();
-    // Auto-select current user as a servant
-    selectedServants.add(widget.currentUser);
+    // Auto-select current user as a servant if available
+    if (widget.currentUser != null) {
+      selectedServants.add(widget.currentUser!);
+    }
   }
 
   @override
@@ -121,7 +123,7 @@ class _VisitPriestViewState extends State<VisitPriestView> {
         setState(() {
           selectedChild = null;
           selectedServants.clear();
-          selectedServants.add(widget.currentUser); // Keep current user selected
+          selectedServants.add(widget.currentUser!); // Keep current user selected
           notesController.clear();
           childSearchController.clear();
           servantSearchController.clear();
@@ -451,7 +453,7 @@ class _VisitPriestViewState extends State<VisitPriestView> {
                       spacing: 8,
                       runSpacing: 8,
                       children: selectedServants.map((servant) {
-                        final isCurrentUser = servant.id == widget.currentUser.id;
+                        final isCurrentUser = servant.id == widget.currentUser!.id;
                         return Chip(
                           avatar: CircleAvatar(
                             backgroundColor: isCurrentUser ? Colors.green : teal500,
@@ -495,7 +497,7 @@ class _VisitPriestViewState extends State<VisitPriestView> {
                       itemBuilder: (context, index) {
                         final servant = servants[index];
                         final isSelected = selectedServants.contains(servant);
-                        final isCurrentUser = servant.id == widget.currentUser.id;
+                        final isCurrentUser = servant.id == widget.currentUser!.id;
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(

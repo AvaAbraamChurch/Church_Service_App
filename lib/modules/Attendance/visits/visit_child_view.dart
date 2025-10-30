@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 
 /// Child can only see their own visit history
 class VisitChildView extends StatelessWidget {
-  final UserModel currentUser;
+  final UserModel? currentUser;
   final AttendanceCubit attendanceCubit;
 
   const VisitChildView({
@@ -19,6 +19,19 @@ class VisitChildView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (currentUser == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: teal500),
+            const SizedBox(height: 16),
+            const Text('جاري تحميل البيانات...'),
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -46,7 +59,7 @@ class VisitChildView extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    currentUser.fullName,
+                    currentUser!.fullName,
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -69,7 +82,7 @@ class VisitChildView extends StatelessWidget {
 
           // Visits History
           StreamBuilder<List<VisitModel>>(
-            stream: attendanceCubit.getVisitsForChild(currentUser.id),
+            stream: attendanceCubit.getVisitsForChild(currentUser!.id),
             builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Center(

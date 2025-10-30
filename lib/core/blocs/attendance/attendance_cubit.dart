@@ -25,7 +25,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
 
   static AttendanceCubit get(context) => BlocProvider.of(context);
 
-  late final UserModel currentUser;
+  UserModel? currentUser;
 
   List<UserModel>? users;
   List<AttendanceModel>? attendanceHistory;

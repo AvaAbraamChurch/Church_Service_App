@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:church/core/blocs/attendance/attendance_states.dart';
 import 'package:church/core/constants/strings.dart';
 import 'package:church/core/styles/colors.dart';
@@ -39,6 +40,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   late TabController _tabController;
   late final AttendanceCubit cubit;
   late final Stream stream;
+  StreamSubscription? _currentUserSubscription;
 
   @override
   void initState() {
@@ -48,11 +50,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     final userTypeEnum = widget.userType;
     final genderEnum = widget.gender;
 
-    // Load current user first
-    cubit.getCurrentUser(widget.userId).first.then((user) {
-      if (user != null) {
-        cubit.currentUser = user;
-      }
+    // Load current user first (subscribe to the stream to set currentUser)
+    _currentUserSubscription = cubit.getCurrentUser(widget.userId).listen((user) {
+      // currentUser is updated inside the stream
     });
 
     if (userTypeEnum == UserType.priest) {
@@ -84,6 +84,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
   @override
   void dispose() {
+    _currentUserSubscription?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -351,24 +352,24 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               if (userTypeEnum == UserType.priest) {
                                 return VisitPriestView(
                                   users: cubit.users ?? [],
-                                  currentUser: cubit.currentUser,
+                                  currentUser: cubit.currentUser!,
                                   attendanceCubit: cubit,
                                 );
                               } else if (userTypeEnum == UserType.superServant) {
                                 return VisitSuperServantView(
                                   users: cubit.users ?? [],
-                                  currentUser: cubit.currentUser,
+                                  currentUser: cubit.currentUser!,
                                   attendanceCubit: cubit,
                                 );
                               } else if (userTypeEnum == UserType.servant) {
                                 return VisitServantView(
                                   users: cubit.users ?? [],
-                                  currentUser: cubit.currentUser,
+                                  currentUser: cubit.currentUser!,
                                   attendanceCubit: cubit,
                                 );
                               } else {
                                 return VisitChildView(
-                                  currentUser: cubit.currentUser,
+                                  currentUser: cubit.currentUser!,
                                   attendanceCubit: cubit,
                                 );
                               }
