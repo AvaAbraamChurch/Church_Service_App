@@ -79,6 +79,7 @@ class AdminService {
         userType: UserTypeX.fromCode(data['userType'] ?? 'CH'),
         gender: GenderX.fromCode(data['gender'] ?? 'M'),
         userClass: data['class'] ?? '',
+        serviceType: data['serviceType'],
         profileImageUrl: data['profileImageUrl'],
         couponPoints: data['couponPoints'] ?? 0,
         firstLogin: data['firstLogin'] ?? true,

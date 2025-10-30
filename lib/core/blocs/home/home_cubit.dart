@@ -14,19 +14,19 @@ class HomeCubit extends Cubit<HomeState> {
 
   UserModel ? currentUser;
 
-  // Fetch user data
-  Future<UserModel?> getUserById(String userId) async {
-    try {
-      emit(getUserLoadingState());
-      final userData = await _usersRepository.getUserById(userId);
-      currentUser = userData;
-      emit(getUserSuccessState());
-      return currentUser;
-        } catch (e) {
+  // Fetch user data as stream
+  Stream<UserModel?> getUserById(String userId) {
+    emit(getUserLoadingState());
+    return _usersRepository.getUserByIdStream(userId).map((user) {
+      if (user != null) {
+        currentUser = user;
+        emit(getUserSuccessState());
+      }
+      return user;
+    }).handleError((e) {
       emit(getUserErrorState(e.toString()));
       print(e.toString());
-      return null;
-    }
+    });
   }
 
 }

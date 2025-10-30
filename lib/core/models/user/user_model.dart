@@ -1,3 +1,4 @@
+import 'package:church/core/utils/service_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -14,6 +15,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// - userType (enum)
 /// - gender (enum)
 /// - userClass
+/// - serviceType (enum)
 /// - profileImageUrl (optional)
 /// - couponPoints
 /// - createdAt
@@ -29,6 +31,7 @@ class UserModel {
   final UserType userType;
   final Gender gender;
   final String userClass;
+  final ServiceType serviceType;
   final String? profileImageUrl;
   final int couponPoints;
   final DateTime? createdAt;
@@ -43,6 +46,7 @@ class UserModel {
     required this.userType,
     required this.gender,
     required this.userClass,
+    required this.serviceType,
     this.phoneNumber,
     this.address,
     this.profileImageUrl,
@@ -62,6 +66,7 @@ class UserModel {
     UserType? userType,
     Gender? gender,
     String? userClass,
+    ServiceType? serviceType,
     String? profileImageUrl,
     int? couponPoints,
     bool? firstLogin,
@@ -76,6 +81,7 @@ class UserModel {
       userType: userType ?? this.userType,
       gender: gender ?? this.gender,
       userClass: userClass ?? this.userClass,
+      serviceType: serviceType ?? this.serviceType,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       couponPoints: couponPoints ?? this.couponPoints,
       firstLogin: firstLogin ?? this.firstLogin,
@@ -96,6 +102,7 @@ class UserModel {
       'userType': userType.code, // e.g., 'PR','SS','SV','CH'
       'gender': gender.code, // 'M' or 'F'
       'class': userClass,
+      'serviceType': serviceType.key, // e.g., 'primary_boys'
       'firstLogin': firstLogin,
     };
   }
@@ -113,6 +120,7 @@ class UserModel {
       userType: userTypeFromJson(data['userType']),
       gender: genderFromJson(data['gender']),
       userClass: (data['class'] ?? data['userClass'])!.toString(),
+      serviceType: serviceTypeFromJson(data['serviceType']),
       couponPoints: (data['couponPoints'] ?? 0) as int,
       firstLogin: (data['firstLogin'] ?? true) as bool,
     );

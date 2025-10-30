@@ -8,6 +8,21 @@ const registerNow = 'سجل الآن';
 const alreadyHaveAccount = 'هل لديك حساب؟ تسجيل الدخول';
 const invalidCredentials = 'بيانات الاعتماد غير صحيحة';
 
+const primaryService_boys = 'خدمة ابتدائي - بنين';
+const primaryService_girls = 'خدمة ابتدائي - بنات';
+const preparatoryService_boys = 'خدمة إعدادي - بنين';
+const preparatoryService_girls = 'خدمة إعدادي - بنات';
+const secondaryService_boys = 'خدمة ثانوي - بنين';
+const secondaryService_girls = 'خدمة ثانوي - بنات';
+const youthService_boys = 'خدمة شباب - شباب';
+const youthService_girls = 'خدمة شباب - فتيات';
+
+const primary = 'ابتدائي';
+const preparatory = 'إعدادي';
+const secondary = 'ثانوي';
+const youth = 'شباب';
+
+
 
 const fullName = 'الاسم الكامل';
 const username = 'اسم المستخدم';

@@ -107,6 +107,7 @@ class AuthCubit extends Cubit<AuthState> {
           gender: genderValue,
           userType: userTypeValue,
           userClass: extraData?['userClass'] ?? '',
+          serviceType: extraData?['serviceType'],
           profileImageUrl: profileImageUrl,
         );
         emit(AuthSuccess(userData, user.uid, userData.userType, userData.userClass, userData.gender, userData.firstLogin));

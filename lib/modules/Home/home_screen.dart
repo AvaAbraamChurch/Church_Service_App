@@ -1,6 +1,7 @@
 import 'package:church/core/blocs/home/home_cubit.dart';
 import 'package:church/core/blocs/home/home_states.dart';
 import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/utils/service_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';
 import 'package:flutter/material.dart';
@@ -187,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
     cubit = HomeCubit();
     // currentUser = cubit.currentUser!;
-    userStream = cubit.getUserById(widget.userId).asStream();
+    userStream = cubit.getUserById(widget.userId);
   }
 
   @override
@@ -217,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 padding: const EdgeInsets.all(20.0),
                                 child: Row(
                                   children: [
-                                    Text('خدمة ابتدائي - بنين', style: TextStyle(color: brown300, fontSize: 20),),
+                                    Text(cubit.currentUser!.serviceType.displayName, style: TextStyle(color: brown300, fontSize: 20),),
                                     Spacer(),
                                     Container(
                                         width: 60,
