@@ -166,33 +166,36 @@ class _HomeLayoutState extends State<HomeLayout>
         ];
 
     return ThemedScaffold(
-      bottomNavigationBar: Directionality(
-        textDirection: TextDirection.ltr,
-        child: StreamBuilder<int>(
-          stream: unreadStream,
-          initialData: 0,
-          builder: (context, snapshot) {
-            final unread = snapshot.data ?? 0;
-            return CircleNavBar(
-              height: MediaQuery.of(context).size.height * 0.06,
-              circleWidth: MediaQuery.of(context).size.height * 0.06,
-              shadowColor: Colors.black54,
-              circleColor: teal500,
-              activeIndex: tabIndex,
-              activeIcons: buildActiveIcons(unread),
-              inactiveIcons: buildInactiveIcons(unread),
-              onTap: (index) {
-                tabIndex = index;
-                pageController.jumpToPage(tabIndex);
-              },
-              color: teal100,
-              cornerRadius: const BorderRadius.only(
-                topLeft: Radius.circular(60),
-                topRight: Radius.circular(60),
-              ),
-              elevation: 10,
-            );
-          },
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: StreamBuilder<int>(
+            stream: unreadStream,
+            initialData: 0,
+            builder: (context, snapshot) {
+              final unread = snapshot.data ?? 0;
+              return CircleNavBar(
+                height: MediaQuery.of(context).size.height * 0.06,
+                circleWidth: MediaQuery.of(context).size.height * 0.06,
+                shadowColor: Colors.black54,
+                circleColor: teal500,
+                activeIndex: tabIndex,
+                activeIcons: buildActiveIcons(unread),
+                inactiveIcons: buildInactiveIcons(unread),
+                onTap: (index) {
+                  tabIndex = index;
+                  pageController.jumpToPage(tabIndex);
+                },
+                color: teal100,
+                cornerRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(5),
+                  topRight: Radius.circular(5),
+                ),
+                elevation: 10,
+              );
+            },
+          ),
         ),
       ),
       body: PageView(

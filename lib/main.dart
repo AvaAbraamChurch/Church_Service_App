@@ -196,9 +196,10 @@ void main() async {
   try {
     await remoteConfig.setConfigSettings(RemoteConfigSettings(
       fetchTimeout: const Duration(seconds: 60),
-      minimumFetchInterval: const Duration(hours: 1),
+      minimumFetchInterval: const Duration(seconds: 5),
     ));
     await remoteConfig.fetchAndActivate();
+    print('Remote Config fetched and activated.');
   } catch (e) {
     // avoid crashing on plugin issues; log and continue
     print('`Remote Config fetch/activate failed`: $e');
