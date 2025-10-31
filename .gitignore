@@ -54,5 +54,5 @@ app.*.map.json
 
 /functions/node_modules
 /functions/package-lock.json
-/functions/.env
+/functions/run.txt
 /functions/.env.local

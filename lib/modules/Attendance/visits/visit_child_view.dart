@@ -353,7 +353,7 @@ class VisitChildView extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      DateFormat('HH:mm').format(visit.date),
+                      DateFormat('hh:mm a').format(visit.date),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,

@@ -175,38 +175,92 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     return PreferredSize(
-      preferredSize: const Size.fromHeight(70),
+      preferredSize: const Size.fromHeight(80),
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [teal700.withValues(alpha: 0.9), teal900.withValues(alpha: 0.9)],
+            colors: [
+              teal700.withValues(alpha: 0.95),
+              teal900.withValues(alpha: 0.95),
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Row(
               children: [
-                const Icon(Icons.chat_bubble_rounded, color: teal100, size: 28),
-                const SizedBox(width: 12),
-                const Text(
-                  'المحادثات',
-                  style: TextStyle(
+                // Modern icon with background
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.chat_bubble_rounded,
                     color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                    size: 26,
                   ),
                 ),
+                const SizedBox(width: 14),
+                // Title with subtitle
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'المحادثات',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    StreamBuilder<int>(
+                      stream: _currentUserId != null
+                          ? _messagesRepository.getUnreadMessageCount(_currentUserId!)
+                          : const Stream.empty(),
+                      builder: (context, snapshot) {
+                        final unreadCount = snapshot.data ?? 0;
+                        if (unreadCount == 0) {
+                          return Text(
+                            'لا توجد رسائل جديدة',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          );
+                        }
+                        return Text(
+                          '$unreadCount ${unreadCount == 1 ? 'رسالة جديدة' : 'رسائل جديدة'}',
+                          style: TextStyle(
+                            color: teal100,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
                 const Spacer(),
+                // Modern badge
                 StreamBuilder<int>(
                   stream: _currentUserId != null
                       ? _messagesRepository.getUnreadMessageCount(_currentUserId!)
@@ -216,17 +270,31 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                     if (unreadCount == 0) return const SizedBox.shrink();
 
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      constraints: const BoxConstraints(minWidth: 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: red500,
-                        borderRadius: BorderRadius.circular(12),
+                        gradient: LinearGradient(
+                          colors: [red500, red700],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: red500.withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Text(
-                        unreadCount.toString(),
+                        unreadCount > 99 ? '99+' : unreadCount.toString(),
+                        textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     );
@@ -405,7 +473,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     final difference = now.difference(timestamp);
 
     if (difference.inDays == 0) {
-      return DateFormat('HH:mm').format(timestamp);
+      return DateFormat('hh:mm a').format(timestamp);
     } else if (difference.inDays == 1) {
       return 'أمس';
     } else if (difference.inDays < 7) {
