@@ -7,6 +7,9 @@ import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../core/services/coupon_points_service.dart';
 
 class SuperServantView extends StatefulWidget {
   final AttendanceCubit cubit;
@@ -30,6 +33,7 @@ class _SuperServantViewState extends State<SuperServantView> {
 
   // Step 2: User attendance tracking
   final Map<String, AttendanceStatus> attendanceMap = {};
+  final Map<String, int> userPointsMap = {};
 
   // Local copy of loaded users based on selected type and gender
   List<UserModel> _loadedUsers = [];
@@ -38,6 +42,7 @@ class _SuperServantViewState extends State<SuperServantView> {
   List<UserModel> chidrenList = [];
   final searchController = TextEditingController();
   bool isSubmitting = false;
+  final CouponPointsService _pointsService = CouponPointsService();
 
   // Loading indicator for fetching users based on selected type and gender
   bool isLoadingUsers = false;
@@ -67,8 +72,10 @@ class _SuperServantViewState extends State<SuperServantView> {
 
   void _initializeAttendanceFrom(List<UserModel> users) {
     attendanceMap.clear();
+    userPointsMap.clear();
     for (var user in users) {
       attendanceMap[user.id] = AttendanceStatus.absent;
+      userPointsMap[user.id] = user.couponPoints;
     }
     _loadedUsers = List<UserModel>.from(users);
     filteredUsers = List.from(widget.cubit.users!);
@@ -188,6 +195,406 @@ class _SuperServantViewState extends State<SuperServantView> {
         setState(() {
           isSubmitting = false;
         });
+      }
+    }
+  }
+
+  void _showBulkPointsDialog() {
+    final TextEditingController pointsController = TextEditingController();
+    final TextEditingController reasonController = TextEditingController(text: 'حضور - ${_getAttendanceTypeFromIndex(widget.pageIndex)}');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: teal100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.card_giftcard, color: teal700, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'إضافة نقاط للمخدومين',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'سيتم إضافة النقاط فقط للمخدومين الحاضرين',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: pointsController,
+                keyboardType: TextInputType.numberWithOptions(signed: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^-?\d*')),
+                ],
+                decoration: InputDecoration(
+                  labelText: 'عدد النقاط',
+                  hintText: 'أدخل عدد النقاط (موجب أو سالب)',
+                  prefixIcon: Icon(Icons.add_circle_outline, color: teal500),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: teal500, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: 'السبب',
+                  hintText: 'سبب إضافة النقاط',
+                  prefixIcon: Icon(Icons.notes, color: teal500),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: teal500, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: teal50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: teal300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: teal700, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'يمكنك إدخال قيم سالبة لخصم النقاط',
+                        style: TextStyle(fontSize: 12, color: teal900),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final pointsText = pointsController.text.trim();
+              final reason = reasonController.text.trim();
+
+              if (pointsText.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('الرجاء إدخال عدد النقاط'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              final points = int.tryParse(pointsText);
+              if (points == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('الرجاء إدخال رقم صحيح'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              if (reason.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('الرجاء إدخال السبب'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              Navigator.pop(context);
+              await _applyBulkPoints(points, reason);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: teal500,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text('تطبيق', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _applyBulkPoints(int points, String reason) async {
+    try {
+      setState(() => isSubmitting = true);
+
+      // Get only present children
+      final presentChildren = attendanceMap.entries
+          .where((entry) => entry.value == AttendanceStatus.present)
+          .map((entry) => entry.key)
+          .where((userId) {
+            final user = _loadedUsers.firstWhere((u) => u.id == userId);
+            return user.userType.code == UserType.child.code;
+          })
+          .toList();
+
+      if (presentChildren.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('لا يوجد مخدومين حاضرين لإضافة النقاط لهم'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      final result = await _pointsService.bulkSetPoints(
+        presentChildren,
+        points,
+        reason,
+        widget.cubit.currentUser?.id ?? 'system',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'تم ${points >= 0 ? 'إضافة' : 'خصم'} ${points.abs()} نقطة لـ ${result['successCount']} مخدوم بنجاح',
+              style: const TextStyle(fontFamily: 'Alexandria'),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Refresh user points
+        for (var userId in presentChildren) {
+          final currentPoints = await _pointsService.getUserPoints(userId);
+          setState(() {
+            userPointsMap[userId] = currentPoints;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في تطبيق النقاط: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isSubmitting = false);
+      }
+    }
+  }
+
+  void _showIndividualPointsDialog(UserModel user) {
+    final TextEditingController pointsController = TextEditingController();
+    final TextEditingController reasonController = TextEditingController(text: 'تعديل يدوي');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: teal100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.person, color: teal700, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.fullName,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'النقاط الحالية: ${userPointsMap[user.id] ?? user.couponPoints}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: pointsController,
+                keyboardType: TextInputType.numberWithOptions(signed: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^-?\d*')),
+                ],
+                decoration: InputDecoration(
+                  labelText: 'عدد النقاط',
+                  hintText: 'أدخل عدد النقاط (موجب أو سالب)',
+                  prefixIcon: Icon(Icons.add_circle_outline, color: teal500),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: teal500, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: 'السبب',
+                  hintText: 'سبب التعديل',
+                  prefixIcon: Icon(Icons.notes, color: teal500),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: teal500, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final pointsText = pointsController.text.trim();
+              final reason = reasonController.text.trim();
+
+              if (pointsText.isEmpty || reason.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('الرجاء ملء جميع الحقول'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              final points = int.tryParse(pointsText);
+              if (points == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('الرجاء إدخال رقم صحيح'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              Navigator.pop(context);
+              await _applyIndividualPoints(user.id, points, reason);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: teal500,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text('تطبيق', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _applyIndividualPoints(String userId, int points, String reason) async {
+    try {
+      setState(() => isSubmitting = true);
+
+      await _pointsService.setPoints(
+        userId,
+        points,
+        reason,
+        widget.cubit.currentUser?.id ?? 'system',
+      );
+
+      // Refresh user points
+      final currentPoints = await _pointsService.getUserPoints(userId);
+      setState(() {
+        userPointsMap[userId] = currentPoints;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'تم ${points >= 0 ? 'إضافة' : 'خصم'} ${points.abs()} نقطة بنجاح',
+              style: const TextStyle(fontFamily: 'Alexandria'),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في تطبيق النقاط: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isSubmitting = false);
       }
     }
   }
@@ -569,6 +976,34 @@ class _SuperServantViewState extends State<SuperServantView> {
                 ),
         ),
 
+        // Bulk points button (only for children)
+        if (userType.code == UserType.child.code)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: (isSubmitting || isLoadingUsers) ? null : _showBulkPointsDialog,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: teal700,
+                  side: BorderSide(color: teal500, width: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: Icon(Icons.card_giftcard, color: teal700, size: 22),
+                label: const Text(
+                  'إضافة نقاط للحاضرين',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Alexandria',
+                  ),
+                ),
+              ),
+            ),
+          ),
         // Submit button
         Padding(
           padding: const EdgeInsets.all(16),
@@ -750,9 +1185,34 @@ class _SuperServantViewState extends State<SuperServantView> {
                             ],
                           ),
                         ),
+                        // Show points for children
+                        if (user.userType.code == UserType.child.code) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(Icons.card_giftcard, size: 14, color: teal500),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${userPointsMap[user.id] ?? user.couponPoints} نقطة',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: teal700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
+                  // Points edit button for children
+                  if (user.userType.code == UserType.child.code)
+                    IconButton(
+                      onPressed: () => _showIndividualPointsDialog(user),
+                      icon: Icon(Icons.edit, color: teal500, size: 20),
+                      tooltip: 'تعديل النقاط',
+                    ),
                 ],
               ),
               const SizedBox(height: 16),

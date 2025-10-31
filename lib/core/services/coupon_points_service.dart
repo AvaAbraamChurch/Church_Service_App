@@ -156,5 +156,107 @@ class CouponPointsService {
   bool canCoverOrderWithPoints(int availablePoints, double orderTotal) {
     return availablePoints >= orderTotal.ceil();
   }
+
+  /// Set points for a user (can be positive or negative adjustment)
+  /// Used by servants/super servants to manually adjust points
+  Future<void> setPoints(
+    String userId,
+    int pointsToAdjust,
+    String reason,
+    String adjustedBy,
+  ) async {
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final userRef = _firestore.collection('users').doc(userId);
+        final userDoc = await transaction.get(userRef);
+
+        if (!userDoc.exists) {
+          throw Exception('User not found');
+        }
+
+        final currentPoints = (userDoc.data() as Map<String, dynamic>)['couponPoints'] as int? ?? 0;
+        final newPoints = currentPoints + pointsToAdjust;
+
+        // Prevent negative points
+        if (newPoints < 0) {
+          throw Exception('Points cannot be negative');
+        }
+
+        transaction.update(userRef, {
+          'couponPoints': newPoints,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        // Log the transaction
+        final transactionRef = _firestore.collection('pointsTransactions').doc();
+        transaction.set(transactionRef, {
+          'userId': userId,
+          'points': pointsToAdjust,
+          'type': pointsToAdjust >= 0 ? 'MANUAL_ADDITION' : 'MANUAL_DEDUCTION',
+          'reason': reason,
+          'adjustedBy': adjustedBy,
+          'previousBalance': currentPoints,
+          'newBalance': newPoints,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (e) {
+      throw Exception('Failed to set points: $e');
+    }
+  }
+
+  /// Bulk set points for multiple users
+  /// Used by servants/super servants to reward attendance with points
+  Future<Map<String, dynamic>> bulkSetPoints(
+    List<String> userIds,
+    int pointsToAdjust,
+    String reason,
+    String adjustedBy,
+  ) async {
+    int successCount = 0;
+    int failCount = 0;
+    List<String> failedUserIds = [];
+
+    for (final userId in userIds) {
+      try {
+        await setPoints(userId, pointsToAdjust, reason, adjustedBy);
+        successCount++;
+      } catch (e) {
+        failCount++;
+        failedUserIds.add(userId);
+      }
+    }
+
+    return {
+      'successCount': successCount,
+      'failCount': failCount,
+      'failedUserIds': failedUserIds,
+      'totalProcessed': userIds.length,
+    };
+  }
+
+  /// Get user's points transaction history (paginated)
+  Future<List<Map<String, dynamic>>> getUserTransactionHistory(
+    String userId, {
+    int limit = 50,
+  }) async {
+    try {
+      final snapshot = await _firestore
+          .collection('pointsTransactions')
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => {
+                'id': doc.id,
+                ...doc.data(),
+              })
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get transaction history: $e');
+    }
+  }
 }
 
