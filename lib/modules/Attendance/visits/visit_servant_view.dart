@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:church/core/blocs/attendance/attendance_cubit.dart';
 import 'package:church/core/models/attendance/visit_model.dart';
 import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/repositories/users_reopsitory.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/visit_enum.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +39,12 @@ class _VisitServantViewState extends State<VisitServantView> {
   String childSearchQuery = '';
   String servantSearchQuery = '';
 
+  // Firestore repository and streams
+  final UsersRepository _usersRepository = UsersRepository();
+  StreamSubscription? _usersSubscription;
+  List<UserModel> _fetchedUsers = [];
+  bool _isLoadingUsers = true;
+
   @override
   void initState() {
     super.initState();
@@ -42,10 +52,44 @@ class _VisitServantViewState extends State<VisitServantView> {
     if (widget.currentUser != null) {
       selectedServants.add(widget.currentUser!);
     }
+
+    // Fetch users from Firestore
+    _fetchUsersFromFirestore();
+  }
+
+  void _fetchUsersFromFirestore() {
+    if (widget.currentUser == null) return;
+
+    // Servant can see children of same class and gender, plus servants/super servants of same gender
+    _usersSubscription = _usersRepository
+        .getUsersByMultipleTypes(
+          widget.currentUser!.userClass,
+          ['CH', 'SV', 'SS'], // Children, Servants, Super Servants
+          widget.currentUser!.gender.code,
+        )
+        .listen(
+          (users) {
+            if (mounted) {
+              setState(() {
+                _fetchedUsers = users;
+                _isLoadingUsers = false;
+              });
+            }
+          },
+          onError: (error) {
+            debugPrint('Error fetching users: $error');
+            if (mounted) {
+              setState(() {
+                _isLoadingUsers = false;
+              });
+            }
+          },
+        );
   }
 
   @override
   void dispose() {
+    _usersSubscription?.cancel();
     notesController.dispose();
     childSearchController.dispose();
     servantSearchController.dispose();
@@ -53,8 +97,8 @@ class _VisitServantViewState extends State<VisitServantView> {
   }
 
   List<UserModel> get children {
-    // Only children of same class and gender
-    final allChildren = widget.users
+    // Only children of same class and gender from fetched users
+    final allChildren = _fetchedUsers
         .where((u) =>
             u.userType == UserType.child &&
             u.userClass == widget.currentUser!.userClass &&
@@ -72,11 +116,10 @@ class _VisitServantViewState extends State<VisitServantView> {
   }
 
   List<UserModel> get servants {
-    // Only servants of same class and gender
-    final allServants = widget.users
+    // Only servants and super servants of same gender (any class) from fetched users
+    final allServants = _fetchedUsers
         .where((u) =>
-            u.userType == UserType.servant &&
-            u.userClass == widget.currentUser!.userClass &&
+            (u.userType == UserType.servant || u.userType == UserType.superServant) &&
             u.gender == widget.currentUser!.gender)
         .toList()
       ..sort((a, b) => a.fullName.compareTo(b.fullName));
@@ -175,6 +218,27 @@ class _VisitServantViewState extends State<VisitServantView> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading indicator while fetching users
+    if (_isLoadingUsers) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: teal500),
+            const SizedBox(height: 16),
+            Text(
+              'جاري تحميل البيانات...',
+              style: TextStyle(
+                fontSize: 16,
+                color: teal700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
