@@ -9,6 +9,7 @@ import 'package:church/core/services/image_upload_service.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/gender_enum.dart';
+import 'package:church/core/utils/service_enum.dart';
 import 'package:church/layout/home_layout.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
@@ -50,6 +51,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
   bool _obscureConfirmPassword = true;
   Gender? _selectedGender;
   Model? _selectedClass;
+  ServiceType? _selectedServiceType;
+  DateTime? _birthday;
   File? _selectedImage;
   final ImageUploadService _imageService = ImageUploadService();
   final UsersRepository _userRepository = UsersRepository();
@@ -73,8 +76,10 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
       text: widget.user.phoneNumber ?? '',
     );
 
-    // Initialize gender from user model
+    // Initialize gender, birthday, and service type from user model
     _selectedGender = widget.user.gender;
+    _birthday = widget.user.birthday;
+    _selectedServiceType = widget.user.serviceType;
 
     // Add listeners to update button state when text changes
     _currentPasswordController.addListener(_updateButtonState);
@@ -301,6 +306,37 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     }
   }
 
+  Future<void> _selectBirthday() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _birthday ?? DateTime.now().subtract(const Duration(days: 365 * 10)),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: teal500,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: teal900,
+            ),
+            dialogTheme: const DialogThemeData(
+              backgroundColor: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _birthday = picked;
+      });
+    }
+  }
+
   // Step validation
   bool _validateCurrentStep() {
     if (_currentStep == 0) {
@@ -320,7 +356,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
       // Church info step
       return _addressController.text.trim().isNotEmpty &&
           _phoneController.text.trim().isNotEmpty &&
-          _selectedClass != null;
+          _selectedClass != null &&
+          _selectedServiceType != null;
     }
   }
 
@@ -411,7 +448,9 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
         'phoneNumber': _phoneController.text.trim(),
         'gender': _selectedGender!.code,
         'userClass': _selectedClass!.name ?? '',
+        if (_selectedServiceType != null) 'serviceType': _selectedServiceType!.key,
         if (profileImageUrl != null) 'profileImage': profileImageUrl,
+        if (_birthday != null) 'birthday': _birthday,
         'firstLogin': false,
       };
 
@@ -872,6 +911,78 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
 
         const SizedBox(height: 20),
 
+        // Birthday field
+        _buildModernFieldCard(
+          title: 'تاريخ الميلاد',
+          icon: Icons.cake,
+          color: Colors.purple,
+          child: GestureDetector(
+            onTap: _selectBirthday,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Colors.purple, Colors.deepPurple],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.purple.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.cake_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'تاريخ الميلاد',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontFamily: 'Alexandria',
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _birthday != null
+                              ? '${_birthday!.day}/${_birthday!.month}/${_birthday!.year}'
+                              : 'اضغط لاختيار تاريخ الميلاد',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontFamily: 'Alexandria',
+                            fontWeight: _birthday != null ? FontWeight.w500 : FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.calendar_today_rounded,
+                    color: Colors.white.withValues(alpha: 0.7),
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
         // Profile Image Picker
         _buildModernFieldCard(
           title: 'صورة الملف الشخصي',
@@ -1244,6 +1355,81 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                 ),
               );
             },
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Service Type Dropdown
+        _buildModernFieldCard(
+          title: 'نوع الخدمة',
+          icon: Icons.church,
+          color: brown300,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [brown300, Color(0xFFCDA86C)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: DropdownButtonFormField<ServiceType>(
+              value: _selectedServiceType,
+              decoration: InputDecoration(
+                hintText: 'اختر نوع الخدمة',
+                hintStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontFamily: 'Alexandria',
+                  fontSize: 14,
+                ),
+                prefixIcon: const Icon(
+                  Icons.calendar_view_week_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 18,
+                ),
+              ),
+              dropdownColor: brown300,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontFamily: 'Alexandria',
+              ),
+              icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 28),
+              items: ServiceType.values.map((service) {
+                return DropdownMenuItem<ServiceType>(
+                  value: service,
+                  child: Text(
+                    service.displayName,
+                    style: const TextStyle(
+                      fontFamily: 'Alexandria',
+                    ),
+                  ),
+                );
+              }).toList(),
+              onChanged: (ServiceType? value) {
+                setState(() => _selectedServiceType = value);
+              },
+              validator: (value) {
+                if (value == null) {
+                  return 'الرجاء اختيار نوع الخدمة';
+                }
+                return null;
+              },
+            ),
           ),
         ),
       ],

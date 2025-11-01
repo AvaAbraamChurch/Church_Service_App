@@ -11,6 +11,7 @@ import '../../../core/styles/themeScaffold.dart';
 import '../../../shared/widgets.dart';
 import '../../../core/utils/gender_enum.dart';
 import '../../../core/utils/userType_enum.dart';
+import '../../../core/utils/service_enum.dart';
 import '../../../core/services/image_upload_service.dart';
 import '../../../core/repositories/classes_repository.dart';
 import '../../../core/models/Classes/classes_model.dart';
@@ -39,6 +40,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Gender? _gender;
   UserType? _userType;
   Model? _selectedClass;
+  ServiceType? _selectedServiceType;
+  DateTime? _birthday;
 
   // Image selection
   File? _selectedImage;
@@ -142,6 +145,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  Future<void> _selectBirthday() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _birthday ?? DateTime.now().subtract(const Duration(days: 365 * 10)),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: teal500,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: teal900,
+            ),
+            dialogTheme: const DialogThemeData(
+              backgroundColor: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _birthday = picked;
+      });
+    }
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     try {
       final File? imageFile;
@@ -194,7 +228,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) return;
 
-    if (_gender == null || _userType == null || _selectedClass == null) {
+    if (_gender == null || _userType == null || _selectedClass == null || _selectedServiceType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(fillAllFields)),
       );
@@ -286,6 +320,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'phoneNumber': _phoneController.text.trim(),
         'userType': _userType!.code, // String code 'PR', 'SS', 'SV' or 'CH'
         'userClass': _selectedClass!.name ?? '', // Use selected class name
+        'serviceType': _selectedServiceType!.key, // Service type key
+        if (_birthday != null) 'birthday': _birthday,
       };
 
       await cubit.signUp(
@@ -484,51 +520,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
               context: context,
               barrierDismissible: false,
               builder: (_) => Center(
-                child: Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: teal100,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: teal300.withValues(alpha: 0.3),
-                              blurRadius: 15,
-                              spreadRadius: 3,
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: SizedBox(
-                            width: 40,
-                            height: 40,
-                            child: CircularProgressIndicator(
-                              color: teal500,
-                              strokeWidth: 3,
+                child: Dialog(
+                  backgroundColor: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: teal100,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: teal300.withValues(alpha: 0.3),
+                                blurRadius: 15,
+                                spreadRadius: 3,
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: CircularProgressIndicator(
+                                color: teal500,
+                                strokeWidth: 3,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'جاري إنشاء الحساب...',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: teal900,
-                          fontFamily: 'Alexandria',
+                        const SizedBox(height: 24),
+                        Text(
+                          'جاري إنشاء الحساب...',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: teal900,
+                            fontFamily: 'Alexandria',
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -760,6 +799,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               end: Alignment.bottomRight,
             ),
           ),
+          const SizedBox(height: 20),
+
+          _buildBirthdayField(),
           const SizedBox(height: 24),
         ],
       ),
@@ -881,6 +923,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 32),
 
           _buildModernUserTypeDropdown(),
+
+          const SizedBox(height: 20),
+          // Service Type Dropdown
+          _buildServiceTypeDropdown(),
+
           const SizedBox(height: 20),
 
           // Classes Dropdown from Database
@@ -1258,6 +1305,74 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  // Birthday field with date picker
+  Widget _buildBirthdayField() {
+    return GestureDetector(
+      onTap: _selectBirthday,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [teal500, teal700],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+              spreadRadius: 0,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.cake_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'تاريخ الميلاد',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontFamily: 'Alexandria',
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _birthday != null
+                        ? '${_birthday!.day}/${_birthday!.month}/${_birthday!.year}'
+                        : 'اضغط لاختيار تاريخ الميلاد',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontFamily: 'Alexandria',
+                      fontWeight: _birthday != null ? FontWeight.w500 : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.calendar_today_rounded,
+              color: Colors.white.withValues(alpha: 0.7),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Modern user type dropdown with gradient
   Widget _buildModernUserTypeDropdown() {
     return Container(
@@ -1340,6 +1455,74 @@ class _RegisterScreenState extends State<RegisterScreen> {
         validator: (value) {
           if (value == null) {
             return 'الرجاء اختيار نوع المستخدم';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  // Service type dropdown with gradient
+  Widget _buildServiceTypeDropdown() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [teal500, teal700],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: DropdownButtonFormField<ServiceType>(
+        value: _selectedServiceType,
+        decoration: InputDecoration(
+          hintText: 'الخدمة',
+          hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontFamily: 'Alexandria',
+            fontSize: 16,
+          ),
+          prefixIcon: const Icon(
+            Icons.calendar_view_week_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 18,
+          ),
+        ),
+        dropdownColor: teal500,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontFamily: 'Alexandria',
+        ),
+        icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 28),
+        items: ServiceType.values.map((service) {
+          return DropdownMenuItem<ServiceType>(
+            value: service,
+            child: Text(
+              service.displayName,
+              style: const TextStyle(fontFamily: 'Alexandria'),
+            ),
+          );
+        }).toList(),
+        onChanged: (ServiceType? value) {
+          setState(() => _selectedServiceType = value);
+        },
+        validator: (value) {
+          if (value == null) {
+            return 'الرجاء اختيار نوع الخدمة';
           }
           return null;
         },

@@ -66,7 +66,7 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                       const SizedBox(height: 12),
                       _buildMenuItem(
                         context: context,
-                        icon: Icons.celebration_rounded,
+                        icon: Icons.cake_rounded,
                         title: 'اعياد الميلاد',
                         subtitle: 'عرض أعياد الميلاد القادمة',
                         gradient: [tawny, red500],

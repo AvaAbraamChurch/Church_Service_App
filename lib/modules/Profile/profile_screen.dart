@@ -43,6 +43,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController phoneController;
   late TextEditingController addressController;
 
+  // Birthday
+  DateTime? selectedBirthday;
+
   @override
   void initState() {
     super.initState();
@@ -104,6 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'phoneNumber': phoneController.text.trim(),
         'address': addressController.text.trim(),
         if (newImageUrl != null) 'profileImageUrl': newImageUrl,
+        if (selectedBirthday != null) 'birthday': selectedBirthday,
       };
 
       await _usersRepository.updateUser(currentUser.id, updatedData);
@@ -155,6 +159,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       emailController.text = user.email;
       phoneController.text = user.phoneNumber ?? '';
       addressController.text = user.address ?? '';
+      selectedBirthday = user.birthday;
     });
   }
 
@@ -163,6 +168,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (dialogContext) => _ChangePasswordDialog(),
     );
+  }
+
+  Future<void> _selectBirthday() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedBirthday ?? DateTime.now().subtract(const Duration(days: 365 * 10)),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: teal500,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: teal900,
+            ),
+            dialogTheme: const DialogThemeData(
+              backgroundColor: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != selectedBirthday) {
+      setState(() {
+        selectedBirthday = picked;
+      });
+    }
   }
 
   @override
@@ -216,6 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           emailController.text = user.email;
           phoneController.text = user.phoneNumber ?? '';
           addressController.text = user.address ?? '';
+          selectedBirthday = user.birthday;
         }
 
         return Scaffold(
@@ -379,6 +416,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             return null;
                           },
                         ),
+                        const SizedBox(height: 16),
+
+                        // Birthday field
+                        _buildBirthdayField(enabled: isEditing),
                         const SizedBox(height: 16),
 
                         // Non-editable fields
@@ -701,6 +742,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBirthdayField({required bool enabled}) {
+    return GestureDetector(
+      onTap: enabled ? _selectBirthday : null,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: enabled
+                ? teal300.withValues(alpha: 0.5)
+                : Colors.white.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.cake,
+              color: enabled ? teal300 : Colors.white.withValues(alpha: 0.5),
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'تاريخ الميلاد',
+                    style: TextStyle(
+                      color: enabled
+                          ? teal300
+                          : Colors.white.withValues(alpha: 0.5),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    selectedBirthday != null
+                        ? '${selectedBirthday!.day}/${selectedBirthday!.month}/${selectedBirthday!.year}'
+                        : 'لم يتم تحديده',
+                    style: TextStyle(
+                      color: enabled ? Colors.white : Colors.white.withValues(alpha: 0.7),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (enabled)
+              Icon(
+                Icons.calendar_today,
+                color: teal300.withValues(alpha: 0.7),
+                size: 20,
+              ),
+          ],
+        ),
       ),
     );
   }
