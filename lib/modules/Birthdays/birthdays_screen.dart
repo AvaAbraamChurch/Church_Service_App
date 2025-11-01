@@ -5,15 +5,22 @@ import '../../core/services/birthday_notification_service.dart';
 import '../../core/models/user/user_model.dart';
 
 class BirthdaysScreen extends StatefulWidget {
-  const BirthdaysScreen({super.key});
+  final String? userGender;
+  const BirthdaysScreen({super.key, this.userGender});
 
   @override
   State<BirthdaysScreen> createState() => _BirthdaysScreenState();
 }
 
 class _BirthdaysScreenState extends State<BirthdaysScreen> {
-  final BirthdayNotificationService _birthdayService = BirthdayNotificationService();
+  late final BirthdayNotificationService _birthdayService;
   int? _selectedMonth; // null means show current month
+
+  @override
+  void initState() {
+    super.initState();
+    _birthdayService = BirthdayNotificationService(userGender: widget.userGender);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +106,7 @@ class _BirthdaysScreenState extends State<BirthdaysScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
-                Icons.celebration_rounded,
+                Icons.calendar_month_rounded,
                 color: Colors.white,
                 size: 20,
               ),

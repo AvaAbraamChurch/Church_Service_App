@@ -1,5 +1,6 @@
 import 'package:church/core/blocs/auth/auth_cubit.dart';
 import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/Admin/admin_dashboard_screen.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
@@ -71,7 +72,7 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                         subtitle: 'عرض أعياد الميلاد القادمة',
                         gradient: [tawny, red500],
                         onTap: () {
-                          navigateTo(context, BirthdaysScreen());
+                          navigateTo(context, BirthdaysScreen(userGender: userData.gender.code,));
                         },
                       ),
                     ],
