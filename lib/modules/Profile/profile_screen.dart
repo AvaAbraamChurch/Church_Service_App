@@ -17,6 +17,8 @@ import '../../core/constants/strings.dart';
 import '../../core/blocs/auth/auth_cubit.dart';
 import '../../core/blocs/auth/auth_states.dart';
 import '../Store/store_screen.dart';
+import '../../shared/avatar_display_widget.dart';
+import 'avatar_customizer_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -35,6 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool isEditing = false;
   bool isLoading = false;
   File? _selectedImage;
+  String? _newAvatarSvg;
 
   // Controllers
   late TextEditingController nameController;
@@ -67,6 +70,130 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _showImageOptionsDialog(UserModel user) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: teal300.withOpacity(0.3), width: 1),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.image, color: teal300, size: 28),
+            const SizedBox(width: 12),
+            const Text(
+              'اختر صورة الملف الشخصي',
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildImageOptionTile(
+              icon: Icons.face,
+              title: 'إنشاء أفاتار مخصص',
+              subtitle: 'قم بإنشاء أفاتار كرتوني مخصص',
+              onTap: () {
+                Navigator.pop(context);
+                _openAvatarCustomizer(user);
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildImageOptionTile(
+              icon: Icons.photo_library,
+              title: 'اختيار من المعرض',
+              subtitle: 'اختر صورة من معرض الصور',
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageOptionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: teal300.withOpacity(0.3), width: 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: teal500.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: teal300, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: teal300, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAvatarCustomizer(UserModel user) async {
+    final result = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AvatarCustomizerScreen(
+          userId: user.id,
+          existingAvatar: user.avatar,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _newAvatarSvg = result;
+        // Clear selected image if user creates avatar
+        _selectedImage = null;
+      });
+    }
+  }
+
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(
@@ -79,6 +206,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (image != null) {
       setState(() {
         _selectedImage = File(image.path);
+        // Clear avatar if user selects image
+        _newAvatarSvg = null;
       });
     }
   }
@@ -107,6 +236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'phoneNumber': phoneController.text.trim(),
         'address': addressController.text.trim(),
         if (newImageUrl != null) 'profileImageUrl': newImageUrl,
+        if (_newAvatarSvg != null) 'avatar': _newAvatarSvg,
         if (selectedBirthday != null) 'birthday': selectedBirthday,
       };
 
@@ -116,6 +246,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           isEditing = false;
           _selectedImage = null;
+          _newAvatarSvg = null;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -153,6 +284,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       isEditing = false;
       _selectedImage = null;
+      _newAvatarSvg = null;
       // Reset controllers to current user data
       nameController.text = user.fullName;
       usernameController.text = user.username;
@@ -289,64 +421,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Center(
                     child: Stack(
                       children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: teal300, width: 3),
-                            boxShadow: [
-                              BoxShadow(
-                                color: teal500.withValues(alpha: 0.3),
-                                blurRadius: 15,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: CircleAvatar(
-                            radius: 60,
-                            backgroundColor: Colors.grey[800],
-                            child: _selectedImage != null
-                                ? ClipOval(
-                                    child: Image.file(
-                                      _selectedImage!,
-                                      width: 120,
-                                      height: 120,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                : (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty
-                                    ? ClipOval(
-                                        child: Image.network(
-                                          user.profileImageUrl!,
-                                          width: 120,
-                                          height: 120,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return Image.asset(
-                                              user.gender.code == Gender.male.code
-                                                  ? 'assets/images/boy.png'
-                                                  : 'assets/images/girl.png',
-                                              width: 120,
-                                              height: 120,
-                                              fit: BoxFit.cover,
-                                            );
-                                          },
-                                          loadingBuilder: (context, child, loadingProgress) {
-                                            if (loadingProgress == null) return child;
-                                            return Center(
-                                              child: CircularProgressIndicator(
-                                                color: teal300,
-                                                value: loadingProgress.expectedTotalBytes != null
-                                                    ? loadingProgress.cumulativeBytesLoaded /
-                                                        loadingProgress.expectedTotalBytes!
-                                                    : null,
-                                              ),
-                                            );
-                                          },
-                                        ),
+                        // Show preview if editing and has new selection
+                        if (isEditing && (_selectedImage != null || _newAvatarSvg != null))
+                          Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: teal300, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: teal500.withOpacity(0.3),
+                                  blurRadius: 15,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: CircleAvatar(
+                              radius: 60,
+                              backgroundColor: Colors.grey[800],
+                              child: ClipOval(
+                                child: _selectedImage != null
+                                    ? Image.file(
+                                        _selectedImage!,
+                                        width: 120,
+                                        height: 120,
+                                        fit: BoxFit.cover,
                                       )
-                                    : ClipOval(
+                                    : Container(
+                                        color: Colors.white,
                                         child: Image.asset(
                                           user.gender.code == Gender.male.code
                                               ? 'assets/images/boy.png'
@@ -355,15 +458,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           height: 120,
                                           fit: BoxFit.cover,
                                         ),
-                                      )),
+                                      ),
+                              ),
+                            ),
+                          )
+                        else
+                          AvatarDisplayWidget(
+                            user: user,
+                            size: 120,
                           ),
-                        ),
                         if (isEditing)
                           Positioned(
                             bottom: 0,
                             right: 0,
                             child: GestureDetector(
-                              onTap: _pickImage,
+                              onTap: () => _showImageOptionsDialog(user),
                               child: Container(
                                 width: 40,
                                 height: 40,
@@ -371,9 +480,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   color: teal500,
                                   shape: BoxShape.circle,
                                   border: Border.all(color: Colors.white, width: 2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: teal500.withOpacity(0.5),
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
                                 ),
                                 child: const Icon(
-                                  Icons.camera_alt,
+                                  Icons.edit,
                                   color: Colors.white,
                                   size: 20,
                                 ),

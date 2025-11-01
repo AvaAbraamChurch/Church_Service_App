@@ -6,6 +6,7 @@ import '../../core/models/messages/message_model.dart';
 import '../../core/repositories/messages_repository.dart';
 import '../../core/styles/colors.dart';
 import '../../core/styles/themeScaffold.dart';
+import '../../shared/avatar_display_widget.dart';
 
 class ChattingScreen extends StatefulWidget {
   final String receiverId;
@@ -225,22 +226,11 @@ class _ChattingScreenState extends State<ChattingScreen> {
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
                 ),
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: teal300,
-                  backgroundImage: widget.receiverImageUrl != null
-                      ? NetworkImage(widget.receiverImageUrl!)
-                      : null,
-                  child: widget.receiverImageUrl == null
-                      ? Text(
-                          widget.receiverName[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: teal900,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
+                AvatarDisplayWidget(
+                  imageUrl: widget.receiverImageUrl,
+                  name: widget.receiverName,
+                  size: 44,
+                  showBorder: false,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

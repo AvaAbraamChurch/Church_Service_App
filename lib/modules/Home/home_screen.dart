@@ -12,6 +12,7 @@ import '../../core/repositories/auth_repository.dart';
 import '../../core/styles/colors.dart';
 import '../../core/utils/session_checker.dart';
 import 'endrawer.dart';
+import '../../shared/avatar_display_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userId; // Replace with actual user ID
@@ -221,33 +222,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   children: [
                                     Text(cubit.currentUser!.serviceType.displayName, style: TextStyle(color: brown300, fontSize: 20),),
                                     Spacer(),
-                                    Container(
-                                        width: 60,
-                                        height: 60,
-                                        decoration: BoxDecoration(
-                                          color: Colors.transparent,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(color: brown300, width: 2),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.2),
-                                              spreadRadius: 2,
-                                              blurRadius: 5,
-                                              offset: Offset(0, 3), // changes position of shadow
-                                            ),
-                                          ],
-                                          image: (cubit.currentUser!.profileImageUrl != null && cubit.currentUser!.profileImageUrl!.isNotEmpty)
-                                              ? DecorationImage(
-                                            image: NetworkImage(cubit.currentUser!.profileImageUrl!),
-                                            fit: BoxFit.cover,
-                                          )
-                                              : DecorationImage(
-                                              image: AssetImage(
-                                                  (cubit.currentUser!.gender.code == Gender.male.code)
-                                                      ? 'assets/images/boy.png'
-                                                      : 'assets/images/girl.png'
-                                              )
-                                          )),
+                                    AvatarDisplayWidget(
+                                      user: cubit.currentUser,
+                                      imageUrl: cubit.currentUser!.profileImageUrl,
+                                      name: cubit.currentUser!.fullName,
+                                      size: 60,
+                                      showBorder: true,
+                                      borderColor: brown300,
                                     ),
                                     SizedBox(width: 10.0,),
                                     IconButton(onPressed: (){

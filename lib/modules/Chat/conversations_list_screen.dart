@@ -10,6 +10,7 @@ import '../../core/styles/colors.dart';
 import '../../core/styles/themeScaffold.dart';
 import 'chat_screen.dart';
 import 'user_selection_screen.dart';
+import '../../shared/avatar_display_widget.dart';
 
 class ConversationsListScreen extends StatefulWidget {
   const ConversationsListScreen({super.key});
@@ -361,22 +362,12 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                   children: [
                     Stack(
                       children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: brown300,
-                          backgroundImage: userImage != null
-                              ? NetworkImage(userImage)
-                              : null,
-                          child: userImage == null
-                              ? Text(
-                                  userName[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : null,
+                        AvatarDisplayWidget(
+                          user: otherUser,
+                          imageUrl: userImage,
+                          name: userName,
+                          size: 60,
+                          showBorder: false,
                         ),
                         if (isUnread)
                           Positioned(
@@ -483,4 +474,3 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     }
   }
 }
-

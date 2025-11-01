@@ -38,7 +38,7 @@ Future<void> showLocalNotification(RemoteMessage message) async {
   final data = message.data;
 
   // Debug log: print incoming message payload
-  print('showLocalNotification() called. notification=${notification?.toString()}, data=$data');
+  debugPrint('showLocalNotification() called. notification=${notification?.toString()}, data=$data');
 
   final title = notification?.title ?? data['title'];
   // fallback to other common keys or default text
@@ -99,19 +99,19 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         'type': message.data['type'] ?? 'message',
         'actionUrl': message.data['actionUrl'],
       });
-      print('Background: Notification saved to Firestore for user $userId');
+      debugPrint('Background: Notification saved to Firestore for user $userId');
     } catch (e) {
-      print('Background: Failed to save notification to Firestore: $e');
+      debugPrint('Background: Failed to save notification to Firestore: $e');
     }
   }
 
   // Debug: log the message and attempt to show a local notification
   try {
-    print('Background handler received message: id=${message.messageId}, data=${message.data}, notification=${message.notification}');
+    debugPrint('Background handler received message: id=${message.messageId}, data=${message.data}, notification=${message.notification}');
     await showLocalNotification(message);
-    print('Background handler displayed local notification for messageId=${message.messageId}');
+    debugPrint('Background handler displayed local notification for messageId=${message.messageId}');
   } catch (e, st) {
-    print('Background handler failed to display notification: $e\n$st');
+    debugPrint('Background handler failed to display notification: $e\n$st');
   }
 }
 
@@ -131,15 +131,15 @@ void main() async {
       await userRef.set({
         'fcmTokens': FieldValue.arrayUnion([token])
       }, SetOptions(merge: true));
-      print('Saved FCM token for user $uid');
+      debugPrint('Saved FCM token for user $uid');
     } catch (e) {
-      print('Failed saving FCM token: $e');
+      debugPrint('Failed saving FCM token: $e');
     }
   }
 
   // When token refreshes, update Firestore
   FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-    print('FCM token refreshed: $newToken');
+    debugPrint('FCM token refreshed: $newToken');
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) registerTokenToFirestore(uid, newToken);
   });
@@ -148,7 +148,7 @@ void main() async {
   final currentUid = FirebaseAuth.instance.currentUser?.uid;
   if (currentUid != null) {
     final token = await FirebaseMessaging.instance.getToken();
-    print('Current FCM token: $token');
+    debugPrint('Current FCM token: $token');
     registerTokenToFirestore(currentUid, token);
   }
 
@@ -165,7 +165,7 @@ void main() async {
     provisional: false,
     sound: true,
   );
-  print('User granted permission: ${settings.authorizationStatus}');
+  debugPrint('User granted permission: ${settings.authorizationStatus}');
 
   // On iOS, show notifications when app is in foreground
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
@@ -212,29 +212,29 @@ void main() async {
         'type': message.data['type'] ?? 'message',
         'actionUrl': message.data['actionUrl'],
       });
-      print('Notification saved to Firestore for user $userId');
+      debugPrint('Notification saved to Firestore for user $userId');
     } catch (e) {
-      print('Failed to save notification to Firestore: $e');
+      debugPrint('Failed to save notification to Firestore: $e');
     }
   }
 
   // Listen for messages when the app is in the foreground
   FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-    print('onMessage (foreground) received: id=${message.messageId}, data=${message.data}, notification=${message.notification}');
+    debugPrint('onMessage (foreground) received: id=${message.messageId}, data=${message.data}, notification=${message.notification}');
      // If a notification payload is present (notification/title/body), show it
      try {
        await showLocalNotification(message);
        await saveNotificationToFirestore(message);
      } catch (e) {
        // log and continue
-       print('Error showing local notification: $e');
+       debugPrint('Error showing local notification: $e');
      }
    });
 
    // Handle when app is opened from a notification
    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
      // Handle navigation / payload processing here
-     print('Message clicked! payload: ${message.data}');
+     debugPrint('Message clicked! payload: ${message.data}');
      saveNotificationToFirestore(message);
    });
 
@@ -245,10 +245,10 @@ void main() async {
       minimumFetchInterval: const Duration(seconds: 5),
     ));
     await remoteConfig.fetchAndActivate();
-    print('Remote Config fetched and activated.');
+    debugPrint('Remote Config fetched and activated.');
   } catch (e) {
     // avoid crashing on plugin issues; log and continue
-    print('`Remote Config fetch/activate failed`: $e');
+    debugPrint('`Remote Config fetch/activate failed`: $e');
   }
 
 
@@ -314,10 +314,10 @@ class MyApp extends StatelessWidget {
 //           await file.delete(recursive: true);
 //         }
 //       }
-//       print('Cache cleared successfully');
+//       debugPrint('Cache cleared successfully');
 //     }
 //   } catch (e) {
-//     print('Error clearing cache: $e');
+//     debugPrint('Error clearing cache: $e');
 //   }
 // }
 //
@@ -332,7 +332,7 @@ class MyApp extends StatelessWidget {
 //       }
 //     }
 //   } catch (e) {
-//     print('Error calculating folder size: $e');
+//     debugPrint('Error calculating folder size: $e');
 //   }
 //   return size;
 // }

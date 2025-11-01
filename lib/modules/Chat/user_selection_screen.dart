@@ -7,6 +7,7 @@ import '../../core/styles/colors.dart';
 import '../../core/styles/themeScaffold.dart';
 import '../../core/utils/userType_enum.dart';
 import 'chat_screen.dart';
+import '../../shared/avatar_display_widget.dart';
 
 class UserSelectionScreen extends StatefulWidget {
   final UserModel currentUser;
@@ -292,22 +293,12 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
             child: Row(
               children: [
                 // Avatar
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: _getUserTypeColor(user.userType),
-                  backgroundImage: user.profileImageUrl != null
-                      ? NetworkImage(user.profileImageUrl!)
-                      : null,
-                  child: user.profileImageUrl == null
-                      ? Text(
-                          user.fullName[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
+                AvatarDisplayWidget(
+                  user: user,
+                  imageUrl: user.profileImageUrl,
+                  name: user.fullName,
+                  size: 56,
+                  showBorder: false,
                 ),
                 const SizedBox(width: 16),
 
@@ -465,4 +456,3 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
     }
   }
 }
-

@@ -33,6 +33,7 @@ class UserModel {
   final String userClass;
   final ServiceType serviceType;
   final String? profileImageUrl;
+  final String? avatar; // SVG string of the avatar
   final int couponPoints;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -51,6 +52,7 @@ class UserModel {
     this.phoneNumber,
     this.address,
     this.profileImageUrl,
+    this.avatar,
     this.couponPoints = 0,
     this.createdAt,
     this.updatedAt,
@@ -70,6 +72,7 @@ class UserModel {
     String? userClass,
     ServiceType? serviceType,
     String? profileImageUrl,
+    String? avatar,
     int? couponPoints,
     bool? firstLogin,
     DateTime? birthday,
@@ -86,6 +89,7 @@ class UserModel {
       userClass: userClass ?? this.userClass,
       serviceType: serviceType ?? this.serviceType,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      avatar: avatar ?? this.avatar,
       couponPoints: couponPoints ?? this.couponPoints,
       firstLogin: firstLogin ?? this.firstLogin,
       birthday: birthday ?? this.birthday,
@@ -101,6 +105,7 @@ class UserModel {
       if (phoneNumber != null) 'phoneNumber': phoneNumber,
       if (address != null) 'address': address,
       if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
+      if (avatar != null) 'avatar': avatar,
       'couponPoints': couponPoints,
       // Store enums as short codes for compactness and consistency
       'userType': userType.code, // e.g., 'PR','SS','SV','CH'
@@ -130,6 +135,7 @@ class UserModel {
       phoneNumber: (data['phoneNumber'] ?? data['phone'])?.toString(),
       address: (data['address'] ?? data['addr'])?.toString(),
       profileImageUrl: (data['profileImageUrl'])?.toString(),
+      avatar: (data['avatar'])?.toString(),
       userType: userTypeFromJson(data['userType']),
       gender: genderFromJson(data['gender']),
       userClass: (data['class'] ?? data['userClass'])!.toString(),
@@ -165,6 +171,7 @@ class UserModel {
         other.gender == gender &&
         other.userClass == userClass &&
         other.profileImageUrl == profileImageUrl &&
+        other.avatar == avatar &&
         other.couponPoints == couponPoints &&
         other.firstLogin == firstLogin &&
         other.birthday == birthday;
