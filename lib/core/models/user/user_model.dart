@@ -37,6 +37,7 @@ class UserModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool firstLogin;
+  final DateTime? birthday;
 
   const UserModel({
     required this.id,
@@ -54,6 +55,7 @@ class UserModel {
     this.createdAt,
     this.updatedAt,
     this.firstLogin = true,
+    this.birthday,
   });
 
   UserModel copyWith({
@@ -70,6 +72,7 @@ class UserModel {
     String? profileImageUrl,
     int? couponPoints,
     bool? firstLogin,
+    DateTime? birthday,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -85,6 +88,7 @@ class UserModel {
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       couponPoints: couponPoints ?? this.couponPoints,
       firstLogin: firstLogin ?? this.firstLogin,
+      birthday: birthday ?? this.birthday,
     );
   }
 
@@ -104,11 +108,20 @@ class UserModel {
       'class': userClass,
       'serviceType': serviceType.key, // e.g., 'primary_boys'
       'firstLogin': firstLogin,
+      if (birthday != null) 'birthday': Timestamp.fromDate(birthday!),
     };
   }
 
   factory UserModel.fromMap(Map<String, dynamic>? map, {required String id}) {
     final data = map ?? const <String, dynamic>{};
+    DateTime? birthdayValue;
+    if (data['birthday'] != null) {
+      if (data['birthday'] is Timestamp) {
+        birthdayValue = (data['birthday'] as Timestamp).toDate();
+      } else if (data['birthday'] is String) {
+        birthdayValue = DateTime.tryParse(data['birthday']);
+      }
+    }
     return UserModel(
       id: id,
       fullName: (data['fullName'] ?? data['name'] ?? '').toString(),
@@ -123,6 +136,7 @@ class UserModel {
       serviceType: serviceTypeFromJson(data['serviceType']),
       couponPoints: (data['couponPoints'] ?? 0) as int,
       firstLogin: (data['firstLogin'] ?? true) as bool,
+      birthday: birthdayValue,
     );
   }
 
@@ -134,7 +148,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(id: $id, fullName: $fullName, username: $username, email: $email, phoneNumber: ${phoneNumber ?? 'null'}, address: ${address ?? 'null'}, userType: ${userType.code}, gender: ${gender.code}, userClass: $userClass, couponPoints: $couponPoints, profileImageUrl: ${profileImageUrl ?? 'null'}, firstLogin: $firstLogin)';
+    return 'UserModel(id: $id, fullName: $fullName, username: $username, email: $email, phoneNumber: ${phoneNumber ?? 'null'}, address: ${address ?? 'null'}, userType: ${userType.code}, gender: ${gender.code}, userClass: $userClass, couponPoints: $couponPoints, profileImageUrl: ${profileImageUrl ?? 'null'}, firstLogin: $firstLogin, birthday: ${birthday ?? 'null'})';
   }
 
   @override
@@ -152,7 +166,8 @@ class UserModel {
         other.userClass == userClass &&
         other.profileImageUrl == profileImageUrl &&
         other.couponPoints == couponPoints &&
-        other.firstLogin == firstLogin;
+        other.firstLogin == firstLogin &&
+        other.birthday == birthday;
   }
 
   @override
@@ -169,6 +184,7 @@ class UserModel {
     profileImageUrl,
     couponPoints,
     firstLogin,
+    birthday,
   );
 
   static fromDocumentSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {

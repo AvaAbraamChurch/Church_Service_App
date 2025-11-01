@@ -84,6 +84,27 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(channel);
 
+  // Save notification to Firestore
+  final userId = FirebaseAuth.instance.currentUser?.uid;
+  if (userId != null) {
+    try {
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'title': message.notification?.title ?? message.data['title'] ?? 'إشعار جديد',
+        'body': message.notification?.body ?? message.data['body'] ?? '',
+        'imageUrl': message.notification?.android?.imageUrl ?? message.data['imageUrl'],
+        'data': message.data,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+        'userId': userId,
+        'type': message.data['type'] ?? 'message',
+        'actionUrl': message.data['actionUrl'],
+      });
+      print('Background: Notification saved to Firestore for user $userId');
+    } catch (e) {
+      print('Background: Failed to save notification to Firestore: $e');
+    }
+  }
+
   // Debug: log the message and attempt to show a local notification
   try {
     print('Background handler received message: id=${message.messageId}, data=${message.data}, notification=${message.notification}');
@@ -174,12 +195,36 @@ void main() async {
   // Register background handler once, before runApp
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
+  // Helper to save notifications to Firestore
+  Future<void> saveNotificationToFirestore(RemoteMessage message) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'title': message.notification?.title ?? message.data['title'] ?? 'إشعار جديد',
+        'body': message.notification?.body ?? message.data['body'] ?? '',
+        'imageUrl': message.notification?.android?.imageUrl ?? message.data['imageUrl'],
+        'data': message.data,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+        'userId': userId,
+        'type': message.data['type'] ?? 'message',
+        'actionUrl': message.data['actionUrl'],
+      });
+      print('Notification saved to Firestore for user $userId');
+    } catch (e) {
+      print('Failed to save notification to Firestore: $e');
+    }
+  }
+
   // Listen for messages when the app is in the foreground
   FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
     print('onMessage (foreground) received: id=${message.messageId}, data=${message.data}, notification=${message.notification}');
      // If a notification payload is present (notification/title/body), show it
      try {
        await showLocalNotification(message);
+       await saveNotificationToFirestore(message);
      } catch (e) {
        // log and continue
        print('Error showing local notification: $e');
@@ -190,6 +235,7 @@ void main() async {
    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
      // Handle navigation / payload processing here
      print('Message clicked! payload: ${message.data}');
+     saveNotificationToFirestore(message);
    });
 
   final remoteConfig = FirebaseRemoteConfig.instance;

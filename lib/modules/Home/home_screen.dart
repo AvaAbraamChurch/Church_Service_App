@@ -1,6 +1,7 @@
 import 'package:church/core/blocs/home/home_cubit.dart';
 import 'package:church/core/blocs/home/home_states.dart';
 import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/service_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';
@@ -235,11 +236,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                               offset: Offset(0, 3), // changes position of shadow
                                             ),
                                           ],
-                                          image: const DecorationImage(
-                                            image: AssetImage('assets/images/man.png'), // Replace with actual asset path
+                                          image: (cubit.currentUser!.profileImageUrl != null && cubit.currentUser!.profileImageUrl!.isNotEmpty)
+                                              ? DecorationImage(
+                                            image: NetworkImage(cubit.currentUser!.profileImageUrl!),
                                             fit: BoxFit.cover,
-                                          ),
-                                        )),
+                                          )
+                                              : DecorationImage(
+                                              image: AssetImage(
+                                                  (cubit.currentUser!.gender.code == Gender.male.code)
+                                                      ? 'assets/images/boy.png'
+                                                      : 'assets/images/girl.png'
+                                              )
+                                          )),
+                                    ),
                                     SizedBox(width: 10.0,),
                                     IconButton(onPressed: (){
                                       Scaffold.of(context).openEndDrawer();

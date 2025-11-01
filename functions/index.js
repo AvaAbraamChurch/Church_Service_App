@@ -264,3 +264,300 @@ exports.sendMessageNotification = functions.firestore
       return null;
     }
   });
+
+/**
+ * Scheduled function to check for birthdays and send notifications
+ * Runs every day at 8:00 AM
+ * Format: minute hour day month dayOfWeek
+ */
+exports.checkBirthdays = functions.pubsub
+  .schedule('0 8 * * *')
+  .timeZone('Africa/Cairo') // Adjust timezone as needed
+  .onRun(async (context) => {
+    try {
+      const today = new Date();
+      const currentMonth = today.getMonth() + 1; // JavaScript months are 0-indexed
+      const currentDay = today.getDate();
+
+      console.log(`Checking birthdays for ${currentDay}/${currentMonth}`);
+
+      // Get all children (SS = Sunday School, CH = Child)
+      const usersSnapshot = await admin
+        .firestore()
+        .collection('users')
+        .where('userType', 'in', ['SS', 'CH'])
+        .get();
+
+      if (usersSnapshot.empty) {
+        console.log('No children found in database');
+        return null;
+      }
+
+      // Filter users with birthdays today
+      const birthdayUsers = [];
+      usersSnapshot.forEach((doc) => {
+        const user = doc.data();
+        const birthday = user.birthday;
+
+        if (birthday) {
+          let birthdayDate;
+          // Handle Firestore Timestamp
+          if (birthday.toDate) {
+            birthdayDate = birthday.toDate();
+          } else if (birthday instanceof Date) {
+            birthdayDate = birthday;
+          } else if (typeof birthday === 'string') {
+            birthdayDate = new Date(birthday);
+          }
+
+          if (
+            birthdayDate &&
+            birthdayDate.getMonth() + 1 === currentMonth &&
+            birthdayDate.getDate() === currentDay
+          ) {
+            const age = today.getFullYear() - birthdayDate.getFullYear();
+            birthdayUsers.push({
+              id: doc.id,
+              name: user.fullName || user.name || 'Unknown',
+              age: age,
+            });
+          }
+        }
+      });
+
+      console.log(`Found ${birthdayUsers.length} birthdays today`);
+
+      if (birthdayUsers.length === 0) {
+        return null;
+      }
+
+      // Get all servants and priests to notify them
+      const servantsSnapshot = await admin
+        .firestore()
+        .collection('users')
+        .where('userType', 'in', ['SV', 'PR']) // SV = Servant, PR = Priest
+        .get();
+
+      if (servantsSnapshot.empty) {
+        console.log('No servants/priests found to notify');
+        return null;
+      }
+
+      // Collect all FCM tokens
+      const tokens = [];
+      servantsSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        if (Array.isArray(userData.fcmTokens) && userData.fcmTokens.length > 0) {
+          tokens.push(...userData.fcmTokens);
+        } else if (typeof userData.fcmToken === 'string' && userData.fcmToken.length > 0) {
+          tokens.push(userData.fcmToken);
+        }
+      });
+
+      console.log(`Found ${tokens.length} tokens to send notifications to`);
+
+      if (tokens.length === 0) {
+        return null;
+      }
+
+      // Create notification message
+      let notificationBody;
+      if (birthdayUsers.length === 1) {
+        notificationBody = `🎉 عيد ميلاد سعيد ${birthdayUsers[0].name}! يبلغ من العمر ${birthdayUsers[0].age} سنة اليوم`;
+      } else {
+        const names = birthdayUsers.map((u) => u.name).join(', ');
+        notificationBody = `🎉 أعياد ميلاد اليوم: ${names}`;
+      }
+
+      const payload = {
+        notification: {
+          title: '🎂 تذكير بعيد ميلاد',
+          body: notificationBody,
+        },
+        data: {
+          type: 'birthday',
+          count: String(birthdayUsers.length),
+          click_action: 'FLUTTER_NOTIFICATION_CLICK',
+        },
+      };
+
+      // Send notification to all tokens
+      const response = await admin.messaging().sendToDevice(tokens, payload);
+
+      console.log(`Successfully sent ${response.successCount} notifications`);
+      console.log(`Failed to send ${response.failureCount} notifications`);
+
+      // Handle invalid tokens (optional cleanup)
+      if (response.results) {
+        const invalidTokens = [];
+        response.results.forEach((result, idx) => {
+          if (result.error) {
+            console.error('Error sending to token:', tokens[idx], result.error);
+            if (
+              result.error.code === 'messaging/invalid-registration-token' ||
+              result.error.code === 'messaging/registration-token-not-registered'
+            ) {
+              invalidTokens.push(tokens[idx]);
+            }
+          }
+        });
+
+        // You could clean up invalid tokens here if needed
+        console.log(`Found ${invalidTokens.length} invalid tokens`);
+      }
+
+      return null;
+    } catch (error) {
+      console.error('checkBirthdays error:', error);
+      return null;
+    }
+  });
+
+/**
+ * Manual trigger function to send birthday notifications
+ * Can be called by admins to test or manually trigger birthday checks
+ */
+exports.sendBirthdayNotifications = functions.https.onCall(async (data, context) => {
+  // Check if user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated to call this function.'
+    );
+  }
+
+  try {
+    // Verify user is admin (Priest or Servant)
+    const uid = context.auth.uid;
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found.');
+    }
+
+    const userType = userDoc.data().userType;
+    if (userType !== 'PR' && userType !== 'SV') {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Only priests and servants can send birthday notifications.'
+      );
+    }
+
+    const today = new Date();
+    const currentMonth = today.getMonth() + 1;
+    const currentDay = today.getDate();
+
+    // Get all children with birthdays today
+    const usersSnapshot = await admin
+      .firestore()
+      .collection('users')
+      .where('userType', 'in', ['SS', 'CH'])
+      .get();
+
+    const birthdayUsers = [];
+    usersSnapshot.forEach((doc) => {
+      const user = doc.data();
+      const birthday = user.birthday;
+
+      if (birthday) {
+        let birthdayDate;
+        if (birthday.toDate) {
+          birthdayDate = birthday.toDate();
+        } else if (birthday instanceof Date) {
+          birthdayDate = birthday;
+        } else if (typeof birthday === 'string') {
+          birthdayDate = new Date(birthday);
+        }
+
+        if (
+          birthdayDate &&
+          birthdayDate.getMonth() + 1 === currentMonth &&
+          birthdayDate.getDate() === currentDay
+        ) {
+          const age = today.getFullYear() - birthdayDate.getFullYear();
+          birthdayUsers.push({
+            id: doc.id,
+            name: user.fullName || user.name || 'Unknown',
+            age: age,
+          });
+        }
+      }
+    });
+
+    if (birthdayUsers.length === 0) {
+      return {
+        success: true,
+        message: 'No birthdays today',
+        count: 0,
+      };
+    }
+
+    // Get all servants and priests
+    const servantsSnapshot = await admin
+      .firestore()
+      .collection('users')
+      .where('userType', 'in', ['SV', 'PR'])
+      .get();
+
+    const tokens = [];
+    servantsSnapshot.forEach((doc) => {
+      const userData = doc.data();
+      if (Array.isArray(userData.fcmTokens) && userData.fcmTokens.length > 0) {
+        tokens.push(...userData.fcmTokens);
+      } else if (typeof userData.fcmToken === 'string' && userData.fcmToken.length > 0) {
+        tokens.push(userData.fcmToken);
+      }
+    });
+
+    if (tokens.length === 0) {
+      return {
+        success: false,
+        message: 'No tokens found to send notifications',
+        count: birthdayUsers.length,
+      };
+    }
+
+    // Create notification
+    let notificationBody;
+    if (birthdayUsers.length === 1) {
+      notificationBody = `🎉 عيد ميلاد سعيد ${birthdayUsers[0].name}! يبلغ من العمر ${birthdayUsers[0].age} سنة اليوم`;
+    } else {
+      const names = birthdayUsers.map((u) => u.name).join(', ');
+      notificationBody = `🎉 أعياد ميلاد اليوم: ${names}`;
+    }
+
+    const payload = {
+      notification: {
+        title: '🎂 تذكير بعيد ميلاد',
+        body: notificationBody,
+      },
+      data: {
+        type: 'birthday',
+        count: String(birthdayUsers.length),
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+    };
+
+    const response = await admin.messaging().sendToDevice(tokens, payload);
+
+    return {
+      success: true,
+      message: 'Birthday notifications sent successfully',
+      count: birthdayUsers.length,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+      users: birthdayUsers,
+    };
+  } catch (error) {
+    console.error('sendBirthdayNotifications error:', error);
+
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to send birthday notifications: ' + error.message
+    );
+  }
+});

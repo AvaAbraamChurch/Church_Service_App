@@ -3,172 +3,162 @@ import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/Admin/admin_dashboard_screen.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
+import 'package:church/modules/Birthdays/birthdays_screen.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import '../../core/styles/colors.dart';
 import '../Classes/manage_classes_screen.dart';
+import '../Support/support_screen.dart';
 
 Widget drawer(BuildContext context, UserModel userData) => Drawer(
-      width: MediaQuery.of(context).size.width * 0.75,
-      backgroundColor: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-            colors: [
-              teal900,
-              teal700,
-              teal500,
+  width: MediaQuery.of(context).size.width * 0.75,
+  backgroundColor: Colors.transparent,
+  child: Container(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topRight,
+        end: Alignment.bottomLeft,
+        colors: [teal900, teal700, teal500],
+      ),
+    ),
+    child: Stack(
+      children: [
+        // Background pattern overlay
+        Positioned.fill(
+          child: Opacity(
+            opacity: 0.4,
+            child: Image.asset('assets/images/bg.png', fit: BoxFit.cover),
+          ),
+        ),
+
+        // Main content
+        SafeArea(
+          child: Column(
+            children: [
+              // Modern Header Section
+              _buildModernHeader(context, userData),
+
+              const SizedBox(height: 20),
+
+              // Menu Items
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+
+                    if (userData.userType == UserType.priest || userData.userType == UserType.superServant) ...[
+                      const SizedBox(height: 12),
+                      _buildMenuItem(
+                        context: context,
+                        icon: Icons.group,
+                        title: 'إدارة الأسر',
+                        subtitle: 'عرض وتعديل البيانات',
+                        gradient: [brown300, brown500],
+                        onTap: () {
+                          navigateTo(context, ManageClassesScreen());
+                        },
+                      ),
+                    ],
+
+                    if (userData.userType == UserType.priest ||
+                        userData.userType == UserType.superServant ||
+                        userData.userType == UserType.servant) ...[
+                      const SizedBox(height: 12),
+                      _buildMenuItem(
+                        context: context,
+                        icon: Icons.celebration_rounded,
+                        title: 'اعياد الميلاد',
+                        subtitle: 'عرض أعياد الميلاد القادمة',
+                        gradient: [tawny, red500],
+                        onTap: () {
+                          navigateTo(context, BirthdaysScreen());
+                        },
+                      ),
+                    ],
+
+                    // Admin Dashboard - Only for priests
+                    if (userData.userType == UserType.priest ||
+                        userData.id == 'h2xPvUO88qVuVwFed9YDqV33E2A2') ...[
+                      const SizedBox(height: 12),
+
+                      _buildMenuItem(
+                        context: context,
+                        icon: Icons.admin_panel_settings_rounded,
+                        title: 'لوحة التحكم',
+                        subtitle: 'إدارة إعدادات المظهر',
+                        gradient: [Colors.purple[400]!, Colors.purple[600]!],
+                        onTap: () {
+                          Navigator.pop(context);
+                          navigateTo(context, const AdminDashboardScreen());
+                        },
+                      ),
+                    ],
+
+                    const SizedBox(height: 12),
+
+                    _buildMenuItem(
+                      context: context,
+                      icon: Icons.settings_rounded,
+                      title: 'الإعدادات',
+                      subtitle: 'تخصيص التطبيق',
+                      gradient: [sage500, brown500],
+                      onTap: () {
+                        Navigator.pop(context);
+                        // TODO: Navigate to settings
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _buildMenuItem(
+                      context: context,
+                      icon: Icons.help_rounded,
+                      title: 'المساعدة',
+                      subtitle: 'الدعم والمساعدة',
+                      gradient: [Colors.blue[400]!, Colors.blue[600]!],
+                      onTap: () {
+                        navigateTo(context, SupportScreen());
+                      },
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Divider
+                    Container(
+                      height: 1,
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white.withValues(alpha: 0),
+                            Colors.white.withValues(alpha: 0.3),
+                            Colors.white.withValues(alpha: 0),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Logout button
+                    _buildLogoutButton(context),
+
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+
+              // Footer
+              _buildFooter(),
             ],
           ),
         ),
-        child: Stack(
-          children: [
-            // Background pattern overlay
-            Positioned.fill(
-              child: Opacity(
-                opacity: 0.1,
-                child: Image.asset(
-                  'assets/images/bg.png',
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
+      ],
+    ),
+  ),
+);
 
-            // Main content
-            SafeArea(
-              child: Column(
-                children: [
-                  // Modern Header Section
-                  _buildModernHeader(context, userData),
-
-                  const SizedBox(height: 20),
-
-                  // Menu Items
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      children: [
-                        _buildMenuItem(
-                          context: context,
-                          icon: Icons.home_rounded,
-                          title: 'الرئيسية',
-                          subtitle: 'العودة للصفحة الرئيسية',
-                          gradient: [teal300, teal500],
-                          onTap: () => Navigator.pop(context),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        _buildMenuItem(
-                          context: context,
-                          icon: Icons.person_rounded,
-                          title: 'إدارة الأسر',
-                          subtitle: 'عرض وتعديل البيانات',
-                          gradient: [brown300, brown500],
-                          onTap: () {
-                            navigateTo(context, ManageClassesScreen());
-                          },
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        _buildMenuItem(
-                          context: context,
-                          icon: Icons.settings_rounded,
-                          title: 'الإعدادات',
-                          subtitle: 'تخصيص التطبيق',
-                          gradient: [sage500, brown500],
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to settings
-                          },
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        _buildMenuItem(
-                          context: context,
-                          icon: Icons.notifications_rounded,
-                          title: 'الإشعارات',
-                          subtitle: 'إدارة الإشعارات',
-                          gradient: [tawny, red500],
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to notifications
-                          },
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        // Admin Dashboard - Only for priests
-                        if (userData.userType == UserType.priest || userData.id == 'h2xPvUO88qVuVwFed9YDqV33E2A2')
-                          _buildMenuItem(
-                            context: context,
-                            icon: Icons.admin_panel_settings_rounded,
-                            title: 'لوحة التحكم',
-                            subtitle: 'إدارة إعدادات المظهر',
-                            gradient: [Colors.purple[400]!, Colors.purple[600]!],
-                            onTap: () {
-                              Navigator.pop(context);
-                              navigateTo(context, const AdminDashboardScreen());
-                            },
-                          ),
-
-                        if (userData.userType == UserType.priest)
-                          const SizedBox(height: 12),
-
-                        _buildMenuItem(
-                          context: context,
-                          icon: Icons.help_rounded,
-                          title: 'المساعدة',
-                          subtitle: 'الدعم والمساعدة',
-                          gradient: [Colors.blue[400]!, Colors.blue[600]!],
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to help
-                          },
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Divider
-                        Container(
-                          height: 1,
-                          margin: const EdgeInsets.symmetric(horizontal: 20),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.white.withValues(alpha: 0),
-                                Colors.white.withValues(alpha: 0.3),
-                                Colors.white.withValues(alpha: 0),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Logout button
-                        _buildLogoutButton(context),
-
-                        const SizedBox(height: 20),
-                      ],
-                    ),
-                  ),
-
-                  // Footer
-                  _buildFooter(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-Widget _buildModernHeader(BuildContext context,  UserModel userData) {
+Widget _buildModernHeader(BuildContext context, UserModel userData) {
   return Container(
     padding: const EdgeInsets.all(24),
     decoration: BoxDecoration(
@@ -202,13 +192,8 @@ Widget _buildModernHeader(BuildContext context,  UserModel userData) {
               height: 70,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [teal100, teal300],
-                ),
-                border: Border.all(
-                  color: Colors.white,
-                  width: 3,
-                ),
+                gradient: LinearGradient(colors: [teal100, teal300]),
+                border: Border.all(color: Colors.white, width: 3),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.2),
@@ -217,10 +202,24 @@ Widget _buildModernHeader(BuildContext context,  UserModel userData) {
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.person,
-                color: Colors.white,
-                size: 35,
+              child: ClipOval(
+                child: (userData.profileImageUrl != null && userData.profileImageUrl!.isNotEmpty)
+                    ? Image.network(
+                        userData.profileImageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.person,
+                            size: 40,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          );
+                        },
+                      )
+                    : Icon(
+                        Icons.person,
+                        size: 40,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
               ),
             ),
 
@@ -240,7 +239,7 @@ Widget _buildModernHeader(BuildContext context,  UserModel userData) {
                     ),
                   ),
                   const SizedBox(height: 4),
-                   Text(
+                  Text(
                     userData.fullName,
                     style: TextStyle(
                       fontSize: 22,
@@ -313,10 +312,7 @@ Widget _buildMenuItem({
           Colors.white.withValues(alpha: 0.05),
         ],
       ),
-      border: Border.all(
-        color: Colors.white.withValues(alpha: 0.1),
-        width: 1,
-      ),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
     ),
     child: Material(
       color: Colors.transparent,
@@ -342,11 +338,7 @@ Widget _buildMenuItem({
                     ),
                   ],
                 ),
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 24,
-                ),
+                child: Icon(icon, color: Colors.white, size: 24),
               ),
 
               const SizedBox(width: 16),
@@ -388,7 +380,8 @@ Widget _buildMenuItem({
           ),
         ),
       ),
-    ));
+    ),
+  );
 }
 
 Widget _buildLogoutButton(BuildContext context) {
@@ -396,12 +389,7 @@ Widget _buildLogoutButton(BuildContext context) {
     margin: const EdgeInsets.symmetric(horizontal: 4),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(16),
-      gradient: LinearGradient(
-        colors: [
-          Colors.red[400]!,
-          Colors.red[600]!,
-        ],
-      ),
+      gradient: LinearGradient(colors: [Colors.red[400]!, Colors.red[600]!]),
       boxShadow: [
         BoxShadow(
           color: Colors.red.withValues(alpha: 0.4),
@@ -431,10 +419,7 @@ Widget _buildLogoutButton(BuildContext context) {
               ),
               content: const Text(
                 'هل أنت متأكد من رغبتك في تسجيل الخروج؟',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Alexandria',
-                ),
+                style: TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
               ),
               actions: [
                 TextButton(
@@ -449,11 +434,21 @@ Widget _buildLogoutButton(BuildContext context) {
                   ),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context); // Close dialog
-                    AuthCubit().logOut().then((value) {
-                      navigateAndFinish(context, LoginScreen());
-                    });
+                  onPressed: () async {
+                    // Save the navigator context before closing dialog
+                    final navigator = Navigator.of(context);
+                    final scaffoldContext = context;
+
+                    // Close dialog first
+                    navigator.pop();
+
+                    // Perform logout
+                    await AuthCubit().logOut();
+
+                    // Navigate to login screen using the root navigator
+                    if (scaffoldContext.mounted) {
+                      navigateAndFinish(scaffoldContext, LoginScreen());
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
@@ -480,11 +475,7 @@ Widget _buildLogoutButton(BuildContext context) {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.logout_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
+              const Icon(Icons.logout_rounded, color: Colors.white, size: 24),
               const SizedBox(width: 12),
               const Text(
                 'تسجيل الخروج',
@@ -508,10 +499,7 @@ Widget _buildFooter() {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       border: Border(
-        top: BorderSide(
-          color: Colors.white.withValues(alpha: 0.1),
-          width: 1,
-        ),
+        top: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
       ),
     ),
     child: Column(

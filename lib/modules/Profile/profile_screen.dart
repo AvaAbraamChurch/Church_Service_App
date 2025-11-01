@@ -272,7 +272,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? FileImage(_selectedImage!)
                                 : (user.profileImageUrl != null
                                     ? NetworkImage(user.profileImageUrl!)
-                                    : const AssetImage('assets/images/man.png'))
+                                    : AssetImage(user.gender.code == Gender.male.code ? 'assets/images/boy.png' : 'assets/images/girl.png'))
                                     as ImageProvider,
                           ),
                         ),
@@ -459,7 +459,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildCouponPointsCard(int points, UserModel user) {
-    if (user.userType.code == UserType.superServant.code || user.userType.code == UserType.servant.code){
+    if (user.userType.code == UserType.priest.code || user.userType.code == UserType.superServant.code || user.userType.code == UserType.servant.code){
       return GestureDetector(
         onTap: () {
           navigateTo(context, AdminDashboard(currentUser: user));
