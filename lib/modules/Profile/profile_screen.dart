@@ -305,12 +305,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: CircleAvatar(
                             radius: 60,
-                            backgroundImage: _selectedImage != null
-                                ? FileImage(_selectedImage!)
-                                : (user.profileImageUrl != null
-                                    ? NetworkImage(user.profileImageUrl!)
-                                    : AssetImage(user.gender.code == Gender.male.code ? 'assets/images/boy.png' : 'assets/images/girl.png'))
-                                    as ImageProvider,
+                            backgroundColor: Colors.grey[800],
+                            child: _selectedImage != null
+                                ? ClipOval(
+                                    child: Image.file(
+                                      _selectedImage!,
+                                      width: 120,
+                                      height: 120,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty
+                                    ? ClipOval(
+                                        child: Image.network(
+                                          user.profileImageUrl!,
+                                          width: 120,
+                                          height: 120,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Image.asset(
+                                              user.gender.code == Gender.male.code
+                                                  ? 'assets/images/boy.png'
+                                                  : 'assets/images/girl.png',
+                                              width: 120,
+                                              height: 120,
+                                              fit: BoxFit.cover,
+                                            );
+                                          },
+                                          loadingBuilder: (context, child, loadingProgress) {
+                                            if (loadingProgress == null) return child;
+                                            return Center(
+                                              child: CircularProgressIndicator(
+                                                color: teal300,
+                                                value: loadingProgress.expectedTotalBytes != null
+                                                    ? loadingProgress.cumulativeBytesLoaded /
+                                                        loadingProgress.expectedTotalBytes!
+                                                    : null,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      )
+                                    : ClipOval(
+                                        child: Image.asset(
+                                          user.gender.code == Gender.male.code
+                                              ? 'assets/images/boy.png'
+                                              : 'assets/images/girl.png',
+                                          width: 120,
+                                          height: 120,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      )),
                           ),
                         ),
                         if (isEditing)
