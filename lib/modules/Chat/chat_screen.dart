@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/models/messages/message_model.dart';
 import '../../core/repositories/messages_repository.dart';
+import '../../core/repositories/users_reopsitory.dart';
 import '../../core/styles/colors.dart';
 import '../../core/styles/themeScaffold.dart';
 import '../../shared/avatar_display_widget.dart';
@@ -26,6 +27,7 @@ class ChattingScreen extends StatefulWidget {
 
 class _ChattingScreenState extends State<ChattingScreen> {
   final MessagesRepository _messagesRepository = MessagesRepository();
+  final UsersRepository _usersRepository = UsersRepository();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String? _currentUserId;
@@ -226,11 +228,19 @@ class _ChattingScreenState extends State<ChattingScreen> {
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
                 ),
-                AvatarDisplayWidget(
-                  imageUrl: widget.receiverImageUrl,
-                  name: widget.receiverName,
-                  size: 44,
-                  showBorder: false,
+                // Live receiver avatar from Firestore
+                StreamBuilder(
+                  stream: _usersRepository.getUserByIdStream(widget.receiverId),
+                  builder: (context, snapshot) {
+                    final receiverUser = snapshot.data;
+                    return AvatarDisplayWidget(
+                      user: receiverUser,
+                      imageUrl: widget.receiverImageUrl,
+                      name: widget.receiverName,
+                      size: 44,
+                      showBorder: false,
+                    );
+                  },
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -569,22 +579,19 @@ class _ChattingScreenState extends State<ChattingScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe) ...[
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: brown300,
-              backgroundImage: widget.receiverImageUrl != null
-                  ? NetworkImage(widget.receiverImageUrl!)
-                  : null,
-              child: widget.receiverImageUrl == null
-                  ? Text(
-                      widget.receiverName[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
+            // Display receiver's avatar with Firestore support
+            StreamBuilder(
+              stream: _usersRepository.getUserByIdStream(widget.receiverId),
+              builder: (context, snapshot) {
+                final receiverUser = snapshot.data;
+                return AvatarDisplayWidget(
+                  user: receiverUser,
+                  imageUrl: widget.receiverImageUrl,
+                  name: widget.receiverName,
+                  size: 32,
+                  showBorder: false,
+                );
+              },
             ),
             const SizedBox(width: 8),
           ],

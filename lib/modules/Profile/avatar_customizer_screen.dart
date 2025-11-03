@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttermoji/fluttermoji.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/styles/colors.dart';
 
 class AvatarCustomizerScreen extends StatefulWidget {
@@ -19,7 +20,6 @@ class AvatarCustomizerScreen extends StatefulWidget {
 
 class _AvatarCustomizerScreenState extends State<AvatarCustomizerScreen> {
   bool isLoading = true;
-  String? avatarPreview;
 
   @override
   void initState() {
@@ -27,29 +27,42 @@ class _AvatarCustomizerScreenState extends State<AvatarCustomizerScreen> {
     _initializeAvatar();
   }
 
+  // Default Fluttermoji config string used when user has no avatar yet
+  // Format is the numeric underscore-separated options expected by Fluttermoji
+  static const String _defaultConfig = '6_1_1_0_1_4_9_4_8_1_8_0_0';
+
   Future<void> _initializeAvatar() async {
-    // Load existing avatar configuration if available
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    // Try to load user-specific avatar first, otherwise use the passed one
-    String? existingConfig = prefs.getString('fluttermoji_config_${widget.userId}');
-
-    if (existingConfig == null && widget.existingAvatar != null) {
-      // If we have an existing avatar SVG, save it to SharedPreferences
-      // so the customizer can work with it
-      avatarPreview = widget.existingAvatar;
+      // If Firestore already has an avatar for this user (passed in), seed it into
+      // Fluttermoji's internal key so the customizer loads it. We avoid any custom
+      // app-specific SharedPreferences keys.
+      final existing = widget.existingAvatar;
+      if (existing != null && existing.trim().isNotEmpty) {
+        await prefs.setString('fluttermojiSelectedOptions', existing);
+      } else {
+        // No avatar in Firestore → generate initial default and persist to Firestore
+        await prefs.setString('fluttermojiSelectedOptions', _defaultConfig);
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.userId)
+            .set({'avatar': _defaultConfig}, SetOptions(merge: true));
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Avatar init error: $e');
+      // Even if something goes wrong, ensure the screen becomes interactive
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
-
-    setState(() {
-      isLoading = false;
-    });
   }
 
   Future<void> _saveAvatar() async {
     setState(() => isLoading = true);
 
     try {
-      // Get the avatar configuration from SharedPreferences
+      // Read the current config that FluttermojiCustomizer writes internally
       final prefs = await SharedPreferences.getInstance();
       final avatarConfig = prefs.getString('fluttermojiSelectedOptions');
 
@@ -57,11 +70,25 @@ class _AvatarCustomizerScreenState extends State<AvatarCustomizerScreen> {
         throw Exception('لم يتم العثور على بيانات الأفاتار');
       }
 
-      // Save with user-specific key
-      await prefs.setString('fluttermoji_config_${widget.userId}', avatarConfig);
+      // Persist directly to Firestore (single source of truth)
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userId)
+          .set({'avatar': avatarConfig}, SetOptions(merge: true));
 
-      // Return the configuration to the profile screen
       if (mounted) {
+        // Optionally show a success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('تم حفظ الأفاتار بنجاح'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        // Return configuration back to profile screen for immediate preview/save
         Navigator.pop(context, avatarConfig);
       }
     } catch (e) {
@@ -78,18 +105,16 @@ class _AvatarCustomizerScreenState extends State<AvatarCustomizerScreen> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[900],
+      backgroundColor: teal900,
       appBar: AppBar(
-        backgroundColor: Colors.grey[850],
+        backgroundColor: teal900,
         elevation: 0,
         title: const Text(
           'تخصيص الأفاتار',
@@ -197,7 +222,7 @@ class _AvatarCustomizerScreenState extends State<AvatarCustomizerScreen> {
                     ),
                     child: FluttermojiCustomizer(
                       scaffoldWidth: MediaQuery.of(context).size.width,
-                      autosave: false,
+                      autosave: true, // keep config updated internally
                       theme: FluttermojiThemeData(
                         boxDecoration: BoxDecoration(
                           color: Colors.grey[850],
@@ -229,4 +254,3 @@ class _AvatarCustomizerScreenState extends State<AvatarCustomizerScreen> {
     );
   }
 }
-

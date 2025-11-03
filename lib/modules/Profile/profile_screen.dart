@@ -1,4 +1,3 @@
-// filepath: c:\Users\Andrew\Desktop\Church_Apps\Github\church\lib\modules\Profile\profile_screen.dart
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/Store/admin_dashboard.dart';
@@ -8,7 +7,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../../core/models/user/user_model.dart';
 import '../../core/repositories/users_reopsitory.dart';
 import '../../core/services/image_upload_service.dart';
@@ -421,47 +419,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Center(
                     child: Stack(
                       children: [
-                        // Show preview if editing and has new selection
-                        if (isEditing && (_selectedImage != null || _newAvatarSvg != null))
-                          Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: teal300, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: teal500.withOpacity(0.3),
-                                  blurRadius: 15,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: CircleAvatar(
-                              radius: 60,
-                              backgroundColor: Colors.grey[800],
-                              child: ClipOval(
-                                child: _selectedImage != null
-                                    ? Image.file(
-                                        _selectedImage!,
-                                        width: 120,
-                                        height: 120,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Container(
-                                        color: Colors.white,
-                                        child: Image.asset(
-                                          user.gender.code == Gender.male.code
-                                              ? 'assets/images/boy.png'
-                                              : 'assets/images/girl.png',
+                        if (isEditing)
+                          (
+                            _selectedImage != null
+                                ? Container(
+                                    width: 120,
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: teal300, width: 3),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: teal500.withValues(alpha: 0.3),
+                                          blurRadius: 15,
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 60,
+                                      backgroundColor: Colors.grey[800],
+                                      child: ClipOval(
+                                        child: Image.file(
+                                          _selectedImage!,
                                           width: 120,
                                           height: 120,
                                           fit: BoxFit.cover,
                                         ),
                                       ),
-                              ),
-                            ),
-                          )
+                                    ),
+                                  )
+                                : (_newAvatarSvg != null
+                                    ? AvatarDisplayWidget(
+                                        user: user.copyWith(avatar: _newAvatarSvg),
+                                        size: 120,
+                                      )
+                                    : AvatarDisplayWidget(
+                                        user: user,
+                                        size: 120,
+                                      )))
                         else
                           AvatarDisplayWidget(
                             user: user,
@@ -482,7 +478,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   border: Border.all(color: Colors.white, width: 2),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: teal500.withOpacity(0.5),
+                                      color: teal500.withValues(alpha: 0.5),
                                       blurRadius: 8,
                                       spreadRadius: 1,
                                     ),

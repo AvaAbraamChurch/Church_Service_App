@@ -56,11 +56,22 @@ class _AvatarDisplayWidgetState extends State<AvatarDisplayWidget> {
       setState(() {
         _isLoading = true;
       });
-      final fluttermoji = FluttermojiFunctions();
 
       try {
-        // Decode the Fluttermoji string to SVG using the package's decode function
-        // (use the top-level function exported by the package)
+        final trimmed = avatarString.trim();
+        if (trimmed.startsWith('<svg')) {
+          // Already an SVG string
+          if (mounted) {
+            setState(() {
+              _avatarSvg = trimmed;
+              _isLoading = false;
+            });
+          }
+          return;
+        }
+
+        // Legacy config string → decode to SVG
+        final fluttermoji = FluttermojiFunctions();
         final String svgString = fluttermoji.decodeFluttermojifromString(avatarString);
         if (mounted) {
           setState(() {
