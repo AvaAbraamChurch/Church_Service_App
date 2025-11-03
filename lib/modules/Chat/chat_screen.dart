@@ -607,8 +607,8 @@ class _ChattingScreenState extends State<ChattingScreen> {
                       )
                     : LinearGradient(
                         colors: [
-                          brown500.withValues(alpha: 0.9),
-                          brown700.withValues(alpha: 0.9),
+                          sage600.withValues(alpha: 0.9),
+                          sage900.withValues(alpha: 0.9),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,

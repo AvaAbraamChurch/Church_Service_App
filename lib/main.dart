@@ -16,10 +16,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// Use the navigator key from NotificationsService
-// final GlobalKey<NavigatorState> navigatorKey = NotificationsService.navigatorKey;
+import 'core/utils/notification_service.dart';
 
-// Create a FlutterLocalNotificationsPlugin instance to show local notifications
+// Create a FlutterLocalNotificationsPlugin instance to show local notifications in background isolate
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
@@ -44,25 +43,33 @@ Future<void> showLocalNotification(RemoteMessage message) async {
   // fallback to other common keys or default text
   final body = notification?.body ?? data['body'] ?? data['message'] ?? data['body_text'] ?? 'You have a new message';
 
-  final androidDetails = AndroidNotificationDetails(
-    channel.id,
-    channel.name,
-    channelDescription: channel.description,
-    importance: Importance.max,
-    priority: Priority.high,
-    icon: '@mipmap/ic_launcher',
-  );
+  final payload = data['click_action'] ?? data['payload'];
 
-  final platformDetails = NotificationDetails(android: androidDetails);
+  // Delegate to NotificationService to display a consistent local notification
+  try {
+    await NotificationService().showNotification(id: message.hashCode, title: title ?? '', body: body, payload: payload?.toString());
+  } catch (e) {
+    debugPrint('Failed to show notification via NotificationService: $e');
+    // Fallback to direct platform call if needed
+    final androidDetails = AndroidNotificationDetails(
+      channel.id,
+      channel.name,
+      channelDescription: channel.description,
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+    );
 
-  // Use message.hashCode as a simple id (or parse a specific id from data)
-  await flutterLocalNotificationsPlugin.show(
-    message.hashCode,
-    title,
-    body,
-    platformDetails,
-    payload: data['click_action'] ?? data['payload'],
-  );
+    final platformDetails = NotificationDetails(android: androidDetails);
+
+    await flutterLocalNotificationsPlugin.show(
+      message.hashCode,
+      title,
+      body,
+      platformDetails,
+      payload: payload,
+    );
+  }
 }
 
 // Top-level background message handler (must be a top-level function)
@@ -122,6 +129,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Initialize NotificationService early so the local notifications plugin and channels are ready
+  await NotificationService().init();
 
   // If user is signed in, save the device FCM token to their user doc
   void registerTokenToFirestore(String uid, String? token) async {

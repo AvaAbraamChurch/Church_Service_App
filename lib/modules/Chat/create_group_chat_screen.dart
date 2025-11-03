@@ -1,49 +1,59 @@
 import 'package:church/core/utils/gender_enum.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/models/messages/group_chat_model.dart';
 import '../../core/models/user/user_model.dart';
+import '../../core/repositories/group_chat_repository.dart';
 import '../../core/repositories/users_reopsitory.dart';
 import '../../core/styles/colors.dart';
 import '../../core/styles/themeScaffold.dart';
 import '../../core/utils/userType_enum.dart';
-import 'chat_screen.dart';
-import 'create_group_chat_screen.dart';
 import '../../shared/avatar_display_widget.dart';
+import 'group_chat_screen.dart';
 
-class UserSelectionScreen extends StatefulWidget {
+class CreateGroupChatScreen extends StatefulWidget {
   final UserModel currentUser;
 
-  const UserSelectionScreen({
+  const CreateGroupChatScreen({
     super.key,
     required this.currentUser,
   });
 
   @override
-  State<UserSelectionScreen> createState() => _UserSelectionScreenState();
+  State<CreateGroupChatScreen> createState() => _CreateGroupChatScreenState();
 }
 
-class _UserSelectionScreenState extends State<UserSelectionScreen> {
+class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
   final UsersRepository _usersRepository = UsersRepository();
+  final GroupChatRepository _groupChatRepository = GroupChatRepository();
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _groupNameController = TextEditingController();
+  final Set<String> _selectedUserIds = {};
   String _searchQuery = '';
+  bool _isCreating = false;
 
   @override
   void dispose() {
     _searchController.dispose();
+    _groupNameController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final canCreateGroup = widget.currentUser.userType == UserType.priest ||
-        widget.currentUser.userType == UserType.superServant;
-
     return ThemedScaffold(
       appBar: _buildAppBar(),
       body: Column(
         children: [
+          // Group Name Input
+          _buildGroupNameInput(),
+
           // Search Bar
           _buildSearchBar(),
+
+          // Selected Users Chips
+          if (_selectedUserIds.isNotEmpty) _buildSelectedUsersChips(),
 
           // Users List
           Expanded(
@@ -51,18 +61,20 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
           ),
         ],
       ),
-      floatingActionButton: canCreateGroup
+      floatingActionButton: _selectedUserIds.length >= 2
           ? Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(30),
                 gradient: LinearGradient(
-                  colors: [teal300, teal700],
+                  colors: _isCreating
+                      ? [brown700, brown900]
+                      : [teal300, teal700],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: teal500.withValues(alpha: 0.5),
+                    color: (_isCreating ? brown700 : teal500).withValues(alpha: 0.5),
                     blurRadius: 15,
                     offset: const Offset(0, 5),
                     spreadRadius: 1,
@@ -77,38 +89,38 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CreateGroupChatScreen(
-                          currentUser: widget.currentUser,
-                        ),
-                      ),
-                    );
-                  },
+                  onTap: _isCreating ? null : _createGroup,
                   borderRadius: BorderRadius.circular(30),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.group_add,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Text(
-                          'إنشاء مجموعة',
-                          style: TextStyle(
+                        _isCreating
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                              ),
+                        const SizedBox(width: 12),
+                        Text(
+                          _isCreating ? 'جاري الإنشاء...' : 'إنشاء المجموعة',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -159,7 +171,7 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'اختر محادثة جديدة',
+                        'إنشاء مجموعة جديدة',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -167,13 +179,28 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
                         ),
                       ),
                       Text(
-                        _getRoleDescription(),
+                        'اختر عضوين على الأقل',
                         style: TextStyle(
                           color: teal100.withValues(alpha: 0.8),
                           fontSize: 12,
                         ),
                       ),
                     ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _selectedUserIds.length >= 2 ? teal500 : sage700.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${_selectedUserIds.length} محدد',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -184,9 +211,31 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildGroupNameInput() {
     return Container(
       margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: teal300.withValues(alpha: 0.3)),
+      ),
+      child: TextField(
+        controller: _groupNameController,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+        decoration: InputDecoration(
+          hintText: 'اسم المجموعة...',
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          border: InputBorder.none,
+          icon: Icon(Icons.group, color: teal300),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.1),
@@ -197,7 +246,7 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
         controller: _searchController,
         style: const TextStyle(color: Colors.white, fontSize: 16),
         decoration: InputDecoration(
-          hintText: 'ابحث بالاسم أو رقم الهاتف...',
+          hintText: 'ابحث عن أعضاء...',
           hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
           border: InputBorder.none,
           icon: Icon(Icons.search, color: teal300),
@@ -222,41 +271,54 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
     );
   }
 
-  Widget _buildUsersList() {
-    // Children can only see received conversations - redirect them
-    if (widget.currentUser.userType == UserType.child) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.lock_outline,
-              size: 80,
-              color: sage300.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'لا يمكنك بدء محادثات جديدة',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'يمكنك فقط الرد على المحادثات المستلمة',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 16,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
+  Widget _buildSelectedUsersChips() {
+    return Container(
+      height: 60,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: StreamBuilder<List<UserModel>>(
+        stream: _getUsersStream(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const SizedBox.shrink();
 
+          final allUsers = snapshot.data!;
+          final selectedUsers = allUsers.where((user) => _selectedUserIds.contains(user.id)).toList();
+
+          return ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: selectedUsers.length,
+            itemBuilder: (context, index) {
+              final user = selectedUsers[index];
+              return Container(
+                margin: const EdgeInsets.only(right: 8),
+                child: Chip(
+                  backgroundColor: sage700.withValues(alpha: 0.5),
+                  deleteIconColor: red300,
+                  label: Text(
+                    user.fullName,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  avatar: AvatarDisplayWidget(
+                    user: user,
+                    imageUrl: user.profileImageUrl,
+                    name: user.fullName,
+                    size: 32,
+                    showBorder: false,
+                  ),
+                  onDeleted: () {
+                    setState(() {
+                      _selectedUserIds.remove(user.id);
+                    });
+                  },
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildUsersList() {
     return StreamBuilder<List<UserModel>>(
       stream: _getUsersStream(),
       builder: (context, snapshot) {
@@ -325,26 +387,29 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
           itemCount: users.length,
           itemBuilder: (context, index) {
             final user = users[index];
-            return _buildUserTile(user);
+            final isSelected = _selectedUserIds.contains(user.id);
+            return _buildUserTile(user, isSelected);
           },
         );
       },
     );
   }
 
-  Widget _buildUserTile(UserModel user) {
+  Widget _buildUserTile(UserModel user, bool isSelected) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [sage900.withValues(alpha: 0.3), sage700.withValues(alpha: 0.3)],
+          colors: isSelected
+              ? [teal700.withValues(alpha: 0.5), teal900.withValues(alpha: 0.5)]
+              : [sage900.withValues(alpha: 0.3), sage700.withValues(alpha: 0.3)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: sage300.withValues(alpha: 0.2),
-          width: 1,
+          color: isSelected ? teal300 : sage300.withValues(alpha: 0.2),
+          width: isSelected ? 2 : 1,
         ),
       ),
       child: Material(
@@ -352,16 +417,13 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ChattingScreen(
-                  receiverId: user.id,
-                  receiverName: user.fullName,
-                  receiverImageUrl: user.profileImageUrl,
-                ),
-              ),
-            );
+            setState(() {
+              if (isSelected) {
+                _selectedUserIds.remove(user.id);
+              } else {
+                _selectedUserIds.add(user.id);
+              }
+            });
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -412,48 +474,22 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
                               ),
                             ),
                           ),
-                          if (user.phoneNumber != null) ...[
-                            const SizedBox(width: 8),
-                            Icon(Icons.phone, size: 14, color: teal300.withValues(alpha: 0.7)),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                user.phoneNumber!,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  fontSize: 12,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
                         ],
                       ),
-                      if (user.userClass.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            user.userClass,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.5),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                 ),
 
-                // Chat Icon
+                // Selection Indicator
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: teal500.withValues(alpha: 0.2),
+                    color: isSelected ? teal500 : Colors.white.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.chat_bubble_outline,
-                    color: teal300,
+                    isSelected ? Icons.check : Icons.person_add_outlined,
+                    color: isSelected ? Colors.white : teal300,
                     size: 20,
                   ),
                 ),
@@ -470,58 +506,25 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
 
     switch (currentUser.userType) {
       case UserType.priest:
-        // Priest can chat with anyone - get all users
         return _usersRepository.getUsers().map((usersList) {
-          return usersList
-              .map((userData) => UserModel.fromJson(userData))
-              .toList();
+          return usersList.map((userData) => UserModel.fromJson(userData)).toList();
         });
 
       case UserType.superServant:
-        // Super Servant can chat with:
-        // - Priests
-        // - All servants with same gender
-        // - All children with same gender
         return _usersRepository.getUsersByMultipleTypesAndGender(
           [UserType.priest.code, UserType.superServant.code, UserType.servant.code, UserType.child.code],
           currentUser.gender.code,
         );
 
-      case UserType.servant:
-        // Servant can chat with:
-        // - Priests
-        // - Super Servants with same gender
-        // - Servants with same gender and userClass
-        // - Children with same gender and userClass
-        return _usersRepository.getUsersByMultipleTypes(
-          currentUser.userClass,
-          [UserType.priest.code, UserType.superServant.code, UserType.servant.code, UserType.child.code],
-          currentUser.gender.code,
-        );
-
-      case UserType.child:
-        // Children cannot initiate chats - return empty stream
+      default:
         return Stream.value([]);
-    }
-  }
-
-  String _getRoleDescription() {
-    switch (widget.currentUser.userType) {
-      case UserType.priest:
-        return 'يمكنك التواصل مع جميع المستخدمين';
-      case UserType.superServant:
-        return 'يمكنك التواصل مع الخدام والمخدومين من نفس النوع';
-      case UserType.servant:
-        return 'يمكنك التواصل مع الكهنة والخدام والمخدومين من نفس الفصل';
-      case UserType.child:
-        return 'يمكنك الرد على المحادثات المستلمة فقط';
     }
   }
 
   Color _getUserTypeColor(UserType userType) {
     switch (userType) {
       case UserType.priest:
-        return const Color(0xFFFFD700); // Gold
+        return const Color(0xFFFFD700);
       case UserType.superServant:
         return teal300;
       case UserType.servant:
@@ -530,4 +533,76 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
         return sage300;
     }
   }
+
+  Future<void> _createGroup() async {
+    if (_groupNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('يرجى إدخال اسم المجموعة'),
+          backgroundColor: red500,
+        ),
+      );
+      return;
+    }
+
+    if (_selectedUserIds.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('يرجى اختيار عضوين على الأقل'),
+          backgroundColor: red500,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isCreating = true;
+    });
+
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUserId == null) {
+        throw Exception('يجب تسجيل الدخول أولاً');
+      }
+
+      final memberIds = [currentUserId, ..._selectedUserIds];
+
+      final groupChat = GroupChatModel(
+        groupName: _groupNameController.text.trim(),
+        createdBy: currentUserId,
+        memberIds: memberIds,
+        createdAt: DateTime.now(),
+      );
+
+      final groupId = await _groupChatRepository.createGroupChat(groupChat);
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GroupChatScreen(
+              groupId: groupId,
+              groupName: groupChat.groupName,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ: $e'),
+            backgroundColor: red500,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreating = false;
+        });
+      }
+    }
+  }
 }
+

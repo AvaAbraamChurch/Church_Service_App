@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/models/messages/message_model.dart';
+import '../../core/models/messages/group_chat_model.dart';
 import '../../core/models/user/user_model.dart';
 import '../../core/repositories/messages_repository.dart';
+import '../../core/repositories/group_chat_repository.dart';
 import '../../core/repositories/users_reopsitory.dart';
 import '../../core/styles/colors.dart';
 import '../../core/styles/themeScaffold.dart';
 import 'chat_screen.dart';
+import 'group_chat_screen.dart';
 import 'user_selection_screen.dart';
 import '../../shared/avatar_display_widget.dart';
 
@@ -21,13 +24,22 @@ class ConversationsListScreen extends StatefulWidget {
 
 class _ConversationsListScreenState extends State<ConversationsListScreen> {
   final MessagesRepository _messagesRepository = MessagesRepository();
+  final GroupChatRepository _groupChatRepository = GroupChatRepository();
   final UsersRepository _usersRepository = UsersRepository();
+  final TextEditingController _searchController = TextEditingController();
   String? _currentUserId;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _currentUserId = FirebaseAuth.instance.currentUser?.uid;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -46,130 +58,241 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
 
     return ThemedScaffold(
       appBar: _buildAppBar(),
-      body: StreamBuilder<List<MessageModel>>(
-        stream: _messagesRepository.getUserMessages(_currentUserId!),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: teal300),
-            );
-          }
+      body: Column(
+        children: [
+          // Search Bar
+          _buildSearchBar(),
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'حدث خطأ في تحميل المحادثات',
-                style: TextStyle(color: red300, fontSize: 16),
-              ),
-            );
-          }
+          // Conversations List
+          Expanded(
+            child: StreamBuilder<List<MessageModel>>(
+              stream: _messagesRepository.getUserMessages(_currentUserId!),
+              builder: (context, messagesSnapshot) {
+                return StreamBuilder<List<GroupChatModel>>(
+                  stream: _searchQuery.isEmpty
+                      ? _groupChatRepository.getUserGroupChats(_currentUserId!)
+                      : _groupChatRepository.searchUserGroupChats(_currentUserId!, _searchQuery),
+                  builder: (context, groupsSnapshot) {
+                    if (messagesSnapshot.connectionState == ConnectionState.waiting ||
+                        groupsSnapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: teal300),
+                      );
+                    }
 
-          final messages = snapshot.data ?? [];
+                    if (messagesSnapshot.hasError || groupsSnapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'حدث خطأ في تحميل المحادثات',
+                          style: TextStyle(color: red300, fontSize: 16),
+                        ),
+                      );
+                    }
 
-          // Group messages by conversation
-          final Map<String, MessageModel> conversations = {};
-          for (var message in messages) {
-            final otherUserId = message.senderId == _currentUserId
-                ? message.receiverId
-                : message.senderId;
+                    final messages = messagesSnapshot.data ?? [];
+                    final groupChats = groupsSnapshot.data ?? [];
 
-            if (!conversations.containsKey(otherUserId) ||
-                (message.timestamp != null &&
-                    conversations[otherUserId]!.timestamp != null &&
-                    message.timestamp!.isAfter(conversations[otherUserId]!.timestamp!))) {
-              conversations[otherUserId] = message;
-            }
-          }
+                    // Group messages by conversation
+                    final Map<String, MessageModel> conversations = {};
+                    for (var message in messages) {
+                      final otherUserId = message.senderId == _currentUserId
+                          ? message.receiverId
+                          : message.senderId;
 
-          if (conversations.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.chat_bubble_outline_rounded,
-                    size: 100,
-                    color: teal300.withValues(alpha: 0.3),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'لا توجد محادثات',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'ابدأ محادثة جديدة الآن',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
+                      if (!conversations.containsKey(otherUserId) ||
+                          (message.timestamp != null &&
+                              conversations[otherUserId]!.timestamp != null &&
+                              message.timestamp!.isAfter(conversations[otherUserId]!.timestamp!))) {
+                        conversations[otherUserId] = message;
+                      }
+                    }
 
-          final conversationsList = conversations.entries.toList()
-            ..sort((a, b) {
-              if (a.value.timestamp == null) return 1;
-              if (b.value.timestamp == null) return -1;
-              return b.value.timestamp!.compareTo(a.value.timestamp!);
-            });
+                    // Apply search filter for individual conversations
+                    List<MapEntry<String, MessageModel>> filteredConversations = conversations.entries.toList();
+                    if (_searchQuery.isNotEmpty) {
+                      filteredConversations = filteredConversations.where((entry) {
+                        // This will be filtered by user name in the tile builder
+                        return true; // We'll filter in the FutureBuilder
+                      }).toList();
+                    }
 
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: conversationsList.length,
-            itemBuilder: (context, index) {
-              final entry = conversationsList[index];
-              final otherUserId = entry.key;
-              final lastMessage = entry.value;
-              final isUnread = lastMessage.receiverId == _currentUserId && !lastMessage.isSeen;
+                    if (conversations.isEmpty && groupChats.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _searchQuery.isNotEmpty ? Icons.search_off : Icons.chat_bubble_outline_rounded,
+                              size: 100,
+                              color: teal300.withValues(alpha: 0.3),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              _searchQuery.isNotEmpty ? 'لا توجد نتائج' : 'لا توجد محادثات',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _searchQuery.isNotEmpty ? 'جرب البحث بكلمات أخرى' : 'ابدأ محادثة جديدة الآن',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.5),
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
 
-              return _buildConversationTile(
-                context,
-                otherUserId,
-                lastMessage,
-                isUnread,
-              );
-            },
-          );
-        },
+                    // Combine and sort all conversations
+                    final List<Widget> allConversations = [];
+
+                    // Add group chats
+                    for (var group in groupChats) {
+                      allConversations.add(_buildGroupConversationTile(context, group));
+                    }
+
+                    // Add individual conversations
+                    final conversationsList = filteredConversations
+                      ..sort((a, b) {
+                        if (a.value.timestamp == null) return 1;
+                        if (b.value.timestamp == null) return -1;
+                        return b.value.timestamp!.compareTo(a.value.timestamp!);
+                      });
+
+                    for (var entry in conversationsList) {
+                      final otherUserId = entry.key;
+                      final lastMessage = entry.value;
+                      final isUnread = lastMessage.receiverId == _currentUserId && !lastMessage.isSeen;
+
+                      allConversations.add(_buildConversationTile(
+                        context,
+                        otherUserId,
+                        lastMessage,
+                        isUnread,
+                      ));
+                    }
+
+                    return ListView(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      children: allConversations,
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          if (_currentUserId == null) return;
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: [teal300, teal700],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: teal500.withValues(alpha: 0.5),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+              spreadRadius: 1,
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: () async {
+              if (_currentUserId == null) return;
 
-          try {
-            // Fetch current user data
-            final currentUser = await _usersRepository.getUserById(_currentUserId!);
+              try {
+                // Fetch current user data
+                final currentUser = await _usersRepository.getUserById(_currentUserId!);
 
-            if (!mounted) return;
+                if (!mounted) return;
 
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => UserSelectionScreen(
-                  currentUser: currentUser,
-                ),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserSelectionScreen(
+                      currentUser: currentUser,
+                    ),
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('حدث خطأ: ${e.toString()}'),
+                    backgroundColor: red500,
+                  ),
+                );
+              }
+            },
+            borderRadius: BorderRadius.circular(28),
+            child: Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.add_comment,
+                color: Colors.white,
+                size: 26,
               ),
-            );
-          } catch (e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('حدث خطأ: ${e.toString()}'),
-                backgroundColor: red500,
-              ),
-            );
-          }
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: teal300.withValues(alpha: 0.3)),
+      ),
+      child: TextField(
+        controller: _searchController,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+        decoration: InputDecoration(
+          hintText: 'ابحث في المحادثات أو المجموعات...',
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          border: InputBorder.none,
+          icon: Icon(Icons.search, color: teal300),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear, color: teal300),
+                  onPressed: () {
+                    setState(() {
+                      _searchController.clear();
+                      _searchQuery = '';
+                    });
+                  },
+                )
+              : null,
+        ),
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value.toLowerCase().trim();
+          });
         },
-        backgroundColor: teal500,
-        child: const Icon(Icons.add_comment, color: Colors.white),
       ),
     );
   }
@@ -309,6 +432,132 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     );
   }
 
+  Widget _buildGroupConversationTile(BuildContext context, GroupChatModel group) {
+    // Filter by search query
+    if (_searchQuery.isNotEmpty && !group.groupName.toLowerCase().contains(_searchQuery)) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [teal700.withValues(alpha: 0.3), teal900.withValues(alpha: 0.3)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: teal300.withValues(alpha: 0.5),
+          width: 1.5,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => GroupChatScreen(
+                  groupId: group.id!,
+                  groupName: group.groupName,
+                ),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [teal500, teal700],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.group, color: Colors.white, size: 30),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              group.groupName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (group.lastMessageAt != null)
+                            Text(
+                              _formatMessageTime(group.lastMessageAt),
+                              style: TextStyle(
+                                color: teal100,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.people,
+                            size: 16,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${group.memberIds.length} أعضاء',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 14,
+                            ),
+                          ),
+                          if (group.lastMessage != null) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                ' • ${group.lastMessage}',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildConversationTile(
     BuildContext context,
     String otherUserId,
@@ -324,19 +573,24 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
         final userName = otherUser?.fullName ?? 'مستخدم';
         final userImage = otherUser?.profileImageUrl;
 
+        // Filter by search query
+        if (_searchQuery.isNotEmpty && !userName.toLowerCase().contains(_searchQuery)) {
+          return const SizedBox.shrink();
+        }
+
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: isUnread
                   ? [teal700.withValues(alpha: 0.3), teal900.withValues(alpha: 0.3)]
-                  : [brown900.withValues(alpha: 0.2), brown700.withValues(alpha: 0.2)],
+                  : [sage900.withValues(alpha: 0.3), sage700.withValues(alpha: 0.3)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isUnread ? teal300.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.1),
+              color: isUnread ? teal300.withValues(alpha: 0.5) : sage300.withValues(alpha: 0.3),
               width: 1.5,
             ),
           ),
