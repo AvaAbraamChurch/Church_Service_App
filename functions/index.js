@@ -561,3 +561,49 @@ exports.sendBirthdayNotifications = functions.https.onCall(async (data, context)
     );
   }
 });
+
+// Send a test notification via HTTP
+// Protected by a simple API key (set as an environment variable in the Functions runtime: TEST_NOTIFICATION_KEY)
+// Request body (JSON) or query params: { token, topic, title, body }
+// Header: x-api-key: <key>  OR query param: ?key=<key>
+exports.sendTestNotification = functions.https.onRequest(async (req, res) => {
+  try {
+    const providedKey = req.get('x-api-key') || req.query.key;
+    const expectedKey = process.env.TEST_NOTIFICATION_KEY || '';
+
+    if (!expectedKey) {
+      console.warn('TEST_NOTIFICATION_KEY is not set. The function requires an API key for safety.');
+    }
+
+    if (expectedKey && providedKey !== expectedKey) {
+      return res.status(403).json({ success: false, error: 'Forbidden - invalid API key' });
+    }
+
+    const token = req.body?.token || req.query.token;
+    const topic = req.body?.topic || req.query.topic;
+    const title = req.body?.title || req.query.title || 'Test Notification';
+    const body = req.body?.body || req.query.body || 'This is a test notification sent from Cloud Function';
+
+    if (!token && !topic) {
+      return res.status(400).json({ success: false, error: 'Missing token or topic' });
+    }
+
+    const message = token
+      ? {
+          token: token,
+          notification: { title, body },
+          data: { source: 'cloud-function', timestamp: String(Date.now()) },
+        }
+      : {
+          topic: topic,
+          notification: { title, body },
+          data: { source: 'cloud-function', timestamp: String(Date.now()) },
+        };
+
+    const result = await admin.messaging().send(message);
+    return res.json({ success: true, result });
+  } catch (error) {
+    console.error('sendTestNotification error:', error);
+    return res.status(500).json({ success: false, error: error.message || String(error) });
+  }
+});

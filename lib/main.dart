@@ -174,19 +174,25 @@ void main() async {
   // Initialize Hive for offline attendance queue
   await LocalAttendanceRepository.init();
 
-  // Initialize Workmanager to run periodic background sync
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: false,
-  );
+  // Initialize Workmanager to run periodic background sync (optional - graceful failure)
+  try {
+    await Workmanager().initialize(
+      callbackDispatcher,
+      isInDebugMode: false,
+    );
 
-  // Register a periodic task to sync pending attendance every 15 minutes (Android minimum)
-  await Workmanager().registerPeriodicTask(
-    'church_sync_pending_attendance',
-    'syncPendingAttendance',
-    frequency: const Duration(minutes: 15),
-    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
-  );
+    // Register a periodic task to sync pending attendance every 15 minutes (Android minimum)
+    await Workmanager().registerPeriodicTask(
+      'church_sync_pending_attendance',
+      'syncPendingAttendance',
+      frequency: const Duration(minutes: 15),
+    );
+    debugPrint('Workmanager initialized successfully for background sync');
+  } catch (e) {
+    // Workmanager failed - app will still work with foreground sync via connectivity listener
+    debugPrint('Workmanager initialization failed (background sync disabled): $e');
+    debugPrint('Offline attendance will still work - sync will happen when app is open');
+  }
 
   // If user is signed in, save the device FCM token to their user doc
   void registerTokenToFirestore(String uid, String? token) async {
