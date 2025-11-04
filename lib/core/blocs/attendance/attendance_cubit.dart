@@ -8,11 +8,25 @@ import 'package:church/core/models/attendance/attendance_model.dart';
 
 import '../../models/attendance/visit_model.dart';
 import 'attendance_states.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
+import 'dart:convert';
+import '../../repositories/local_attendance_repository.dart';
 
 class AttendanceCubit extends Cubit<AttendanceState> {
   final UsersRepository usersRepository;
   final AttendanceRepository attendanceRepository;
   final VisitRepository visitRepository;
+
+  // Local repo to queue attendance when offline
+  final LocalAttendanceRepository _localRepo = LocalAttendanceRepository();
+  // Use a dynamic subscription type to avoid platform-dependent stream type mismatches
+  StreamSubscription<dynamic>? _connectivitySub;
+
+  // Cached state for UI consumers
+  UserModel? currentUser;
+  List<UserModel>? users;
+  List<AttendanceModel>? attendanceHistory;
 
   AttendanceCubit({
     UsersRepository? usersRepository,
@@ -21,14 +35,92 @@ class AttendanceCubit extends Cubit<AttendanceState> {
   }) : usersRepository = usersRepository ?? UsersRepository(),
        attendanceRepository = attendanceRepository ?? AttendanceRepository(),
        visitRepository = visitRepository ?? VisitRepository(),
-       super(AttendanceInitial());
+       super(AttendanceInitial()) {
+    // start listening for connectivity changes
+    initOfflineSupport();
+  }
 
   static AttendanceCubit get(context) => BlocProvider.of(context);
 
-  UserModel? currentUser;
+  // Call from dispose if you manually close the cubit
+  Future<void> disposeOfflineSupport() async {
+    await _connectivitySub?.cancel();
+  }
 
-  List<UserModel>? users;
-  List<AttendanceModel>? attendanceHistory;
+  void initOfflineSupport() {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((status) async {
+      if (status != ConnectivityResult.none) {
+        await syncPendingAttendances();
+      }
+    });
+  }
+
+  Future<bool> _hasNetwork() async {
+    final c = await Connectivity().checkConnectivity();
+    return c != ConnectivityResult.none;
+  }
+
+  /// Public method to check network status (for UI)
+  Future<bool> checkNetwork() async {
+    return await _hasNetwork();
+  }
+
+  /// Offline-aware attendance save. If offline, save to Hive and return a local key
+  Future<String> takeAttendanceOfflineAware(AttendanceModel attendance) async {
+    try {
+      final online = await _hasNetwork();
+      if (!online) {
+        final key = await _localRepo.savePendingAttendance(attendance);
+        // emit success as local save
+        emit(takeAttendanceSuccess());
+        return 'local_$key';
+      }
+
+      // Online: use existing takeAttendance method
+      return await takeAttendance(attendance);
+    } catch (e) {
+      emit(takeAttendanceError(e.toString()));
+      rethrow;
+    }
+  }
+
+  /// Attempt to sync pending items from Hive to Firestore
+  Future<void> syncPendingAttendances() async {
+    final pending = _localRepo.getPendingAttendances();
+    if (pending.isEmpty) return;
+
+    emit(takeAttendanceLoading());
+    for (final row in pending) {
+      try {
+        final payloadStr = row['payload'] as String;
+        final decoded = jsonDecode(payloadStr) as Map<String, dynamic>;
+        final attendance = AttendanceModel.fromJson(decoded);
+
+        final existing = await attendanceRepository.getAttendanceByUserAndDate(attendance.userId, attendance.date);
+        if (existing != null) {
+          await attendanceRepository.updateAttendance(existing.id, attendance.toMap());
+        } else {
+          await attendanceRepository.addAttendance(attendance);
+        }
+
+        await _localRepo.deletePending(row['key']);
+      } catch (e) {
+        // skip and try next; don't remove from local store
+        continue;
+      }
+    }
+    emit(takeAttendanceSuccess());
+  }
+
+  /// Get count of pending (offline) attendance items
+  int getPendingCount() {
+    return _localRepo.getPendingAttendances().length;
+  }
+
+  /// Manually trigger sync (for UI button)
+  Future<void> manualSync() async {
+    await syncPendingAttendances();
+  }
 
   // Get current user as a stream
   Stream<UserModel?> getCurrentUser(String userId) {
@@ -121,26 +213,44 @@ class AttendanceCubit extends Cubit<AttendanceState> {
 
   // Take attendance for a user
   Future<String> takeAttendance(AttendanceModel attendance) async {
+    // First check connectivity. If offline, queue locally and return a local id.
     try {
       emit(takeAttendanceLoading());
 
-      // Check if attendance already exists for this user on this date
-      final existingAttendance = await attendanceRepository
-          .getAttendanceByUserAndDate(attendance.userId, attendance.date);
+      final online = await _hasNetwork();
+      if (!online) {
+        final key = await _localRepo.savePendingAttendance(attendance);
+        emit(takeAttendanceSuccess());
+        return 'local_$key';
+      }
 
-      if (existingAttendance != null) {
-        // Update existing attendance
-        await attendanceRepository.updateAttendance(
-          existingAttendance.id,
-          attendance.toMap(),
-        );
-        emit(takeAttendanceSuccess());
-        return existingAttendance.id;
-      } else {
-        // Add new attendance record
-        final docId = await attendanceRepository.addAttendance(attendance);
-        emit(takeAttendanceSuccess());
-        return docId;
+      // We're online: attempt normal server upsert (check by user+date)
+      try {
+        final existingAttendance = await attendanceRepository
+            .getAttendanceByUserAndDate(attendance.userId, attendance.date);
+
+        if (existingAttendance != null) {
+          await attendanceRepository.updateAttendance(
+            existingAttendance.id,
+            attendance.toMap(),
+          );
+          emit(takeAttendanceSuccess());
+          return existingAttendance.id;
+        } else {
+          final docId = await attendanceRepository.addAttendance(attendance);
+          emit(takeAttendanceSuccess());
+          return docId;
+        }
+      } catch (networkError) {
+        // If any network/upload error occurs, save locally for later sync
+        try {
+          final key = await _localRepo.savePendingAttendance(attendance);
+          emit(takeAttendanceSuccess());
+          return 'local_$key';
+        } catch (saveError) {
+          emit(takeAttendanceError(saveError.toString()));
+          rethrow;
+        }
       }
     } catch (e) {
       emit(takeAttendanceError(e.toString()));
@@ -153,9 +263,27 @@ class AttendanceCubit extends Cubit<AttendanceState> {
     try {
       emit(takeAttendanceLoading());
 
-      await attendanceRepository.batchAddAttendance(attendanceList);
+      final online = await _hasNetwork();
+      if (!online) {
+        // Save all items locally
+        for (final attendance in attendanceList) {
+          await _localRepo.savePendingAttendance(attendance);
+        }
+        emit(takeAttendanceSuccess());
+        return;
+      }
 
-      emit(takeAttendanceSuccess());
+      // We're online: attempt normal batch upload
+      try {
+        await attendanceRepository.batchAddAttendance(attendanceList);
+        emit(takeAttendanceSuccess());
+      } catch (networkError) {
+        // If batch upload fails, save all items locally for later sync
+        for (final attendance in attendanceList) {
+          await _localRepo.savePendingAttendance(attendance);
+        }
+        emit(takeAttendanceSuccess());
+      }
     } catch (e) {
       emit(takeAttendanceError(e.toString()));
       rethrow;
@@ -205,10 +333,6 @@ class AttendanceCubit extends Cubit<AttendanceState> {
   Stream<List<VisitModel>> getVisitsForChild(String childId) {
     return visitRepository.getVisitsByChildIdStream(childId);
   }
-
-
-
-
 
 
 }

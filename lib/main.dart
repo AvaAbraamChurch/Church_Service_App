@@ -15,6 +15,11 @@ import 'core/blocs/auth/auth_cubit.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
+import 'core/repositories/local_attendance_repository.dart';
+import 'core/repositories/attendance_repository.dart';
+import 'package:workmanager/workmanager.dart';
+import 'core/models/attendance/attendance_model.dart';
 
 import 'core/utils/notification_service.dart';
 
@@ -122,6 +127,42 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
+// Background task callback for Workmanager. This runs on a background isolate.
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    // Ensure Flutter binding exists in background isolate
+    WidgetsFlutterBinding.ensureInitialized();
+
+    // Initialize Hive and AttendanceRepository
+    await LocalAttendanceRepository.init();
+    final attendanceRepo = AttendanceRepository();
+
+    if (task == 'syncPendingAttendance') {
+      final pending = LocalAttendanceRepository().getPendingAttendances();
+      for (final row in pending) {
+        try {
+          final payload = row['payload'] as String;
+          final decoded = jsonDecode(payload) as Map<String, dynamic>;
+          final attendance = AttendanceModel.fromJson(decoded);
+
+          final existing = await attendanceRepo.getAttendanceByUserAndDate(attendance.userId, attendance.date);
+          if (existing != null) {
+            await attendanceRepo.updateAttendance(existing.id, attendance.toMap());
+          } else {
+            await attendanceRepo.addAttendance(attendance);
+          }
+
+          await LocalAttendanceRepository().deletePending(row['key'] as int);
+        } catch (e) {
+          // Leave item for next run
+          continue;
+        }
+      }
+    }
+
+    return Future.value(true);
+  });
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -130,8 +171,22 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Initialize NotificationService early so the local notifications plugin and channels are ready
-  await NotificationService().init();
+  // Initialize Hive for offline attendance queue
+  await LocalAttendanceRepository.init();
+
+  // Initialize Workmanager to run periodic background sync
+  await Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: false,
+  );
+
+  // Register a periodic task to sync pending attendance every 15 minutes (Android minimum)
+  await Workmanager().registerPeriodicTask(
+    'church_sync_pending_attendance',
+    'syncPendingAttendance',
+    frequency: const Duration(minutes: 15),
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+  );
 
   // If user is signed in, save the device FCM token to their user doc
   void registerTokenToFirestore(String uid, String? token) async {
