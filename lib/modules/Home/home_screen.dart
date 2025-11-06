@@ -13,6 +13,7 @@ import '../../core/styles/colors.dart';
 import '../../core/utils/session_checker.dart';
 import 'endrawer.dart';
 import '../../shared/avatar_display_widget.dart';
+import '../../shared/coming_soon_popup.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userId; // Replace with actual user ID
@@ -264,7 +265,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                             svgAsset: 'assets/svg/book.svg',
                                             color: brown300,
                                             onTap: (){
-                                              debugPrint('درس الكتاب');
+                                              showComingSoonPopup(
+                                                context,
+                                                title: 'درس الكتاب',
+                                                icon: Icons.menu_book_rounded,
+                                              );
                                             },
                                           ),
                                           _buildActivityButton(
@@ -273,7 +278,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                             svgAsset: 'assets/svg/sunday school.svg',
                                             color: sage900,
                                             onTap: (){
-                                              debugPrint('مدارس الأحد');
+                                              showComingSoonPopup(
+                                                context,
+                                                title: 'مدارس الأحد',
+                                                icon: Icons.school_rounded,
+                                              );
                                             },
                                           ),
                                           _buildActivityButton(
@@ -282,7 +291,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                             svgAsset: 'assets/svg/church.svg',
                                             color: sage500,
                                             onTap: (){
-                                              debugPrint('القداس');
+                                              showComingSoonPopup(
+                                                context,
+                                                title: 'القداس الإلهي',
+                                                icon: Icons.church_rounded,
+                                              );
                                             },
                                           ),
                                           _buildActivityButton(
@@ -291,7 +304,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                             svgAsset: 'assets/svg/4mamsa.svg', // Replace with your SVG asset path
                                             color: tawny,
                                             onTap: (){
-                                              debugPrint('مدرسة الشمامسة');
+                                              showComingSoonPopup(
+                                                context,
+                                                title: 'مدرسة الشمامسة',
+                                                icon: Icons.groups_rounded,
+                                              );
                                             },
                                           ),
                                           // Add some padding at the bottom for scroll

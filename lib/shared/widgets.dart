@@ -1,6 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+// Export shared widgets
+export 'coming_soon_popup.dart';
+
 void navigateTo(context, widget) => Navigator.push(
       context,
       PageRouteBuilder(
