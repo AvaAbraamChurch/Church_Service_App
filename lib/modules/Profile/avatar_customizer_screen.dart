@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:fluttermoji/fluttermoji.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,27 +28,26 @@ class _AvatarCustomizerScreenState extends State<AvatarCustomizerScreen> {
     _initializeAvatar();
   }
 
-  // Default Fluttermoji config string used when user has no avatar yet
-  // Format is the numeric underscore-separated options expected by Fluttermoji
-  static const String _defaultConfig = '6_1_1_0_1_4_9_4_8_1_8_0_0';
+  // Default Fluttermoji config in JSON format (what Fluttermoji natively uses)
+  final fluttermoji = FluttermojiFunctions();
+
+  // Default avatar configuration as JSON string
+  static const String _defaultConfig = '{"topType":6,"accessoriesType":1,"hairColor":2,"facialHairType":0,"facialHairColor":2,"clotheType":4,"eyeType":9,"eyebrowType":4,"mouthType":8,"skinColor":1,"clotheColor":8,"style":0,"graphicType":0}';
 
   Future<void> _initializeAvatar() async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
       // If Firestore already has an avatar for this user (passed in), seed it into
-      // Fluttermoji's internal key so the customizer loads it. We avoid any custom
-      // app-specific SharedPreferences keys.
+      // Fluttermoji's internal key so the customizer loads it.
       final existing = widget.existingAvatar;
       if (existing != null && existing.trim().isNotEmpty) {
+        // Fluttermoji expects JSON string format: {"topType":6,"accessoriesType":3,...}
         await prefs.setString('fluttermojiSelectedOptions', existing);
       } else {
-        // No avatar in Firestore → generate initial default and persist to Firestore
+        // No avatar in Firestore → use default configuration
         await prefs.setString('fluttermojiSelectedOptions', _defaultConfig);
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(widget.userId)
-            .set({'avatar': _defaultConfig}, SetOptions(merge: true));
+
       }
     } catch (e) {
       // ignore: avoid_print
@@ -62,22 +62,25 @@ class _AvatarCustomizerScreenState extends State<AvatarCustomizerScreen> {
     setState(() => isLoading = true);
 
     try {
-      // Read the current config that FluttermojiCustomizer writes internally
-      final prefs = await SharedPreferences.getInstance();
-      final avatarConfig = prefs.getString('fluttermojiSelectedOptions');
+      // Use Fluttermoji's native method to get the avatar config as JSON string
+      // This returns format: {"topType":6,"accessoriesType":3,"hairColor":1,...}
+      final avatarConfig = await fluttermoji.encodeMySVGtoString();
 
-      if (avatarConfig == null || avatarConfig.isEmpty) {
+      if (avatarConfig.isEmpty) {
         throw Exception('لم يتم العثور على بيانات الأفاتار');
       }
 
-      // Persist directly to Firestore (single source of truth)
+      // Verify it's valid JSON
+      jsonDecode(avatarConfig); // This will throw if invalid
+
+      // Persist directly to Firestore in JSON format
       await FirebaseFirestore.instance
           .collection('users')
           .doc(widget.userId)
           .set({'avatar': avatarConfig}, SetOptions(merge: true));
 
       if (mounted) {
-        // Optionally show a success message
+        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('تم حفظ الأفاتار بنجاح'),
@@ -88,7 +91,7 @@ class _AvatarCustomizerScreenState extends State<AvatarCustomizerScreen> {
             ),
           ),
         );
-        // Return configuration back to profile screen for immediate preview/save
+        // Return configuration back to profile screen for immediate preview
         Navigator.pop(context, avatarConfig);
       }
     } catch (e) {
@@ -157,100 +160,100 @@ class _AvatarCustomizerScreenState extends State<AvatarCustomizerScreen> {
       ),
       body: isLoading
           ? Center(
-              child: CircularProgressIndicator(color: teal500),
-            )
+        child: CircularProgressIndicator(color: teal500),
+      )
           : Column(
+        children: [
+          // Real-time Avatar Preview
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [teal700, teal500],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
               children: [
-                // Real-time Avatar Preview
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
+                  width: 180,
+                  height: 180,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [teal700, teal500],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 180,
-                        height: 180,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 15,
-                              spreadRadius: 2,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: ClipOval(
-                          child: FluttermojiCircleAvatar(
-                            backgroundColor: Colors.white,
-                            radius: 90,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'معاينة حية للأفاتار',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 5),
                       ),
                     ],
                   ),
+                  child: ClipOval(
+                    child: FluttermojiCircleAvatar(
+                      backgroundColor: Colors.white,
+                      radius: 90,
+                    ),
+                  ),
                 ),
-
-                // Customizer Options
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[850],
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(30),
-                        topRight: Radius.circular(30),
-                      ),
-                    ),
-                    child: FluttermojiCustomizer(
-                      scaffoldWidth: MediaQuery.of(context).size.width,
-                      autosave: true, // keep config updated internally
-                      theme: FluttermojiThemeData(
-                        boxDecoration: BoxDecoration(
-                          color: Colors.grey[850],
-                        ),
-                        primaryBgColor: Colors.grey[800]!,
-                        secondaryBgColor: Colors.grey[700]!,
-                        selectedTileDecoration: BoxDecoration(
-                          color: teal500,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: teal300, width: 2),
-                        ),
-                        unselectedTileDecoration: BoxDecoration(
-                          color: Colors.grey[700],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[600]!, width: 1),
-                        ),
-                        labelTextStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        iconColor: teal300,
-                      ),
-                    ),
+                const SizedBox(height: 16),
+                Text(
+                  'معاينة حية للأفاتار',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
+          ),
+
+          // Customizer Options
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[850],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
+                ),
+              ),
+              child: FluttermojiCustomizer(
+                scaffoldWidth: MediaQuery.of(context).size.width,
+                autosave: true, // keep config updated internally
+                theme: FluttermojiThemeData(
+                  boxDecoration: BoxDecoration(
+                    color: Colors.grey[850],
+                  ),
+                  primaryBgColor: Colors.grey[800]!,
+                  secondaryBgColor: Colors.grey[700]!,
+                  selectedTileDecoration: BoxDecoration(
+                    color: teal500,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: teal300, width: 2),
+                  ),
+                  unselectedTileDecoration: BoxDecoration(
+                    color: Colors.grey[700],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[600]!, width: 1),
+                  ),
+                  labelTextStyle: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  iconColor: teal300,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
