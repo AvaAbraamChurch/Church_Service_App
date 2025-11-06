@@ -78,6 +78,7 @@ Future<void> showLocalNotification(RemoteMessage message) async {
 }
 
 // Top-level background message handler (must be a top-level function)
+@pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Initialize Flutter & Firebase in background isolate
   WidgetsFlutterBinding.ensureInitialized();
@@ -128,6 +129,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 // Background task callback for Workmanager. This runs on a background isolate.
+@pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     // Ensure Flutter binding exists in background isolate
