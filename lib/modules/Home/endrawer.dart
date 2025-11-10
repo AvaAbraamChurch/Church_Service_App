@@ -3,6 +3,7 @@ import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/Admin/admin_dashboard_screen.dart';
+import 'package:church/modules/Admin/navigation_screen.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:church/modules/Birthdays/birthdays_screen.dart';
 import 'package:church/shared/widgets.dart';
@@ -90,7 +91,7 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                         gradient: [Colors.purple[400]!, Colors.purple[600]!],
                         onTap: () {
                           Navigator.pop(context);
-                          navigateTo(context, const AdminDashboardScreen());
+                          navigateTo(context, const NavigationScreen());
                         },
                       ),
                     ],

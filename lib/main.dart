@@ -1,3 +1,4 @@
+import 'package:church/core/blocs/admin_user/admin_user_cubit.dart';
 import 'package:church/modules/Splash/splash_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
@@ -343,8 +344,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => AuthCubit(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => AuthCubit(),
+        ),
+
+        BlocProvider(
+          create: (context) => AdminUserCubit(),
+        ),
+
+      ],
       child: MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => CartProvider()),
