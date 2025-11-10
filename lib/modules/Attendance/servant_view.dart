@@ -495,6 +495,13 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
   }
 
   Future<void> _submitBulkAttendance() async {
+    debugPrint('🟢 [ServantView] _submitBulkAttendance called');
+
+    if (isSubmitting) {
+      debugPrint('⚠️ [ServantView] Already submitting, ignoring duplicate call');
+      return;
+    }
+
     setState(() {
       isSubmitting = true;
     });
@@ -519,25 +526,18 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
         );
       }).toList();
 
+      debugPrint('🟢 [ServantView] Calling cubit.batchTakeAttendance with ${attendanceList.length} items');
       await widget.cubit.batchTakeAttendance(attendanceList);
+      debugPrint('🟢 [ServantView] batchTakeAttendance completed');
 
       if (mounted) {
         // Clear all checked items after successful submission
         setState(() {
           _clearAllAttendance();
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم تسجيل الحضور بنجاح لـ ${attendanceList.length} مستخدم',
-              style: TextStyle(fontFamily: 'Alexandria'),
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
       }
     } catch (e) {
+      debugPrint('❌ [ServantView] Error in _submitBulkAttendance: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -548,6 +548,7 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
       }
     } finally {
       if (mounted) {
+        debugPrint('🟢 [ServantView] Setting isSubmitting = false');
         setState(() {
           isSubmitting = false;
         });

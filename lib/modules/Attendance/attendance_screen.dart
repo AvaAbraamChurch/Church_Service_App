@@ -519,7 +519,193 @@ class _AttendanceScreenState extends State<AttendanceScreen>
             },
           );
         },
-        listener: (BuildContext context, state) {},
+        listener: (BuildContext context, state) {
+          if (state is takeAttendanceSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'تم حفظ الحضور بنجاح على الخادم',
+                        style: TextStyle(
+                          fontFamily: 'Alexandria',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: EdgeInsets.all(16),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          } else if (state is takeAttendanceSuccessOffline) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.offline_bolt, color: Colors.white),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'تم حفظ الحضور محلياً',
+                            style: TextStyle(
+                              fontFamily: 'Alexandria',
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'سيتم مزامنة البيانات مع الخادم عند توفر الإنترنت',
+                      style: TextStyle(
+                        fontFamily: 'Alexandria',
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                    if (state.pendingCount > 1)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          'عدد السجلات المعلقة: ${state.pendingCount}',
+                          style: TextStyle(
+                            fontFamily: 'Alexandria',
+                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                backgroundColor: Colors.orange[700],
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: EdgeInsets.all(16),
+                duration: Duration(seconds: 5),
+              ),
+            );
+          } else if (state is SyncComplete) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.cloud_done, color: Colors.white),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'تمت المزامنة بنجاح! (${state.syncedCount} سجل)',
+                        style: TextStyle(
+                          fontFamily: 'Alexandria',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: teal500,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: EdgeInsets.all(16),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          } else if (state is SyncPartiallyComplete) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.warning, color: Colors.white),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'مزامنة جزئية',
+                            style: TextStyle(
+                              fontFamily: 'Alexandria',
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'تم: ${state.syncedCount} • فشل: ${state.failedCount}',
+                      style: TextStyle(
+                        fontFamily: 'Alexandria',
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: Colors.orange[800],
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: EdgeInsets.all(16),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          } else if (state is OfflineModeActive) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.wifi_off, color: Colors.white),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        state.pendingCount > 0
+                            ? 'وضع عدم الاتصال (${state.pendingCount} معلق)'
+                            : 'وضع عدم الاتصال',
+                        style: TextStyle(
+                          fontFamily: 'Alexandria',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: Colors.grey[700],
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: EdgeInsets.all(16),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        },
       ),
     );
   }

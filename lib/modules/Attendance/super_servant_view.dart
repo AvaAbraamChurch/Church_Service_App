@@ -126,6 +126,13 @@ class _SuperServantViewState extends State<SuperServantView> {
   }
 
   Future<void> _submitAttendance() async {
+    debugPrint('🟢 [SuperServantView] _submitAttendance called');
+
+    if (isSubmitting) {
+      debugPrint('⚠️ [SuperServantView] Already submitting, ignoring duplicate call');
+      return;
+    }
+
     setState(() {
       isSubmitting = true;
     });
@@ -154,7 +161,9 @@ class _SuperServantViewState extends State<SuperServantView> {
         );
       }).toList();
 
+      debugPrint('🟢 [SuperServantView] Calling cubit.batchTakeAttendance with ${attendanceList.length} items');
       await widget.cubit.batchTakeAttendance(attendanceList);
+      debugPrint('🟢 [SuperServantView] batchTakeAttendance completed');
 
       if (mounted) {
         setState(() {
@@ -163,21 +172,9 @@ class _SuperServantViewState extends State<SuperServantView> {
           _loadedUsers = [];
           filteredUsers = [];
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم تسجيل الحضور بنجاح لـ ${attendanceList.length} مستخدم',
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
       }
     } catch (e) {
+      debugPrint('❌ [SuperServantView] Error in _submitAttendance: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -192,6 +189,7 @@ class _SuperServantViewState extends State<SuperServantView> {
       }
     } finally {
       if (mounted) {
+        debugPrint('🟢 [SuperServantView] Setting isSubmitting = false');
         setState(() {
           isSubmitting = false;
         });

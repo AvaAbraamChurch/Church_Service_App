@@ -16,11 +16,8 @@ import 'core/blocs/auth/auth_cubit.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:convert';
 import 'core/repositories/local_attendance_repository.dart';
-import 'core/repositories/attendance_repository.dart';
 import 'package:workmanager/workmanager.dart';
-import 'core/models/attendance/attendance_model.dart';
 
 import 'core/utils/notification_service.dart';
 
@@ -137,31 +134,7 @@ void callbackDispatcher() {
     WidgetsFlutterBinding.ensureInitialized();
 
     // Initialize Hive and AttendanceRepository
-    await LocalAttendanceRepository.init();
-    final attendanceRepo = AttendanceRepository();
 
-    if (task == 'syncPendingAttendance') {
-      final pending = LocalAttendanceRepository().getPendingAttendances();
-      for (final row in pending) {
-        try {
-          final payload = row['payload'] as String;
-          final decoded = jsonDecode(payload) as Map<String, dynamic>;
-          final attendance = AttendanceModel.fromJson(decoded);
-
-          final existing = await attendanceRepo.getAttendanceByUserAndDate(attendance.userId, attendance.date);
-          if (existing != null) {
-            await attendanceRepo.updateAttendance(existing.id, attendance.toMap());
-          } else {
-            await attendanceRepo.addAttendance(attendance);
-          }
-
-          await LocalAttendanceRepository().deletePending(row['key'] as int);
-        } catch (e) {
-          // Leave item for next run
-          continue;
-        }
-      }
-    }
 
     return Future.value(true);
   });
@@ -174,8 +147,28 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Initialize Hive for offline attendance queue
-  await LocalAttendanceRepository.init();
+
+  try {
+    // Initialize Local Storage (Hive)
+    await LocalAttendanceRepository.init();
+    print('✅ Local storage initialized');
+
+    // Optional: Clean up old pending items (older than 30 days)
+    final repo = LocalAttendanceRepository();
+    final deletedCount = await repo.deleteOldPending(olderThanDays: 30);
+    if (deletedCount > 0) {
+      print('🗑️ Deleted $deletedCount old pending items');
+    }
+
+    // Show statistics
+    final stats = repo.getStatistics();
+    print('📊 Local storage stats: $stats');
+
+  } catch (e) {
+    print('❌ Initialization error: $e');
+  }
+
+
 
   // Initialize Workmanager to run periodic background sync (optional - graceful failure)
   try {

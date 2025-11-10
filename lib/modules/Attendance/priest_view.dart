@@ -112,6 +112,13 @@ class _PriestViewState extends State<PriestView> {
   }
 
   Future<void> _submitAttendance() async {
+    debugPrint('🟢 [PriestView] _submitAttendance called');
+
+    if (isSubmitting) {
+      debugPrint('⚠️ [PriestView] Already submitting, ignoring duplicate call');
+      return;
+    }
+
     setState(() {
       isSubmitting = true;
     });
@@ -136,7 +143,9 @@ class _PriestViewState extends State<PriestView> {
         );
       }).toList();
 
+      debugPrint('🟢 [PriestView] Calling cubit.batchTakeAttendance with ${attendanceList.length} items');
       await widget.cubit.batchTakeAttendance(attendanceList);
+      debugPrint('🟢 [PriestView] batchTakeAttendance completed');
 
       if (mounted) {
         setState(() {
@@ -145,21 +154,9 @@ class _PriestViewState extends State<PriestView> {
           selectedGroupUsers = [];
           filteredUsers = [];
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم تسجيل الحضور بنجاح لـ ${attendanceList.length} مستخدم',
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
       }
     } catch (e) {
+      debugPrint('❌ [PriestView] Error in _submitAttendance: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -174,6 +171,7 @@ class _PriestViewState extends State<PriestView> {
       }
     } finally {
       if (mounted) {
+        debugPrint('🟢 [PriestView] Setting isSubmitting = false');
         setState(() {
           isSubmitting = false;
         });
