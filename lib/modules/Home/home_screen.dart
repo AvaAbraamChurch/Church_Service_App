@@ -299,14 +299,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                             },
                                           ),
                                           _buildActivityButton(
-                                            title: 'مدرسة الشمامسة',
+                                            title: 'مدرسة الالحان',
                                             subtitle: 'الخميس - الساعة ٧:٠٠م',
                                             svgAsset: 'assets/svg/4mamsa.svg', // Replace with your SVG asset path
                                             color: tawny,
                                             onTap: (){
                                               showComingSoonPopup(
                                                 context,
-                                                title: 'مدرسة الشمامسة',
+                                                title: 'مدرسة الالحان',
                                                 icon: Icons.groups_rounded,
                                               );
                                             },

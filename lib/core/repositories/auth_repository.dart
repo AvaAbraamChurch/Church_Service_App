@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../network/local/cache_helper.dart';
 import '../constants/auth_constants.dart';
+import '../utils/userType_enum.dart';
+import '../utils/gender_enum.dart';
 
 class AuthRepository {
   final FirebaseAuth _firebaseAuth;
@@ -40,6 +42,39 @@ class AuthRepository {
 
     debugPrint('✅ User session saved: $uid');
     debugPrint('📅 Session expires: $sessionExpiry (Duration: ${AuthConstants.sessionTimeout.inDays} days, ${AuthConstants.sessionTimeout.inHours % 24} hours)');
+  }
+
+  /// Save user profile data to cache for offline access
+  Future<void> saveUserProfileToCache(UserModel user) async {
+    await CacheHelper.saveData(key: AuthConstants.cacheKeyUserType, value: user.userType.code);
+    await CacheHelper.saveData(key: AuthConstants.cacheKeyUserClass, value: user.userClass);
+    await CacheHelper.saveData(key: AuthConstants.cacheKeyGender, value: user.gender.code);
+    debugPrint('✅ User profile cached: ${user.userType.code}, ${user.userClass}, ${user.gender.code}');
+  }
+
+  /// Get cached user profile data (for offline access)
+  Map<String, dynamic>? getCachedUserProfile() {
+    final userTypeCode = CacheHelper.getData(key: AuthConstants.cacheKeyUserType);
+    final userClass = CacheHelper.getData(key: AuthConstants.cacheKeyUserClass);
+    final genderCode = CacheHelper.getData(key: AuthConstants.cacheKeyGender);
+
+    if (userTypeCode == null || genderCode == null) {
+      return null;
+    }
+
+    try {
+      final userType = userTypeFromCode(userTypeCode);
+      final gender = genderFromCode(genderCode);
+
+      return {
+        'userType': userType,
+        'userClass': userClass ?? '',
+        'gender': gender,
+      };
+    } catch (e) {
+      debugPrint('⚠️ Error parsing cached user profile: $e');
+      return null;
+    }
   }
 
   /// Get current user
@@ -176,6 +211,9 @@ class AuthRepository {
     await CacheHelper.removeData(key: AuthConstants.cacheKeyEmail);
     await CacheHelper.removeData(key: AuthConstants.cacheKeyLastLoginTime);
     await CacheHelper.removeData(key: AuthConstants.cacheKeySessionExpiry);
+    await CacheHelper.removeData(key: AuthConstants.cacheKeyUserType);
+    await CacheHelper.removeData(key: AuthConstants.cacheKeyUserClass);
+    await CacheHelper.removeData(key: AuthConstants.cacheKeyGender);
   }
 
   /// Check if user is logged in from cache

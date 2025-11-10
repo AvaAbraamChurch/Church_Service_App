@@ -3,6 +3,9 @@ import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/layout/home_layout.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:church/core/repositories/auth_repository.dart';
+import 'package:church/core/services/connectivity_service.dart';
+import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -19,6 +22,7 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   final AuthRepository _authRepository = AuthRepository();
+  final ConnectivityService _connectivityService = ConnectivityService();
 
   @override
   void initState() {
@@ -43,16 +47,74 @@ class _SplashScreenState extends State<SplashScreen>
     final userId = _authRepository.getSavedUserId();
 
     if (isLoggedIn && userId.isNotEmpty) {
-      // Validate token
-      final isTokenValid = await _authRepository.validateToken();
+      // Check connectivity status
+      final isConnected = await _connectivityService.checkConnection();
+
+      bool isTokenValid = false;
+
+      if (isConnected) {
+        // Online: Validate token with server
+        isTokenValid = await _authRepository.validateToken();
+      } else {
+        // Offline: Check if session hasn't expired locally
+        isTokenValid = !_authRepository.isSessionExpired();
+        debugPrint('🔌 Offline mode: Using cached credentials. Session valid: $isTokenValid');
+      }
 
       if (isTokenValid) {
         // Get user data
-        final currentUser = await _authRepository.getCurrentUserData();
-        if (!mounted) return;
-        navigateAndFinish(context, HomeLayout(userId: currentUser.id, userType: currentUser.userType, userClass: currentUser.userClass, gender: currentUser.gender));
+        try {
+          final currentUser = await _authRepository.getCurrentUserData();
+
+          // Cache user profile for offline access
+          await _authRepository.saveUserProfileToCache(currentUser);
+
+          if (!mounted) return;
+          navigateAndFinish(context, HomeLayout(
+            userId: currentUser.id,
+            userType: currentUser.userType,
+            userClass: currentUser.userClass,
+            gender: currentUser.gender
+          ));
+        } catch (e) {
+          // If we can't get user data (likely offline), use cached profile data
+          debugPrint('⚠️ Could not fetch user data (likely offline): $e');
+
+          if (isConnected) {
+            // If we're online but still failed, something is wrong - go to login
+            debugPrint('❌ Failed to get user data while online, logging out');
+            await _authRepository.clearUserData();
+            if (!mounted) return;
+            navigateAndFinish(context, LoginScreen());
+          } else {
+            // We're offline, try to use cached profile data
+            final cachedProfile = _authRepository.getCachedUserProfile();
+
+            if (cachedProfile != null) {
+              // Use cached profile data
+              debugPrint('🔌 Offline: Using cached profile for userId: $userId');
+              if (!mounted) return;
+              navigateAndFinish(context, HomeLayout(
+                userId: userId,
+                userType: cachedProfile['userType'] as UserType,
+                userClass: cachedProfile['userClass'] as String,
+                gender: cachedProfile['gender'] as Gender,
+              ));
+            } else {
+              // No cached profile, use safe defaults
+              debugPrint('🔌 Offline: No cached profile, using defaults for userId: $userId');
+              if (!mounted) return;
+              navigateAndFinish(context, HomeLayout(
+                userId: userId,
+                userType: UserType.child, // Default to most restrictive type
+                userClass: '',
+                gender: Gender.male, // Default gender
+              ));
+            }
+          }
+        }
       } else {
-        // Token invalid, clear data and go to login
+        // Token/session invalid, clear data and go to login
         await _authRepository.clearUserData();
 
         if (!mounted) return;

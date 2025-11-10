@@ -29,5 +29,8 @@ class AuthConstants {
   static const String cacheKeyEmail = 'email';
   static const String cacheKeyLastLoginTime = 'lastLoginTime';
   static const String cacheKeySessionExpiry = 'sessionExpiry';
+  static const String cacheKeyUserType = 'userType';
+  static const String cacheKeyUserClass = 'userClass';
+  static const String cacheKeyGender = 'gender';
 }
 
