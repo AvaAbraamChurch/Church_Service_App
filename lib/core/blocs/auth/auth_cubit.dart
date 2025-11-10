@@ -2,6 +2,7 @@ import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/repositories/users_reopsitory.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
+import 'package:church/core/utils/error_handler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/widgets.dart';
 import 'dart:io';
@@ -33,7 +34,8 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthSuccess(model, user.uid, model.userType, model.userClass, model.gender, model.firstLogin));
       }
     } catch (error) {
-      emit(AuthFailure(error.toString()));
+      final friendlyError = ErrorHandler.getAuthErrorMessage(error);
+      emit(AuthFailure(friendlyError));
     }
   }
 
@@ -53,7 +55,8 @@ class AuthCubit extends Cubit<AuthState> {
       await _authRepository.sendPasswordResetEmail(email);
       emit(AuthPasswordResetEmailSent()); // or a specific state indicating email sent
     } catch (error) {
-      emit(AuthFailure(error.toString()));
+      final friendlyError = ErrorHandler.getAuthErrorMessage(error);
+      emit(AuthFailure(friendlyError));
     }
   }
 
@@ -113,7 +116,8 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthSuccess(userData, user.uid, userData.userType, userData.userClass, userData.gender, userData.firstLogin));
       }
     } catch (error) {
-      emit(AuthFailure(error.toString()));
+      final friendlyError = ErrorHandler.getAuthErrorMessage(error);
+      emit(AuthFailure(friendlyError));
       print(error);
     }
   }
@@ -131,7 +135,8 @@ class AuthCubit extends Cubit<AuthState> {
       );
       emit(AuthPasswordChanged());
     } catch (error) {
-      emit(AuthFailure(error.toString()));
+      final friendlyError = ErrorHandler.getAuthErrorMessage(error);
+      emit(AuthFailure(friendlyError));
     }
   }
 

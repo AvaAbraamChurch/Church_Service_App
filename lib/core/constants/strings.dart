@@ -215,3 +215,29 @@ const uploadingImage = 'جاري رفع الصورة...';
 const pleaseWait = 'الرجاء الانتظار...';
 const imageUploadFailed = 'فشل رفع الصورة. الرجاء المحاولة مرة أخرى.';
 const imageUploadSuccessful = 'تم رفع الصورة بنجاح.';
+
+// Login screen specific strings
+const signInToContinue = 'سجّل الدخول للمتابعة';
+const pleaseEnterYourEmail = 'الرجاء إدخال بريدك الإلكتروني';
+const pleaseEnterValidEmail = 'الرجاء إدخال بريد إلكتروني صحيح';
+const pleaseEnterYourPassword = 'الرجاء إدخال كلمة المرور';
+const passwordMustBe6Characters = 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل';
+const or = 'أو';
+
+// User-friendly error messages
+const errorInvalidEmail = 'البريد الإلكتروني غير صحيح';
+const errorUserNotFound = 'لم يتم العثور على حساب بهذا البريد الإلكتروني';
+const errorWrongPassword = 'كلمة المرور غير صحيحة';
+const errorUserDisabled = 'تم تعطيل هذا الحساب. يرجى التواصل مع الدعم';
+const errorTooManyRequests = 'محاولات كثيرة جداً. يرجى المحاولة لاحقاً';
+const errorNetworkRequestFailed = 'لا يوجد اتصال بالإنترنت. يرجى التحقق من اتصالك';
+const errorOperationNotAllowed = 'عملية غير مسموح بها';
+const errorWeakPassword = 'كلمة المرور ضعيفة جداً';
+const errorEmailAlreadyInUse = 'هذا البريد الإلكتروني مستخدم بالفعل';
+const errorInvalidCredential = 'بيانات الدخول غير صحيحة';
+const errorAccountExistsWithDifferentCredential = 'يوجد حساب بهذا البريد الإلكتروني بطريقة تسجيل دخول مختلفة';
+const errorRequiresRecentLogin = 'يرجى تسجيل الدخول مرة أخرى لإتمام هذه العملية';
+const errorUnknownError = 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى';
+const errorConnectionTimeout = 'انتهت مهلة الاتصال. يرجى المحاولة مرة أخرى';
+const errorServerError = 'خطأ في الخادم. يرجى المحاولة لاحقاً';
+
