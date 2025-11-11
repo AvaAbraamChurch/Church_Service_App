@@ -1,7 +1,5 @@
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/repositories/users_reopsitory.dart';
-import 'package:church/core/utils/userType_enum.dart';
-import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/error_handler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/widgets.dart';
@@ -74,47 +72,46 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // Sign up method
+  // Sign up method - creates registration request instead of direct user creation
   Future<void> signUp(String email, String password, {Map<String, dynamic>? extraData, File? profileImage}) async {
     emit(AuthLoading());
     try {
-      final user = await _authRepository.signUpWithEmailAndPassword(email, password, extraData: extraData);
-      if (user == null) {
-        emit(AuthFailure(registrationFailed));
-      } else {
-        // Upload profile image if provided
-        String? profileImageUrl;
-        if (profileImage != null) {
-          try {
-            profileImageUrl = await _imageUploadService.uploadProfileImage(profileImage, user.uid);
-
-            // Update user document with profile image URL
-            await _authRepository.updateUserProfileImage(user.uid, profileImageUrl);
-          } catch (e) {
-            print('Error uploading profile image: $e');
-            // Continue with registration even if image upload fails
-          }
+      // Upload profile image to storage first
+      String? profileImageUrl;
+      if (profileImage != null) {
+        try {
+          // Use email as identifier since user doesn't exist yet
+          final tempId = email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+          profileImageUrl = await _imageUploadService.uploadProfileImage(profileImage, tempId);
+        } catch (e) {
+          print('خطأ في رفع الصورة: $e');
+          emit(AuthFailure('فشل رفع الصورة. الرجاء المحاولة مرة أخرى.'));
+          return;
         }
-
-        // Parse gender and userType from strings to enums
-        final genderValue = parseGender(extraData?['gender']?.toString());
-        final userTypeValue = parseUserType(extraData?['userType']?.toString());
-
-        UserModel userData = UserModel(
-          id: user.uid,
-          email: email,
-          username: extraData?['username'] ?? '',
-          fullName: extraData?['fullName'] ?? '',
-          phoneNumber: extraData?['phone'] ?? '',
-          address: extraData?['address'] ?? '',
-          gender: genderValue,
-          userType: userTypeValue,
-          userClass: extraData?['userClass'] ?? '',
-          serviceType: extraData?['serviceType'],
-          profileImageUrl: profileImageUrl,
-        );
-        emit(AuthSuccess(userData, user.uid, userData.userType, userData.userClass, userData.gender, userData.firstLogin));
       }
+
+      // Create registration request data
+      final requestData = {
+        'fullName': extraData?['fullName'] ?? '',
+        'username': extraData?['username'] ?? '',
+        'email': email,
+        'phoneNumber': extraData?['phoneNumber'] ?? '',
+        'address': extraData?['address'] ?? '',
+        'gender': extraData?['gender'] ?? '',
+        'userType': extraData?['userType'] ?? '',
+        'class': extraData?['userClass'] ?? '',
+        'serviceType': extraData?['serviceType'] ?? '',
+        if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
+        'requestedAt': DateTime.now().toIso8601String(),
+        'status': 'pending',
+      };
+
+      // Create registration request in Firestore
+      final requestId = await _authRepository.createRegistrationRequest(requestData);
+
+      // Emit success state with request ID
+      emit(AuthRegistrationRequestSubmitted(requestId, email));
+
     } catch (error) {
       final friendlyError = ErrorHandler.getAuthErrorMessage(error);
       emit(AuthFailure(friendlyError));

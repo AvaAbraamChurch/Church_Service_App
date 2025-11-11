@@ -45,3 +45,12 @@ class AuthUserDataError extends AuthState {
 class AuthPasswordResetEmailSent extends AuthState {}
 
 class AuthPasswordChanged extends AuthState {}
+
+class AuthRegistrationRequestSubmitted extends AuthState {
+  final String requestId;
+  final String email;
+
+  AuthRegistrationRequestSubmitted(this.requestId, this.email);
+}
+
+

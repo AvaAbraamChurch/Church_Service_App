@@ -252,6 +252,20 @@ class AuthRepository {
     return user;
   }
 
+  /// Create a registration request (for approval workflow)
+  Future<String> createRegistrationRequest(Map<String, dynamic> requestData) async {
+    try {
+      final docRef = await _firestore.collection('registration_requests').add({
+        ...requestData,
+        'requestedAt': FieldValue.serverTimestamp(),
+        'status': 'pending',
+      });
+      return docRef.id;
+    } catch (e) {
+      throw Exception('خطأ في إنشاء طلب التسجيل: $e');
+    }
+  }
+
   Future<void> signOut() async {
     await _firebaseAuth.signOut();
     // Clear cache on sign out

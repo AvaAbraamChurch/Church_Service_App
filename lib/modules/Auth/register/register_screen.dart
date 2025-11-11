@@ -16,6 +16,7 @@ import '../../../core/services/image_upload_service.dart';
 import '../../../core/repositories/classes_repository.dart';
 import '../../../core/models/Classes/classes_model.dart';
 import '../login/login_screen.dart';
+import 'registration_status_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -558,7 +559,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         const SizedBox(height: 24),
                         Text(
-                          'جاري إنشاء الحساب...',
+                          submittingRegistrationRequest,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -578,9 +579,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
           if (state is AuthFailure) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.error)),
+              SnackBar(
+                content: Text(state.error),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          } else if (state is AuthRegistrationRequestSubmitted) {
+            // Navigate to registration status screen
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(registrationRequestSubmitted),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 3),
+              ),
+            );
+            navigateAndFinish(
+              context,
+              RegistrationStatusScreen(
+                requestId: state.requestId,
+                email: state.email,
+              ),
             );
           } else if (state is AuthSuccess) {
+            // This shouldn't happen with the new flow, but keep for backwards compatibility
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(registrationSuccessful)),
             );

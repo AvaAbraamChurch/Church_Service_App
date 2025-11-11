@@ -241,3 +241,24 @@ const errorUnknownError = 'حدث خطأ غير متوقع. يرجى المحا�
 const errorConnectionTimeout = 'انتهت مهلة الاتصال. يرجى المحاولة مرة أخرى';
 const errorServerError = 'خطأ في الخادم. يرجى المحاولة لاحقاً';
 
+// Registration Request Strings
+const registrationRequestSubmitted = 'تم إرسال طلب التسجيل بنجاح';
+const registrationRequestPending = 'طلب التسجيل قيد المراجعة';
+const registrationRequestApproved = 'تم قبول طلب التسجيل';
+const registrationRequestRejected = 'تم رفض طلب التسجيل';
+const registrationRequestError = 'حدث خطأ أثناء إرسال طلب التسجيل';
+const submittingRegistrationRequest = 'جارٍ إرسال طلب التسجيل...';
+const checkRegistrationStatus = 'التحقق من حالة الطلب';
+const registrationUnderReview = 'طلبك قيد المراجعة من قبل المسؤول';
+const adminWillReviewSoon = 'سيقوم المسؤول بمراجعة طلبك قريباً';
+const youWillBeNotified = 'سيتم إشعارك عند اتخاذ قرار';
+const contactSupportForDetails = 'يمكنك التواصل مع الدعم لمزيد من التفاصيل';
+const rejectionReason = 'سبب الرفض';
+const requestDate = 'تاريخ الطلب';
+const requestStatus = 'حالة الطلب';
+const backToLogin = 'العودة لتسجيل الدخول';
+const backToRegister = 'العودة للتسجيل';
+const registrationRequestLoadError = 'خطأ في تحميل حالة الطلب';
+const requestNotFound = 'لم يتم العثور على طلب التسجيل';
+const tryAgainOrContactSupport = 'يرجى المحاولة مرة أخرى أو الاتصال بالدعم';
+
