@@ -318,6 +318,7 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
                   child: Text(
                     request.fullName,
                     style: const TextStyle(
+                      color: teal900,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),

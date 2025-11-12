@@ -119,7 +119,15 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                       subtitle: 'الدعم والمساعدة',
                       gradient: [Colors.blue[400]!, Colors.blue[600]!],
                       onTap: () {
-                        navigateTo(context, SupportScreen());
+                        // navigateTo(context, SupportScreen());
+                        // Display coming soon
+                        showComingSoonPopup(
+                          context,
+                          title: 'المساعدة',
+                          // write short message
+                          message: 'جاري العمل على إنشاء هذه الصفحة',
+                          icon: Icons.help,
+                        );
                       },
                     ),
 

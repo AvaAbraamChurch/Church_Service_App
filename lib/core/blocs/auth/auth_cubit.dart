@@ -77,7 +77,7 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
     try {
       // Upload profile image to storage first
-      String? profileImageUrl;
+      String profileImageUrl = '';
       if (profileImage != null) {
         try {
           // Use email as identifier since user doesn't exist yet
@@ -101,7 +101,7 @@ class AuthCubit extends Cubit<AuthState> {
         'userType': extraData?['userType'] ?? '',
         'class': extraData?['userClass'] ?? '',
         'serviceType': extraData?['serviceType'] ?? '',
-        if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
+        'profileImageUrl': profileImageUrl,
         'requestedAt': DateTime.now().toIso8601String(),
         'status': 'pending',
       };

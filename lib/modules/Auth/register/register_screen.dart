@@ -237,12 +237,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     // Validate image is selected
-    if (_selectedImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(imageRequired)),
-      );
-      return;
-    }
+    // if (_selectedImage == null) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     SnackBar(content: Text(imageRequired)),
+    //   );
+    //   return;
+    // }
 
     // Show loading dialog
     if (mounted) {
@@ -286,7 +286,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  uploadingImage,
+                  _selectedImage != null ? uploadingImage : submittingRegistrationRequest,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -760,6 +760,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               fontSize: 14,
                               fontFamily: 'Alexandria',
                               fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '(اختياري)',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 12,
+                              fontFamily: 'Alexandria',
                             ),
                             textAlign: TextAlign.center,
                           ),
