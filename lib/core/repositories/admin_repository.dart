@@ -271,6 +271,8 @@ class AdminRepository {
           'profileImageUrl': request.profileImageUrl,
           'couponPoints': 0,
           'firstLogin': true,
+          'isAdmin': false,
+          'storeAdmin': false,
         },
       );
 

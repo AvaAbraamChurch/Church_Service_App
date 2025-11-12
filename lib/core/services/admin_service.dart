@@ -22,7 +22,7 @@ class AdminService {
     // 'user_id_2',
   ];
 
-  /// Check if current user is an admin (priest or in admin list)
+  /// Check if current user is an admin (priest, isAdmin flag, or in admin list)
   Future<bool> isAdmin() async {
     try {
       final User? currentUser = _auth.currentUser;
@@ -33,7 +33,7 @@ class AdminService {
         return true;
       }
 
-      // Check if user is a priest
+      // Check if user has isAdmin flag or is a priest
       final DocumentSnapshot userDoc = await _firestore
           .collection('users')
           .doc(currentUser.uid)
@@ -44,6 +44,11 @@ class AdminService {
       final data = userDoc.data() as Map<String, dynamic>?;
       if (data == null) return false;
 
+      // Check isAdmin boolean field
+      final bool isAdminFlag = data['isAdmin'] as bool? ?? false;
+      if (isAdminFlag) return true;
+
+      // Check if user is a priest
       final String? userTypeCode = data['userType'] as String?;
       return userTypeCode == UserType.priest.code;
     } catch (e) {
@@ -83,6 +88,8 @@ class AdminService {
         profileImageUrl: data['profileImageUrl'],
         couponPoints: data['couponPoints'] ?? 0,
         firstLogin: data['firstLogin'] ?? true,
+        isAdmin: data['isAdmin'] ?? false,
+        storeAdmin: data['storeAdmin'] ?? false,
       );
     } catch (e) {
       debugPrint('Error getting current user: $e');
@@ -98,7 +105,7 @@ class AdminService {
         return true;
       }
 
-      // Check if user is a priest
+      // Check if user has isAdmin flag or is a priest
       final DocumentSnapshot userDoc = await _firestore
           .collection('users')
           .doc(userId)
@@ -109,6 +116,11 @@ class AdminService {
       final data = userDoc.data() as Map<String, dynamic>?;
       if (data == null) return false;
 
+      // Check isAdmin boolean field
+      final bool isAdminFlag = data['isAdmin'] as bool? ?? false;
+      if (isAdminFlag) return true;
+
+      // Check if user is a priest
       final String? userTypeCode = data['userType'] as String?;
       return userTypeCode == UserType.priest.code;
     } catch (e) {

@@ -21,6 +21,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// - createdAt
 /// - updatedAt
 /// - firstLogin boolean always true when created
+/// - isAdmin boolean for admin privileges
+/// - storeAdmin boolean for store management privileges
 class UserModel {
   final String id;
   final String fullName;
@@ -39,6 +41,8 @@ class UserModel {
   final DateTime? updatedAt;
   final bool firstLogin;
   final DateTime? birthday;
+  final bool isAdmin;
+  final bool storeAdmin;
 
   const UserModel({
     required this.id,
@@ -58,6 +62,8 @@ class UserModel {
     this.updatedAt,
     this.firstLogin = true,
     this.birthday,
+    this.isAdmin = false,
+    this.storeAdmin = false,
   });
 
   UserModel copyWith({
@@ -76,6 +82,8 @@ class UserModel {
     int? couponPoints,
     bool? firstLogin,
     DateTime? birthday,
+    bool? isAdmin,
+    bool? storeAdmin,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -93,6 +101,8 @@ class UserModel {
       couponPoints: couponPoints ?? this.couponPoints,
       firstLogin: firstLogin ?? this.firstLogin,
       birthday: birthday ?? this.birthday,
+      isAdmin: isAdmin ?? this.isAdmin,
+      storeAdmin: storeAdmin ?? this.storeAdmin,
     );
   }
 
@@ -113,6 +123,8 @@ class UserModel {
       'class': userClass,
       'serviceType': serviceType.key, // e.g., 'primary_boys'
       'firstLogin': firstLogin,
+      'isAdmin': isAdmin,
+      'storeAdmin': storeAdmin,
       if (birthday != null) 'birthday': Timestamp.fromDate(birthday!),
     };
   }
@@ -143,6 +155,8 @@ class UserModel {
       couponPoints: (data['couponPoints'] ?? 0) as int,
       firstLogin: (data['firstLogin'] ?? true) as bool,
       birthday: birthdayValue,
+      isAdmin: (data['isAdmin'] ?? false) as bool,
+      storeAdmin: (data['storeAdmin'] ?? false) as bool,
     );
   }
 
@@ -174,7 +188,9 @@ class UserModel {
         other.avatar == avatar &&
         other.couponPoints == couponPoints &&
         other.firstLogin == firstLogin &&
-        other.birthday == birthday;
+        other.birthday == birthday &&
+        other.isAdmin == isAdmin &&
+        other.storeAdmin == storeAdmin;
   }
 
   @override
@@ -192,6 +208,8 @@ class UserModel {
     couponPoints,
     firstLogin,
     birthday,
+    isAdmin,
+    storeAdmin,
   );
 
   static fromDocumentSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {

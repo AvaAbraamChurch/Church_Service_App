@@ -78,9 +78,10 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                       ),
                     ],
 
-                    // Admin Dashboard - Only for priests
-                    if (userData.userType == UserType.priest ||
-                        userData.id == 'h2xPvUO88qVuVwFed9YDqV33E2A2') ...[
+                    // Admin Dashboard - Only for admins (priests or users with isAdmin flag)
+                    if (userData.isAdmin &&
+                        userData.userType == UserType.priest
+                        ) ...[
                       const SizedBox(height: 12),
 
                       _buildMenuItem(

@@ -657,7 +657,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildCouponPointsCard(int points, UserModel user) {
-    if (user.userType.code == UserType.priest.code || user.userType.code == UserType.superServant.code || user.userType.code == UserType.servant.code){
+    // Check if user has store admin privileges (either by role or storeAdmin flag)
+    bool hasStoreAdminAccess = user.storeAdmin &&
+        (user.userType.code == UserType.priest.code ||
+        user.userType.code == UserType.superServant.code ||
+        user.userType.code == UserType.servant.code);
+
+    if (hasStoreAdminAccess) {
       return GestureDetector(
         onTap: () {
           navigateTo(context, AdminDashboard(currentUser: user));
@@ -718,7 +724,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     }
 
-    // Child view
+    // Child view - regular store access
     return GestureDetector(
       onTap: () {
         navigateTo(context, StoreScreen());
