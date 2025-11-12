@@ -5,6 +5,7 @@ import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/repositories/order_repository.dart';
 import 'package:church/core/repositories/store_repository.dart';
 import 'package:church/core/styles/themeScaffold.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:flutter/material.dart';
 import '../../core/styles/colors.dart';
@@ -1021,7 +1022,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                   createdAt: DateTime.now(),
                 );
 
-                await _storeRepo.createProduct(product);
+                await _storeRepo.createProduct(product, widget.currentUser.gender.code);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(

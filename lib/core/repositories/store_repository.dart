@@ -97,6 +97,45 @@ class StoreRepository {
     });
   }
 
+  /// Stream products by user gender in real-time
+  /// Returns products where userGender matches the given gender OR userGender is 'ALL'
+  Stream<List<ProductModel>> watchProductsByUserGender(String genderCode) {
+    return _productsCollection
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => ProductModel.fromFirestore(
+                  doc.data() as Map<String, dynamic>,
+                  doc.id,
+                ))
+            .where((product) =>
+                product.userGender == null ||
+                product.userGender == 'ALL' ||
+                product.userGender == genderCode)
+            .toList());
+  }
+
+  /// Stream products by user gender and category in real-time
+  Stream<List<ProductModel>> watchProductsByUserGenderAndCategory(
+    String genderCode,
+    String category
+  ) {
+    return _productsCollection
+        .where('isActive', isEqualTo: true)
+        .where('category', isEqualTo: category)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => ProductModel.fromFirestore(
+                  doc.data() as Map<String, dynamic>,
+                  doc.id,
+                ))
+            .where((product) =>
+                product.userGender == null ||
+                product.userGender == 'ALL' ||
+                product.userGender == genderCode)
+            .toList());
+  }
+
   // ==================== FUTURE METHODS (One-time fetch) ====================
 
   /// Get all active products (one-time fetch)
@@ -151,6 +190,55 @@ class StoreRepository {
     }
   }
 
+  /// Get products by user gender (one-time fetch)
+  /// Returns products where userGender matches the given gender OR userGender is 'ALL'
+  Future<List<ProductModel>> getProductsByUserGender(String genderCode) async {
+    try {
+      final snapshot = await _productsCollection
+          .where('isActive', isEqualTo: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => ProductModel.fromFirestore(
+                doc.data() as Map<String, dynamic>,
+                doc.id,
+              ))
+          .where((product) =>
+              product.userGender == null ||
+              product.userGender == 'ALL' ||
+              product.userGender == genderCode)
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch products by user gender: $e');
+    }
+  }
+
+  /// Get products by user gender and category (one-time fetch)
+  Future<List<ProductModel>> getProductsByUserGenderAndCategory(
+    String genderCode,
+    String category
+  ) async {
+    try {
+      final snapshot = await _productsCollection
+          .where('isActive', isEqualTo: true)
+          .where('category', isEqualTo: category)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => ProductModel.fromFirestore(
+                doc.data() as Map<String, dynamic>,
+                doc.id,
+              ))
+          .where((product) =>
+              product.userGender == null ||
+              product.userGender == 'ALL' ||
+              product.userGender == genderCode)
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch products by user gender and category: $e');
+    }
+  }
+
   /// Get all unique categories
   Future<List<String?>> getCategories() async {
     try {
@@ -194,9 +282,15 @@ class StoreRepository {
   // ==================== CREATE / UPDATE / DELETE ====================
 
   /// Create a new product
-  Future<String> createProduct(ProductModel product) async {
+  /// If userGender is provided, it will override the product's userGender
+  /// If userGender is not provided and product has no userGender
+  Future<String> createProduct(ProductModel product, String userGender) async {
     try {
       final productData = product.toFirestore(includeId: false);
+
+      // Set userGender: use provided parameter, or product's userGender, or default to 'ALL'
+      productData['userGender'] = userGender;
+
       productData['createdAt'] = FieldValue.serverTimestamp();
       productData['updatedAt'] = FieldValue.serverTimestamp();
 
@@ -318,13 +412,18 @@ class StoreRepository {
   // ==================== BATCH OPERATIONS ====================
 
   /// Create multiple products in a batch
-  Future<void> createProductsBatch(List<ProductModel> products) async {
+  /// If userGender is provided, it will be applied to all products
+  Future<void> createProductsBatch(List<ProductModel> products, {String? userGender}) async {
     try {
       final batch = _firestore.batch();
 
       for (final product in products) {
         final docRef = _productsCollection.doc();
         final productData = product.toFirestore(includeId: false);
+
+        // Set userGender: use provided parameter, or product's userGender, or default to 'ALL'
+        productData['userGender'] = userGender ?? product.userGender ?? 'ALL';
+
         productData['createdAt'] = FieldValue.serverTimestamp();
         productData['updatedAt'] = FieldValue.serverTimestamp();
         batch.set(docRef, productData);

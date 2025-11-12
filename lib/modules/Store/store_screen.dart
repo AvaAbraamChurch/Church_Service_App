@@ -4,8 +4,12 @@ import 'package:church/modules/Store/order_tracking_screen.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/styles/colors.dart';
 import '../../core/models/store/product_model.dart';
+import '../../core/models/user/user_model.dart';
+import '../../core/utils/gender_enum.dart';
 import '../../core/repositories/store_repository.dart';
 import '../../core/providers/cart_provider.dart';
 
@@ -20,11 +24,41 @@ class _StoreScreenState extends State<StoreScreen> {
   final StoreRepository _storeRepo = StoreRepository();
   String _selectedCategory = 'الكل';
   List<String> _categories = ['الكل'];
+  String? _userGenderCode; // Store the current user's gender code
+  bool _isLoadingUser = true;
 
   @override
   void initState() {
     super.initState();
+    _loadCurrentUser();
     _loadCategories();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+
+        if (userDoc.exists) {
+          final userData = UserModel.fromMap(userDoc.data(), id: userId);
+          setState(() {
+            _userGenderCode = userData.gender.code;
+            _isLoadingUser = false;
+          });
+        } else {
+          setState(() => _isLoadingUser = false);
+        }
+      } else {
+        setState(() => _isLoadingUser = false);
+      }
+    } catch (e) {
+      print('Error loading user: $e');
+      setState(() => _isLoadingUser = false);
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -176,10 +210,31 @@ class _StoreScreenState extends State<StoreScreen> {
 
           // Products Grid with StreamBuilder
           StreamBuilder<List<ProductModel>>(
-            stream: _selectedCategory == 'الكل'
-                ? _storeRepo.watchAllProducts()
-                : _storeRepo.watchProductsByCategory(_selectedCategory),
+            stream: _isLoadingUser || _userGenderCode == null
+                ? const Stream.empty()
+                : (_selectedCategory == 'الكل'
+                    ? _storeRepo.watchProductsByUserGender(_userGenderCode!)
+                    : _storeRepo.watchProductsByUserGenderAndCategory(_userGenderCode!, _selectedCategory)),
             builder: (context, snapshot) {
+              // Show loading while user data is loading
+              if (_isLoadingUser) {
+                return SliverPadding(
+                  padding: EdgeInsets.all(16),
+                  sliver: SliverGrid(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.7,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildLoadingCard(),
+                      childCount: 6,
+                    ),
+                  ),
+                );
+              }
+
               // Loading state
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return SliverPadding(

@@ -14,6 +14,7 @@ class ProductModel {
   final int stock;
   final bool isActive;
   final int? discount;
+  final String? userGender; // User gender code (e.g., 'M' for Male, 'F' for Female, or 'ALL')
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final Map<String, dynamic>? metadata;
@@ -28,6 +29,7 @@ class ProductModel {
     this.stock = 0,
     this.isActive = true,
     this.discount,
+    this.userGender,
     this.createdAt,
     this.updatedAt,
     this.metadata,
@@ -44,6 +46,7 @@ class ProductModel {
     int? stock,
     bool? isActive,
     int? discount,
+    String? userGender,
     DateTime? createdAt,
     DateTime? updatedAt,
     Map<String, dynamic>? metadata,
@@ -58,6 +61,7 @@ class ProductModel {
       stock: stock ?? this.stock,
       isActive: isActive ?? this.isActive,
       discount: discount ?? this.discount,
+      userGender: userGender ?? this.userGender,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       metadata: metadata ?? this.metadata,
@@ -76,6 +80,7 @@ class ProductModel {
       'stock': stock,
       'isActive': isActive,
       'discount': discount,
+      'userGender': userGender,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'metadata': metadata,
@@ -109,6 +114,7 @@ class ProductModel {
       stock: (map['stock'] is int) ? map['stock'] as int : int.tryParse(map['stock']?.toString() ?? '0') ?? 0,
       isActive: map['isActive'] is bool ? map['isActive'] as bool : (map['isActive'] == null ? true : (map['isActive'].toString().toLowerCase() == 'true')),
       discount: (map['discount'] is int) ? map['discount'] as int : int.tryParse(map['discount']?.toString() ?? ''),
+      userGender: map['userGender']?.toString(),
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
       metadata: (map['metadata'] is Map) ? Map<String, dynamic>.from(map['metadata']) : null,
@@ -139,7 +145,7 @@ class ProductModel {
 
   @override
   String toString() {
-    return 'ProductModel(id: $id, title: $title, price: $price, images: ${imageUrls.length}, category: $category, stock: $stock, isActive: $isActive, discount: $discount, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'ProductModel(id: $id, title: $title, price: $price, images: ${imageUrls.length}, category: $category, stock: $stock, isActive: $isActive, discount: $discount, userGender: $userGender, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -156,6 +162,7 @@ class ProductModel {
         other.stock == stock &&
         other.isActive == isActive &&
         other.discount == discount &&
+        other.userGender == userGender &&
         other.createdAt == createdAt &&
         other.updatedAt == updatedAt;
   }
@@ -171,6 +178,7 @@ class ProductModel {
         stock.hashCode ^
         isActive.hashCode ^
         (discount?.hashCode ?? 0) ^
+        (userGender?.hashCode ?? 0) ^
         (createdAt?.hashCode ?? 0) ^
         (updatedAt?.hashCode ?? 0);
   }
