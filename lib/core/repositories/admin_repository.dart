@@ -59,6 +59,9 @@ class AdminRepository {
       // Add user data to Firestore
       await _firestore.collection('users').doc(userId).set({
         ...userData,
+        // Ensure we persist userClass instead of legacy 'class'
+        if (userData.containsKey('class') && !userData.containsKey('userClass'))
+          'userClass': userData['class'],
         'email': email,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -73,8 +76,14 @@ class AdminRepository {
   /// Update user data
   Future<void> updateUser(String userId, Map<String, dynamic> userData) async {
     try {
+      // Normalize 'class' -> 'userClass' before updating to avoid writing both keys
+      final normalizedData = Map<String, dynamic>.from(userData);
+      if (normalizedData.containsKey('class') && !normalizedData.containsKey('userClass')) {
+        normalizedData['userClass'] = normalizedData['class'];
+        normalizedData.remove('class');
+      }
       await _firestore.collection('users').doc(userId).update({
-        ...userData,
+        ...normalizedData,
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -159,9 +168,11 @@ class AdminRepository {
 
   /// Get users by class
   Stream<List<UserModel>> getUsersByClass(String userClass) {
+    // Query the modern 'userClass' field. Legacy documents using 'class' will be
+    // ignored by this query; consider a migration if you need to include them.
     return _firestore
         .collection('users')
-        .where('class', isEqualTo: userClass)
+        .where('userClass', isEqualTo: userClass)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => UserModel.fromMap(doc.data(), id: doc.id))
@@ -266,7 +277,8 @@ class AdminRepository {
           'address': request.address,
           'userType': request.userType.code,
           'gender': request.gender.code,
-          'class': request.userClass,
+          // Store as 'userClass' instead of legacy 'class'
+          'userClass': request.userClass,
           'serviceType': request.serviceType.key,
           'profileImageUrl': request.profileImageUrl,
           'couponPoints': 0,

@@ -99,7 +99,8 @@ class AuthCubit extends Cubit<AuthState> {
         'address': extraData?['address'] ?? '',
         'gender': extraData?['gender'] ?? '',
         'userType': extraData?['userType'] ?? '',
-        'class': extraData?['userClass'] ?? '',
+        // Use 'userClass' key instead of legacy 'class'
+        'userClass': extraData?['userClass'] ?? '',
         'serviceType': extraData?['serviceType'] ?? '',
         'profileImageUrl': profileImageUrl,
         'requestedAt': DateTime.now().toIso8601String(),

@@ -79,7 +79,7 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                     ],
 
                     // Admin Dashboard - Only for admins (priests or users with isAdmin flag)
-                    if (userData.isAdmin &&
+                    if (userData.isAdmin ||
                         userData.userType == UserType.priest
                         ) ...[
                       const SizedBox(height: 12),

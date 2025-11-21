@@ -544,7 +544,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
         'address': _addressController.text.isEmpty ? null : _addressController.text,
         'userType': _selectedUserType.code,
         'gender': _selectedGender.code,
-        'class': _userClassController.text,
+        // Persist as 'userClass' to avoid creating duplicate legacy 'class' field
+        'userClass': _userClassController.text,
         'serviceType': _selectedServiceType.key,
         'couponPoints': int.tryParse(_couponPointsController.text) ?? widget.user.couponPoints,
         'firstLogin': _firstLogin,

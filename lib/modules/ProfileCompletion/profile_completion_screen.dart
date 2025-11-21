@@ -5,7 +5,6 @@ import 'package:church/core/repositories/auth_repository.dart';
 import 'package:church/core/repositories/classes_repository.dart';
 import 'package:church/core/models/Classes/classes_model.dart';
 import 'package:church/core/services/profile_completion_service.dart';
-import 'package:church/core/services/image_upload_service.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/gender_enum.dart';
@@ -51,10 +50,13 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
   bool _obscureConfirmPassword = true;
   Gender? _selectedGender;
   Model? _selectedClass;
+  // If user already has a class assigned in Firestore, we store its name here
+  String? _existingUserClassName;
+  // When true, the class selection should be displayed but not editable
+  bool _isClassLocked = false;
   ServiceType? _selectedServiceType;
   DateTime? _birthday;
   File? _selectedImage;
-  final ImageUploadService _imageService = ImageUploadService();
   final UsersRepository _userRepository = UsersRepository();
   final AuthRepository _authRepository = AuthRepository();
   final ClassesRepository _classesRepository = ClassesRepository();
@@ -80,6 +82,23 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     _selectedGender = widget.user.gender;
     _birthday = widget.user.birthday;
     _selectedServiceType = widget.user.serviceType;
+    // Preserve any previously assigned userClass and lock selection so user won't be asked to reassign
+    _existingUserClassName = (widget.user.userClass.isNotEmpty) ? widget.user.userClass : null;
+    _isClassLocked = _existingUserClassName != null;
+
+    // If the user already has a class assigned, attempt to pre-select it
+    if (_isClassLocked && _existingUserClassName != null) {
+      // Use the classes stream's first emitted value to find a matching Model by name
+      _classesRepository.getAllClasses().first.then((classes) {
+        if (!mounted) return;
+        final matches = classes.where((c) => (c.name ?? '') == _existingUserClassName).toList();
+        setState(() {
+          _selectedClass = matches.isNotEmpty ? matches.first : Model(id: null, name: _existingUserClassName);
+        });
+      }).catchError((_) {
+        // Ignore errors here; selection will be handled once classes load in the StreamBuilder
+      });
+    }
 
     // Add listeners to update button state when text changes
     _currentPasswordController.addListener(_updateButtonState);
@@ -165,125 +184,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     return null;
   }
 
-  // Image picker methods
-  void _showImageSourceDialog() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              selectImage,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Alexandria',
-              ),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: Icon(Icons.photo_library, color: teal500),
-              title: const Text(
-                selectImageFromGallery,
-                style: TextStyle(fontFamily: 'Alexandria'),
-              ),
-              onTap: () async {
-                Navigator.pop(context);
-                await _pickImageFromSource(isGallery: true);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.camera_alt, color: teal500),
-              title: const Text(
-                takePhoto,
-                style: TextStyle(fontFamily: 'Alexandria'),
-              ),
-              onTap: () async {
-                Navigator.pop(context);
-                await _pickImageFromSource(isGallery: false);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickImageFromSource({required bool isGallery}) async {
-    try {
-      final File? imageFile;
-      if (isGallery) {
-        imageFile = await _imageService.pickImageFromGallery();
-      } else {
-        imageFile = await _imageService.pickImageFromCamera();
-      }
-
-      if (imageFile != null) {
-        // Validate file size
-        if (!_imageService.validateImageSize(imageFile)) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text(
-                  'حجم الصورة يجب أن يكون أقل من 2 ميجابايت',
-                  style: TextStyle(fontFamily: 'Alexandria'),
-                ),
-                backgroundColor: Colors.red,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            );
-          }
-          return;
-        }
-
-        setState(() {
-          _selectedImage = imageFile;
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'تم اختيار الصورة بنجاح',
-                style: TextStyle(fontFamily: 'Alexandria'),
-              ),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'حدث خطأ في اختيار الصورة: $e',
-              style: const TextStyle(fontFamily: 'Alexandria'),
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
   Future<String?> _uploadProfileImage() async {
     if (_selectedImage == null) return null;
 
@@ -347,11 +247,10 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
           _newPasswordController.text.length >= 6 &&
           _newPasswordController.text == _confirmPasswordController.text;
     } else if (_currentStep == 1) {
-      // Personal info step - now requires profile image
+      // Personal info step - profile image is optional
       return _fullNameController.text.trim().isNotEmpty &&
           _usernameController.text.trim().isNotEmpty &&
-          _selectedGender != null &&
-          _selectedImage != null;
+          _selectedGender != null;
     } else {
       // Church info step
       return _addressController.text.trim().isNotEmpty &&
@@ -984,64 +883,68 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
         const SizedBox(height: 20),
 
         // Profile Image Picker
-        _buildModernFieldCard(
-          title: 'صورة الملف الشخصي',
-          icon: Icons.image,
-          color: teal700,
-          child: GestureDetector(
-            onTap: _showImageSourceDialog,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: teal700, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: teal700.withValues(alpha: 0.2),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  ClipOval(
-                    child: _selectedImage != null
-                        ? Image.file(
-                            _selectedImage!,
-                            width: 60,
-                            height: 60,
-                            fit: BoxFit.cover,
-                          )
-                        : Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            child: Icon(
-                              Icons.camera_alt,
-                              color: teal700,
-                              size: 28,
-                            ),
-                          ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      _selectedImage != null
-                          ? 'تم اختيار صورة'
-                          : 'اختر صورة للملف الشخصي',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+        // _buildModernFieldCard(
+        //   title: 'صورة الملف الشخصي',
+        //   icon: Icons.image,
+        //   color: teal700,
+        //   child: Container(
+        //     padding: const EdgeInsets.all(16),
+        //     decoration: BoxDecoration(
+        //       color: Colors.white,
+        //       borderRadius: BorderRadius.circular(12),
+        //       border: Border.all(color: teal700, width: 2),
+        //       boxShadow: [
+        //         BoxShadow(
+        //           color: teal700.withValues(alpha: 0.2),
+        //           blurRadius: 10,
+        //           offset: const Offset(0, 4),
+        //         ),
+        //       ],
+        //     ),
+        //     child: Row(
+        //       children: [
+        //         ClipOval(
+        //           child: _selectedImage != null
+        //               ? Image.file(
+        //                   _selectedImage!,
+        //                   width: 60,
+        //                   height: 60,
+        //                   fit: BoxFit.cover,
+        //                 )
+        //               : (widget.user.profileImageUrl != null
+        //                   ? Image.network(
+        //                       widget.user.profileImageUrl!,
+        //                       width: 60,
+        //                       height: 60,
+        //                       fit: BoxFit.cover,
+        //                     )
+        //                   : Container(
+        //                       width: 60,
+        //                       height: 60,
+        //                       decoration: BoxDecoration(
+        //                         color: Colors.grey[200],
+        //                         borderRadius: BorderRadius.circular(30),
+        //                       ),
+        //                       child: Icon(
+        //                         Icons.camera_alt,
+        //                         color: teal700,
+        //                         size: 28,
+        //                       ),
+        //                     )),
+        //         ),
+        //         const SizedBox(width: 16),
+        //         Expanded(
+        //           child: Text(
+        //             _selectedImage != null
+        //                 ? 'تم اختيار صورة'
+        //                 : (widget.user.profileImageUrl != null ? 'صورة موجودة' : 'اختر صورة للملف الشخصي (معطل)'),
+        //             style: TextStyle(fontSize: 16),
+        //           ),
+        //         ),
+        //       ],
+        //     ),
+        //   ),
+        // ),
       ],
     );
   }
@@ -1249,6 +1152,22 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
               }
 
               final classes = snapshot.data ?? [];
+              // If the stream just loaded classes and we have an existing userClass name,
+              // try to pre-select the matching Model (or a placeholder) so the UI displays it
+              if (_selectedClass == null && _existingUserClassName != null) {
+                final matches = classes.where((c) => (c.name ?? '') == _existingUserClassName).toList();
+                final Model preselected = matches.isNotEmpty
+                    ? matches.first
+                    : Model(id: null, name: _existingUserClassName);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  if (_selectedClass == null) {
+                    setState(() {
+                      _selectedClass = preselected;
+                    });
+                  }
+                });
+              }
 
               if (classes.isEmpty) {
                 return Container(
@@ -1330,7 +1249,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                       fontSize: 14,
                       fontFamily: 'Alexandria',
                     ),
-                    icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 28),
+                    icon: _isClassLocked ? const Icon(Icons.lock, color: Colors.white, size: 20) : const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 28),
                     items: classes.map((classItem) {
                       return DropdownMenuItem<Model>(
                         value: classItem,
@@ -1342,9 +1261,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                         ),
                       );
                     }).toList(),
-                    onChanged: (Model? value) {
-                      setState(() => _selectedClass = value);
-                    },
+                    onChanged: _isClassLocked ? null : (Model? value) { setState(() => _selectedClass = value); },
                     validator: (value) {
                       if (value == null) {
                         return 'الرجاء اختيار الفصل / الخدمة';

@@ -1,4 +1,3 @@
-import 'package:church/core/utils/gender_enum.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/models/user/user_model.dart';
@@ -478,26 +477,36 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
         });
 
       case UserType.superServant:
-        // Super Servant can chat with:
-        // - Priests
-        // - All servants with same gender
-        // - All children with same gender
-        return _usersRepository.getUsersByMultipleTypesAndGender(
-          [UserType.priest.code, UserType.superServant.code, UserType.servant.code, UserType.child.code],
-          currentUser.gender.code,
-        );
+        // Super Servant can chat with priests (always), and with servants/super-servants/children of same gender
+        return _usersRepository.getUsers().map((usersList) {
+          final all = usersList.map((u) => UserModel.fromJson(u)).toList();
+          return all.where((u) {
+            if (u.id == currentUser.id) return false;
+            // priests are reachable by everyone except children
+            if (u.userType == UserType.priest) return true;
+            // other roles limited by gender
+            if (u.userType == UserType.superServant || u.userType == UserType.servant || u.userType == UserType.child) {
+              return u.gender == currentUser.gender;
+            }
+            return false;
+          }).toList();
+        });
 
       case UserType.servant:
-        // Servant can chat with:
-        // - Priests
-        // - Super Servants with same gender
-        // - Servants with same gender and userClass
-        // - Children with same gender and userClass
-        return _usersRepository.getUsersByMultipleTypes(
-          currentUser.userClass,
-          [UserType.priest.code, UserType.superServant.code, UserType.servant.code, UserType.child.code],
-          currentUser.gender.code,
-        );
+        // Servant can chat with priests (always), super servants of same gender,
+        // servants and children of same gender and same class
+        return _usersRepository.getUsers().map((usersList) {
+          final all = usersList.map((u) => UserModel.fromJson(u)).toList();
+          return all.where((u) {
+            if (u.id == currentUser.id) return false;
+            if (u.userType == UserType.priest) return true;
+            if (u.userType == UserType.superServant) return u.gender == currentUser.gender;
+            if (u.userType == UserType.servant || u.userType == UserType.child) {
+              return u.gender == currentUser.gender && u.userClass == currentUser.userClass;
+            }
+            return false;
+          }).toList();
+        });
 
       case UserType.child:
         // Children cannot initiate chats - return empty stream

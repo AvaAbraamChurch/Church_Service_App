@@ -42,6 +42,9 @@ class _VisitServantViewState extends State<VisitServantView> {
   // Firestore repository and streams
   final UsersRepository _usersRepository = UsersRepository();
   StreamSubscription? _usersSubscription;
+  StreamSubscription? _priestsSubscription;
+  List<UserModel> _fetchedNonPriests = [];
+  List<UserModel> _fetchedPriests = [];
   List<UserModel> _fetchedUsers = [];
   bool _isLoadingUsers = true;
 
@@ -59,37 +62,83 @@ class _VisitServantViewState extends State<VisitServantView> {
 
   void _fetchUsersFromFirestore() {
     if (widget.currentUser == null) return;
+    // Cancel any previous subscriptions before creating new ones
+    _usersSubscription?.cancel();
+    _priestsSubscription?.cancel();
 
-    // Servant can see children of same class and gender, plus servants/super servants of same gender
+    // Build requested user types depending on visit type. For visiting (home)
+    // include priests so they can be assigned as servants. However priests
+    // typically don't have a userClass, so we need to fetch them separately
+    // and merge the results.
+    final types = <String>['CH', 'SV', 'SS'];
+    final includePriests = selectedVisitType == VisitType.home;
+
+    // Subscribe to non-priest users (filtered by class + gender)
     _usersSubscription = _usersRepository
         .getUsersByMultipleTypes(
           widget.currentUser!.userClass,
-          ['CH', 'SV', 'SS'], // Children, Servants, Super Servants
+          types,
           widget.currentUser!.gender.code,
         )
-        .listen(
-          (users) {
-            if (mounted) {
-              setState(() {
-                _fetchedUsers = users;
-                _isLoadingUsers = false;
-              });
-            }
-          },
-          onError: (error) {
-            debugPrint('Error fetching users: $error');
-            if (mounted) {
-              setState(() {
-                _isLoadingUsers = false;
-              });
-            }
-          },
-        );
+        .listen((users) {
+      if (mounted) {
+        setState(() {
+          _fetchedNonPriests = users;
+          // Merge with priests list (if any) and deduplicate by id
+          final Map<String, UserModel> merged = {};
+          for (final u in _fetchedNonPriests) merged[u.id] = u;
+          for (final p in _fetchedPriests) merged[p.id] = p;
+          _fetchedUsers = merged.values.toList();
+          _isLoadingUsers = false;
+        });
+      }
+    }, onError: (error) {
+      debugPrint('Error fetching users: $error');
+      if (mounted) {
+        setState(() {
+          _isLoadingUsers = false;
+        });
+      }
+    });
+
+    // If needed, fetch priests separately (they may not have userClass)
+    if (includePriests) {
+      _priestsSubscription = _usersRepository
+          .getUsersByType('PR')
+          .listen((priests) {
+        if (mounted) {
+          setState(() {
+            _fetchedPriests = priests;
+            // Keep priests as-is (do not filter by gender) so they appear for visiting
+            // regardless of gender assignment.
+            _fetchedPriests = priests;
+            // Merge and deduplicate
+            final Map<String, UserModel> merged = {};
+            for (final u in _fetchedNonPriests) merged[u.id] = u;
+            for (final p in _fetchedPriests) merged[p.id] = p;
+            _fetchedUsers = merged.values.toList();
+            _isLoadingUsers = false;
+          });
+        }
+      }, onError: (error) {
+        debugPrint('Error fetching priests: $error');
+        if (mounted) {
+          setState(() {
+            _isLoadingUsers = false;
+          });
+        }
+      });
+    } else {
+      // Ensure priests list is empty when not including them
+      _fetchedPriests = [];
+      _fetchedUsers = [..._fetchedNonPriests];
+    }
   }
 
   @override
   void dispose() {
     _usersSubscription?.cancel();
+    _priestsSubscription?.cancel();
     notesController.dispose();
     childSearchController.dispose();
     servantSearchController.dispose();
@@ -117,11 +166,18 @@ class _VisitServantViewState extends State<VisitServantView> {
 
   List<UserModel> get servants {
     // Only servants and super servants of same gender (any class) from fetched users
-    final allServants = _fetchedUsers
-        .where((u) =>
-            (u.userType == UserType.servant || u.userType == UserType.superServant) &&
-            u.gender == widget.currentUser!.gender)
-        .toList()
+    // If this is a visiting (home) visit, priests are also allowed to participate
+    final allServants = _fetchedUsers.where((u) {
+      // Priests should appear for visiting (home) visits regardless of gender
+      if (u.userType == UserType.priest) return selectedVisitType == VisitType.home;
+
+      // SuperServants and Servants must match the current user's gender
+      if (u.userType == UserType.superServant || u.userType == UserType.servant) {
+        return u.gender == widget.currentUser!.gender;
+      }
+
+      return false;
+    }).toList()
       ..sort((a, b) => a.fullName.compareTo(b.fullName));
 
     if (servantSearchQuery.isEmpty) {
@@ -441,7 +497,11 @@ class _VisitServantViewState extends State<VisitServantView> {
                           onTap: () {
                             setState(() {
                               selectedVisitType = type;
+                              // Re-fetch users since allowed servant types may change when visit type changes
+                              _isLoadingUsers = true;
                             });
+                            // Fetch asynchronously after state updated
+                            WidgetsBinding.instance.addPostFrameCallback((_) => _fetchUsersFromFirestore());
                           },
                           child: Container(
                             margin: const EdgeInsets.only(right: 8),

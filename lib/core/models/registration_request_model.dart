@@ -89,7 +89,8 @@ class RegistrationRequest {
       if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
       'userType': userType.code,
       'gender': gender.code,
-      'class': userClass,
+      // Use 'userClass' key instead of legacy 'class'
+      'userClass': userClass,
       'serviceType': serviceType.key,
       'requestedAt': Timestamp.fromDate(requestedAt),
       'status': status.name,
@@ -110,7 +111,8 @@ class RegistrationRequest {
       profileImageUrl: map['profileImageUrl']?.toString(),
       userType: userTypeFromJson(map['userType']),
       gender: genderFromJson(map['gender']),
-      userClass: map['class']?.toString() ?? '',
+      // Support legacy 'class' key while preferring 'userClass'
+      userClass: (map['userClass'] ?? map['class'])?.toString() ?? '',
       serviceType: serviceTypeFromJson(map['serviceType']),
       requestedAt: (map['requestedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       status: RegistrationStatus.values.firstWhere(
@@ -135,4 +137,3 @@ enum RegistrationStatus {
   approved,
   rejected,
 }
-

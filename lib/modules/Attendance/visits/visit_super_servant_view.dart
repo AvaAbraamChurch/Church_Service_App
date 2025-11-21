@@ -42,6 +42,9 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
   // Firestore repository and streams
   final UsersRepository _usersRepository = UsersRepository();
   StreamSubscription? _usersSubscription;
+  StreamSubscription? _priestsSubscription;
+  List<UserModel> _fetchedNonPriests = [];
+  List<UserModel> _fetchedPriests = [];
   List<UserModel> _fetchedUsers = [];
   bool _isLoadingUsers = true;
 
@@ -60,35 +63,58 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
   void _fetchUsersFromFirestore() {
     if (widget.currentUser == null) return;
 
-    // Fetch servants, super servants, priests and children of same gender
+    // Cancel previous subscriptions
+    _usersSubscription?.cancel();
+    _priestsSubscription?.cancel();
+
+    // For super servants, fetch non-priests (SV, SS, CH) filtered by gender
+    final types = <String>['SV', 'SS', 'CH'];
+    final includePriests = selectedVisitType == VisitType.home;
+
     _usersSubscription = _usersRepository
-        .getUsersByMultipleTypesAndGender(
-          ['SV', 'SS', 'PR', 'CH'], // Servant, SuperServant, Priest, Child
-          widget.currentUser!.gender.code,
-        )
-        .listen(
-          (users) {
-            if (mounted) {
-              setState(() {
-                _fetchedUsers = users;
-                _isLoadingUsers = false;
-              });
-            }
-          },
-          onError: (error) {
-            debugPrint('Error fetching users: $error');
-            if (mounted) {
-              setState(() {
-                _isLoadingUsers = false;
-              });
-            }
-          },
-        );
+        .getUsersByMultipleTypesAndGender(types, widget.currentUser!.gender.code)
+        .listen((users) {
+      if (!mounted) return;
+      setState(() {
+        _fetchedNonPriests = users;
+        // merge and dedupe
+        final Map<String, UserModel> merged = {};
+        for (final u in _fetchedNonPriests) merged[u.id] = u;
+        for (final p in _fetchedPriests) merged[p.id] = p;
+        _fetchedUsers = merged.values.toList();
+        _isLoadingUsers = false;
+      });
+    }, onError: (error) {
+      debugPrint('Error fetching users: $error');
+      if (mounted) setState(() => _isLoadingUsers = false);
+    });
+
+    if (includePriests) {
+      // Fetch priests separately (they may not be included by class filters elsewhere)
+      _priestsSubscription = _usersRepository.getUsersByType('PR').listen((priests) {
+        if (!mounted) return;
+        setState(() {
+          _fetchedPriests = priests; // keep as-is (no gender filtering) so priests appear for visiting
+          final Map<String, UserModel> merged = {};
+          for (final u in _fetchedNonPriests) merged[u.id] = u;
+          for (final p in _fetchedPriests) merged[p.id] = p;
+          _fetchedUsers = merged.values.toList();
+          _isLoadingUsers = false;
+        });
+      }, onError: (error) {
+        debugPrint('Error fetching priests: $error');
+        if (mounted) setState(() => _isLoadingUsers = false);
+      });
+    } else {
+      _fetchedPriests = [];
+      _fetchedUsers = [..._fetchedNonPriests];
+    }
   }
 
   @override
   void dispose() {
     _usersSubscription?.cancel();
+    _priestsSubscription?.cancel();
     notesController.dispose();
     childSearchController.dispose();
     servantSearchController.dispose();
@@ -112,14 +138,14 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
   }
 
   List<UserModel> get servants {
-    // Only servants, super servants, and priests of same gender from fetched users
-    final allServants = _fetchedUsers
-        .where((u) =>
-            (u.userType == UserType.priest ||
-             u.userType == UserType.superServant ||
-             u.userType == UserType.servant) &&
-            u.gender == widget.currentUser!.gender)
-        .toList()
+    // Servants and super servants must match gender; priests are included for visiting (home) regardless of gender
+    final allServants = _fetchedUsers.where((u) {
+      if (u.userType == UserType.priest) return selectedVisitType == VisitType.home;
+      if (u.userType == UserType.superServant || u.userType == UserType.servant) {
+        return u.gender == widget.currentUser!.gender;
+      }
+      return false;
+    }).toList()
       ..sort((a, b) => a.fullName.compareTo(b.fullName));
 
     if (servantSearchQuery.isEmpty) {
@@ -413,7 +439,9 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
                           onTap: () {
                             setState(() {
                               selectedVisitType = type;
+                              _isLoadingUsers = true;
                             });
+                            WidgetsBinding.instance.addPostFrameCallback((_) => _fetchUsersFromFirestore());
                           },
                           child: Container(
                             margin: const EdgeInsets.only(right: 8),

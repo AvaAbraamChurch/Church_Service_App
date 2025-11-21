@@ -120,7 +120,8 @@ class UserModel {
       // Store enums as short codes for compactness and consistency
       'userType': userType.code, // e.g., 'PR','SS','SV','CH'
       'gender': gender.code, // 'M' or 'F'
-      'class': userClass,
+      // Persist using 'userClass' key going forward. fromMap still supports legacy 'class'.
+      'userClass': userClass,
       'serviceType': serviceType.key, // e.g., 'primary_boys'
       'firstLogin': firstLogin,
       'isAdmin': isAdmin,
