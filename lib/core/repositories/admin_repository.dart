@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/models/registration_request_model.dart';
 import 'package:church/core/utils/gender_enum.dart';
@@ -16,6 +17,35 @@ class AdminRepository {
     FirebaseAuth? auth,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance;
+
+  // ============ HELPER METHODS ============
+
+  /// Generate a secure random temporary password
+  /// Returns a password with 8 characters: mix of uppercase, lowercase, and numbers
+  String generateTemporaryPassword({int length = 8}) {
+    const String upperChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const String lowerChars = 'abcdefghijklmnopqrstuvwxyz';
+    const String numbers = '0123456789';
+    const String allChars = upperChars + lowerChars + numbers;
+
+    final Random random = Random.secure();
+    final List<String> password = [];
+
+    // Ensure at least one of each type
+    password.add(upperChars[random.nextInt(upperChars.length)]);
+    password.add(lowerChars[random.nextInt(lowerChars.length)]);
+    password.add(numbers[random.nextInt(numbers.length)]);
+
+    // Fill the rest randomly
+    for (int i = password.length; i < length; i++) {
+      password.add(allChars[random.nextInt(allChars.length)]);
+    }
+
+    // Shuffle the password characters
+    password.shuffle(random);
+
+    return password.join();
+  }
 
   // ============ USER CRUD OPERATIONS ============
 
@@ -49,6 +79,7 @@ class AdminRepository {
   }) async {
     try {
       // Create authentication account
+      // Note: This will automatically sign in the new user, logging out the admin
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -66,6 +97,12 @@ class AdminRepository {
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Sign out the newly created user immediately
+      await _auth.signOut();
+
+      // The admin will need to sign in again after creating a user
+      // This is a Firebase limitation - we cannot restore the session programmatically
 
       return userId;
     } catch (e) {
@@ -250,10 +287,10 @@ class AdminRepository {
   }
 
   /// Approve a registration request and create the user
-  Future<void> approveRegistrationRequest(
+  /// Returns the generated temporary password that should be given to the user
+  Future<String> approveRegistrationRequest(
     String requestId,
     String adminId,
-    String temporaryPassword,
   ) async {
     try {
       // Get the request
@@ -265,6 +302,9 @@ class AdminRepository {
       }
 
       final request = RegistrationRequest.fromMap(requestDoc.data()!, id: requestId);
+
+      // Generate a secure temporary password
+      final temporaryPassword = generateTemporaryPassword();
 
       // Create user with authentication
       final userId = await createUser(
@@ -295,6 +335,9 @@ class AdminRepository {
         'reviewedAt': FieldValue.serverTimestamp(),
         'createdUserId': userId,
       });
+
+      // Return the temporary password so it can be shown to the admin
+      return temporaryPassword;
     } catch (e) {
       throw Exception('Error approving registration request: $e');
     }

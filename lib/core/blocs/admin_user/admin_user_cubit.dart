@@ -1,5 +1,6 @@
 import 'package:church/core/repositories/admin_repository.dart';
 import 'package:church/core/blocs/admin_user/admin_user_states.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit for managing admin user operations
@@ -25,10 +26,12 @@ class AdminUserCubit extends Cubit<AdminUserState> {
         },
         onError: (error) {
           emit(AdminUserError(error.toString()));
+          debugPrint(error.toString());
         },
       );
     } catch (e) {
       emit(AdminUserError(e.toString()));
+      debugPrint(e.toString());
     }
   }
 
@@ -40,6 +43,7 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       emit(AdminUserLoaded([user]));
     } catch (e) {
       emit(AdminUserError(e.toString()));
+      debugPrint(e.toString());
     }
   }
 
@@ -70,6 +74,7 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       emit(AdminUserUpdated());
     } catch (e) {
       emit(AdminUserError(e.toString()));
+      debugPrint(e.toString());
     }
   }
 
@@ -81,6 +86,7 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       emit(AdminUserDeleted());
     } catch (e) {
       emit(AdminUserError(e.toString()));
+      debugPrint(e.toString());
     }
   }
 
@@ -92,6 +98,7 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       emit(AdminUserUpdated());
     } catch (e) {
       emit(AdminUserError('فشل إعادة تعيين كلمة المرور: ${e.toString()}'));
+      debugPrint(e.toString());
     }
   }
 
@@ -103,6 +110,7 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       emit(AdminUserSearchResults(users));
     } catch (e) {
       emit(AdminUserError(e.toString()));
+      debugPrint(e.toString());
     }
   }
 
@@ -116,10 +124,12 @@ class AdminUserCubit extends Cubit<AdminUserState> {
         },
         onError: (error) {
           emit(AdminUserError(error.toString()));
+          debugPrint(error.toString());
         },
       );
     } catch (e) {
       emit(AdminUserError(e.toString()));
+      debugPrint(e.toString());
     }
   }
 
@@ -133,10 +143,12 @@ class AdminUserCubit extends Cubit<AdminUserState> {
         },
         onError: (error) {
           emit(AdminUserError(error.toString()));
+          debugPrint(error.toString());
         },
       );
     } catch (e) {
       emit(AdminUserError(e.toString()));
+      debugPrint(e.toString());
     }
   }
 
@@ -207,16 +219,14 @@ class AdminUserCubit extends Cubit<AdminUserState> {
   Future<void> approveRegistrationRequest(
     String requestId,
     String adminId,
-    String temporaryPassword,
   ) async {
     emit(AdminUserLoading());
     try {
-      await _adminRepository.approveRegistrationRequest(
+      final temporaryPassword = await _adminRepository.approveRegistrationRequest(
         requestId,
         adminId,
-        temporaryPassword,
       );
-      emit(AdminRequestApproved(requestId));
+      emit(AdminRequestApproved(requestId, temporaryPassword));
     } catch (e) {
       emit(AdminUserError(e.toString()));
     }

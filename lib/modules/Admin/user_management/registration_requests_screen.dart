@@ -151,13 +151,69 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
             child: BlocConsumer<AdminUserCubit, AdminUserState>(
               listener: (context, state) {
                 if (state is AdminRequestApproved) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('تم قبول الطلب بنجاح'),
-                      backgroundColor: Colors.green,
+                  // Show dialog with the generated temporary password
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (dialogContext) => AlertDialog(
+                      title: Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green.shade600),
+                          const SizedBox(width: 8),
+                          const Text('تم قبول الطلب'),
+                        ],
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'تم إنشاء الحساب بنجاح!',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text('كلمة المرور المؤقتة:'),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: teal50,
+                              border: Border.all(color: teal500, width: 2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: SelectableText(
+                              state.temporaryPassword,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 2,
+                                color: teal900,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'يرجى نسخ كلمة المرور وإرسالها للمستخدم. سيُطلب منه تغييرها عند تسجيل الدخول الأول.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            _loadRequests();
+                          },
+                          child: const Text('حسناً'),
+                        ),
+                      ],
                     ),
                   );
-                  _loadRequests();
                 } else if (state is AdminRequestRejected) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -455,8 +511,6 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
   }
 
   void _showApproveDialog(RegistrationRequest request) {
-    final passwordController = TextEditingController();
-
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -467,21 +521,27 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
           children: [
             Text('هل أنت متأكد من قبول طلب ${request.fullName}؟'),
             const SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              decoration: const InputDecoration(
-                labelText: 'كلمة مرور مؤقتة',
-                hintText: 'أدخل كلمة مرور للمستخدم',
-                border: OutlineInputBorder(),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: teal50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: teal500.withValues(alpha: 0.3)),
               ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'سيتم إنشاء حساب للمستخدم بكلمة المرور هذه',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: teal700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'سيتم إنشاء كلمة مرور مؤقتة تلقائياً',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: teal900,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -493,22 +553,11 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
           ),
           ElevatedButton(
             onPressed: () {
-              if (passwordController.text.length < 6) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('كلمة المرور يجب أن تكون 6 أحرف على الأقل'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
               Navigator.pop(dialogContext);
               final adminId = FirebaseAuth.instance.currentUser?.uid ?? '';
               context.read<AdminUserCubit>().approveRegistrationRequest(
                     request.id,
                     adminId,
-                    passwordController.text,
                   );
             },
             style: ElevatedButton.styleFrom(

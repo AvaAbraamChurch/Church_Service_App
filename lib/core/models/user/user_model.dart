@@ -151,7 +151,7 @@ class UserModel {
       avatar: (data['avatar'])?.toString(),
       userType: userTypeFromJson(data['userType']),
       gender: genderFromJson(data['gender']),
-      userClass: (data['class'] ?? data['userClass'])!.toString(),
+      userClass: (data['userClass'] ?? data['class'] ?? '').toString(),
       serviceType: serviceTypeFromJson(data['serviceType']),
       couponPoints: (data['couponPoints'] ?? 0) as int,
       firstLogin: (data['firstLogin'] ?? true) as bool,

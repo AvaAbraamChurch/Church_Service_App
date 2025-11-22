@@ -59,8 +59,9 @@ class AdminPendingRequestsLoaded extends AdminUserState {
 
 class AdminRequestApproved extends AdminUserState {
   final String requestId;
+  final String temporaryPassword;
 
-  AdminRequestApproved(this.requestId);
+  AdminRequestApproved(this.requestId, this.temporaryPassword);
 }
 
 class AdminRequestRejected extends AdminUserState {
