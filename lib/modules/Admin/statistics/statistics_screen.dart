@@ -6,6 +6,8 @@ import 'package:church/core/repositories/classes_repository.dart';
 import 'package:church/core/repositories/users_reopsitory.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
+import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:flutter/material.dart';
 
 class StatisticsScreen extends StatefulWidget {
@@ -30,6 +32,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   int? _selectedYear = DateTime.now().year;
   List<int> _availableYears = [];
   final List<int> _months = List.generate(12, (index) => index + 1);
+  String? _selectedUserType;
+  String? _selectedGender;
+
+  // Expansion states
+  bool _isClassFilterExpanded = false;
+  bool _isUserTypeGenderFilterExpanded = false;
+  bool _isDateFilterExpanded = true; // Default expanded
+  bool _showFilters = false; // Toggle to show/hide all filters
 
   @override
   void initState() {
@@ -93,6 +103,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final Map<String, List<UserAttendanceStats>> groupedData = {};
 
     for (final user in _allUsers) {
+      // Filter by userType if selected
+      if (_selectedUserType != null && user.userType.code != _selectedUserType) {
+        continue;
+      }
+
+      // Filter by gender if selected
+      if (_selectedGender != null && user.gender.code != _selectedGender) {
+        continue;
+      }
+
       // Filter attendance by selected month and/or year if applicable
       var userAttendance = _allAttendance.where((a) => a.userId == user.id);
 
@@ -240,9 +260,89 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 )
               : Column(
                   children: [
-                    _buildClassDropdown(),
-                    _buildMonthYearDropdowns(),
-                    Expanded(child: _buildStatisticsContent()),
+                    // Filter toggle button
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.shade300,
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _showFilters = !_showFilters;
+                                  // If showing filters, expand date filter by default
+                                  if (_showFilters && !_isDateFilterExpanded) {
+                                    _isDateFilterExpanded = true;
+                                  }
+                                });
+                              },
+                              icon: Icon(_showFilters ? Icons.filter_alt_off : Icons.filter_alt),
+                              label: Text(_showFilters ? 'إخفاء التصفية' : 'إظهار خيارات التصفية'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _showFilters ? brown500 : teal500,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (_showFilters && (_selectedClass != null || _selectedUserType != null || _selectedGender != null || _selectedMonth != null || _selectedYear != null)) ...[
+                            const SizedBox(width: 12),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedClass = null;
+                                  _selectedUserType = null;
+                                  _selectedGender = null;
+                                  _selectedMonth = DateTime.now().month;
+                                  _selectedYear = DateTime.now().year;
+                                });
+                              },
+                              icon: const Icon(Icons.clear_all),
+                              label: const Text('مسح الفلاتر'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: red500,
+                                side: BorderSide(color: red500),
+                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // Filter sections (conditionally shown)
+                    if (_showFilters)
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              _buildClassDropdown(),
+                              _buildUserTypeAndGenderDropdowns(),
+                              _buildMonthYearDropdowns(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    // Statistics content
+                    Expanded(
+                      flex: _showFilters ? 2 : 3,
+                      child: _buildStatisticsContent(),
+                    ),
                   ],
                 ),
     );
@@ -250,7 +350,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   Widget _buildClassDropdown() {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -261,20 +360,34 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          const Icon(Icons.filter_list, color: teal700, size: 24),
-          const SizedBox(width: 12),
-          const Text(
-            'تصفية حسب الفصل:',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: teal900,
-            ),
+      child: ExpansionTile(
+        initiallyExpanded: _isClassFilterExpanded,
+        onExpansionChanged: (expanded) {
+          setState(() {
+            _isClassFilterExpanded = expanded;
+          });
+        },
+        leading: const Icon(Icons.filter_list, color: teal700, size: 24),
+        title: const Text(
+          'تصفية حسب الفصل',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: teal900,
           ),
-          const SizedBox(width: 16),
-          Expanded(
+        ),
+        subtitle: _selectedClass != null
+            ? Text(
+                'الفصل المحدد: $_selectedClass',
+                style: TextStyle(fontSize: 12, color: teal700),
+              )
+            : const Text(
+                'جميع الفصول',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
@@ -299,7 +412,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     ..._allClasses.map((className) {
                       return DropdownMenuItem<String?>(
                         value: className,
-                        child: Text(className, style: TextStyle(fontSize: 14),),
+                        child: Text(className, style: const TextStyle(fontSize: 14)),
                       );
                     }),
                   ],
@@ -317,17 +430,22 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  String _getMonthName(int month) {
-    const monthNames = [
-      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-    ];
-    return monthNames[month - 1];
-  }
+  Widget _buildUserTypeAndGenderDropdowns() {
+    String subtitle = '';
+    if (_selectedUserType != null || _selectedGender != null) {
+      List<String> parts = [];
+      if (_selectedUserType != null) {
+        final userType = UserType.values.firstWhere((t) => t.code == _selectedUserType);
+        parts.add('النوع: ${userType.label}');
+      }
+      if (_selectedGender != null) {
+        final gender = Gender.values.firstWhere((g) => g.code == _selectedGender);
+        parts.add('الجنس: ${gender.label}');
+      }
+      subtitle = parts.join(' - ');
+    }
 
-  Widget _buildMonthYearDropdowns() {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -338,140 +456,334 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.calendar_month, color: teal700, size: 24),
-              const SizedBox(width: 12),
-              const Text(
-                'تصفية حسب التاريخ:',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: teal900,
-                ),
-              ),
-            ],
+      child: ExpansionTile(
+        initiallyExpanded: _isUserTypeGenderFilterExpanded,
+        onExpansionChanged: (expanded) {
+          setState(() {
+            _isUserTypeGenderFilterExpanded = expanded;
+          });
+        },
+        leading: const Icon(Icons.person_search, color: teal700, size: 24),
+        title: const Text(
+          'تصفية حسب نوع المستخدم والجنس',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: teal900,
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              // Month Dropdown
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'الشهر',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: teal500),
-                        borderRadius: BorderRadius.circular(8),
-                        color: Colors.grey.shade50,
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int?>(
-                          value: _selectedMonth,
-                          isExpanded: true,
-                          hint: const Text('كل الشهور'),
-                          icon: const Icon(Icons.arrow_drop_down, color: teal700),
-                          items: [
-                            const DropdownMenuItem<int?>(
-                              value: null,
-                              child: Text(
-                                'كل الشهور',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            ..._months.map((month) {
-                              return DropdownMenuItem<int?>(
-                                value: month,
-                                child: Text(
-                                  _getMonthName(month),
-                                  style: const TextStyle(fontSize: 14),
-                                ),
-                              );
-                            }),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedMonth = value;
-                            });
-                          },
+        ),
+        subtitle: subtitle.isNotEmpty
+            ? Text(
+                subtitle,
+                style: const TextStyle(fontSize: 12, color: teal700),
+              )
+            : const Text(
+                'الكل',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Row(
+              children: [
+                // UserType Dropdown
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'نوع المستخدم',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Year Dropdown
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'السنة',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: teal500),
-                        borderRadius: BorderRadius.circular(8),
-                        color: Colors.grey.shade50,
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int?>(
-                          value: _selectedYear,
-                          isExpanded: true,
-                          hint: const Text('كل السنوات'),
-                          icon: const Icon(Icons.arrow_drop_down, color: teal700),
-                          items: [
-                            const DropdownMenuItem<int?>(
-                              value: null,
-                              child: Text(
-                                'كل السنوات',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            ..._availableYears.map((year) {
-                              return DropdownMenuItem<int?>(
-                                value: year,
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: teal500),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey.shade50,
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: _selectedUserType,
+                            isExpanded: true,
+                            hint: const Text('الكل'),
+                            icon: const Icon(Icons.arrow_drop_down, color: teal700),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
                                 child: Text(
-                                  year.toString(),
-                                  style: const TextStyle(fontSize: 14),
+                                  'الكل',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
-                              );
-                            }),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedYear = value;
-                            });
-                          },
+                              ),
+                              ...UserType.values.map((type) {
+                                return DropdownMenuItem<String?>(
+                                  value: type.code,
+                                  child: Text(
+                                    type.label,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedUserType = value;
+                              });
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 12),
+                // Gender Dropdown
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'الجنس',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: teal500),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey.shade50,
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: _selectedGender,
+                            isExpanded: true,
+                            hint: const Text('الكل'),
+                            icon: const Icon(Icons.arrow_drop_down, color: teal700),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text(
+                                  'الكل',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              ...Gender.values.map((gender) {
+                                return DropdownMenuItem<String?>(
+                                  value: gender.code,
+                                  child: Text(
+                                    gender.label,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedGender = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getMonthName(int month) {
+    const monthNames = [
+      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+    ];
+    return monthNames[month - 1];
+  }
+
+  Widget _buildMonthYearDropdowns() {
+    String subtitle = '';
+    if (_selectedMonth != null || _selectedYear != null) {
+      List<String> parts = [];
+      if (_selectedMonth != null) {
+        parts.add('الشهر: ${_getMonthName(_selectedMonth!)}');
+      }
+      if (_selectedYear != null) {
+        parts.add('السنة: $_selectedYear');
+      }
+      subtitle = parts.join(' - ');
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade300,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: _isDateFilterExpanded,
+        onExpansionChanged: (expanded) {
+          setState(() {
+            _isDateFilterExpanded = expanded;
+          });
+        },
+        leading: const Icon(Icons.calendar_month, color: teal700, size: 24),
+        title: const Text(
+          'تصفية حسب التاريخ',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: teal900,
+          ),
+        ),
+        subtitle: subtitle.isNotEmpty
+            ? Text(
+                subtitle,
+                style: const TextStyle(fontSize: 12, color: teal700),
+              )
+            : const Text(
+                'كل الأوقات',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
-            ],
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Row(
+              children: [
+                // Month Dropdown
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'الشهر',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: teal500),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey.shade50,
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int?>(
+                            value: _selectedMonth,
+                            isExpanded: true,
+                            hint: const Text('كل الشهور'),
+                            icon: const Icon(Icons.arrow_drop_down, color: teal700),
+                            items: [
+                              const DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text(
+                                  'كل الشهور',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              ..._months.map((month) {
+                                return DropdownMenuItem<int?>(
+                                  value: month,
+                                  child: Text(
+                                    _getMonthName(month),
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedMonth = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Year Dropdown
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'السنة',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: teal500),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey.shade50,
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int?>(
+                            value: _selectedYear,
+                            isExpanded: true,
+                            hint: const Text('كل السنوات'),
+                            icon: const Icon(Icons.arrow_drop_down, color: teal700),
+                            items: [
+                              const DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text(
+                                  'كل السنوات',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              ..._availableYears.map((year) {
+                                return DropdownMenuItem<int?>(
+                                  value: year,
+                                  child: Text(
+                                    year.toString(),
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedYear = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -538,13 +850,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               children: [
                 const Icon(Icons.class_rounded, color: Colors.white, size: 24),
                 const SizedBox(width: 12),
-                Text(
-                  className,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                Expanded(
+                  child: Text(
+                    className,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 3,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
                 const Spacer(),
