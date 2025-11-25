@@ -1,5 +1,8 @@
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/styles/colors.dart';
+import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/core/utils/gender_enum.dart';
+import 'package:church/core/utils/service_enum.dart';
 import 'package:flutter/material.dart';
 
 class CreateUserScreen extends StatefulWidget {
@@ -17,6 +20,17 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final _userClassController = TextEditingController();
+  final _couponPointsController = TextEditingController(text: '0');
+
+  UserType _selectedUserType = UserType.child;
+  Gender _selectedGender = Gender.male;
+  ServiceType _selectedServiceType = ServiceType.primaryBoys;
+  bool _firstLogin = true;
+  bool _isAdmin = false;
+  bool _storeAdmin = false;
+  bool _isActive = true;
+  DateTime? _birthday;
 
   @override
   void dispose() {
@@ -26,6 +40,8 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
     _passwordController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _userClassController.dispose();
+    _couponPointsController.dispose();
     super.dispose();
   }
 
@@ -281,6 +297,327 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
                   ),
                 ),
                 maxLines: 2,
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'معلومات الخدمة',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: teal900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<UserType>(
+                value: _selectedUserType,
+                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
+                dropdownColor: teal700,
+                decoration: InputDecoration(
+                  labelText: 'نوع المستخدم *',
+                  labelStyle: const TextStyle(color: Colors.white),
+                  prefixIcon: const Icon(Icons.person_pin_outlined, color: Colors.white),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white, width: 2),
+                  ),
+                ),
+                items: UserType.values.map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(type.label),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedUserType = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<Gender>(
+                value: _selectedGender,
+                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
+                dropdownColor: teal700,
+                decoration: InputDecoration(
+                  labelText: 'الجنس *',
+                  labelStyle: const TextStyle(color: Colors.white),
+                  prefixIcon: const Icon(Icons.wc_outlined, color: Colors.white),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white, width: 2),
+                  ),
+                ),
+                items: Gender.values.map((gender) {
+                  return DropdownMenuItem(
+                    value: gender,
+                    child: Text(gender.label),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedGender = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _userClassController,
+                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
+                decoration: InputDecoration(
+                  labelText: 'الفصل *',
+                  labelStyle: const TextStyle(color: Colors.white),
+                  prefixIcon: const Icon(Icons.class_outlined, color: Colors.white),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white, width: 2),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'يرجى إدخال الفصل';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<ServiceType>(
+                value: _selectedServiceType,
+                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
+                dropdownColor: teal700,
+                decoration: InputDecoration(
+                  labelText: 'نوع الخدمة *',
+                  labelStyle: const TextStyle(color: Colors.white),
+                  prefixIcon: const Icon(Icons.church_outlined, color: Colors.white),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white, width: 2),
+                  ),
+                ),
+                items: ServiceType.values.map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(type.displayName),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedServiceType = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _couponPointsController,
+                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
+                decoration: InputDecoration(
+                  labelText: 'نقاط الكوبون',
+                  labelStyle: const TextStyle(color: Colors.white),
+                  prefixIcon: const Icon(Icons.star_outline, color: Colors.white),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white, width: 2),
+                  ),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value != null && value.isNotEmpty) {
+                    if (int.tryParse(value) == null) {
+                      return 'يرجى إدخال رقم صحيح';
+                    }
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('أول تسجيل دخول', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('هل هذه أول مرة يسجل فيها المستخدم دخوله؟', style: TextStyle(color: Colors.white70)),
+                value: _firstLogin,
+                onChanged: (value) {
+                  setState(() {
+                    _firstLogin = value;
+                  });
+                },
+                activeColor: teal500,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.white70),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'الصلاحيات',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: teal900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('مسؤول النظام', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('منح صلاحيات المسؤول الكاملة', style: TextStyle(color: Colors.white70)),
+                value: _isAdmin,
+                onChanged: (value) {
+                  setState(() {
+                    _isAdmin = value;
+                  });
+                },
+                activeColor: brown500,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.white70),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('مسؤول المتجر', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('منح صلاحيات إدارة المتجر', style: TextStyle(color: Colors.white70)),
+                value: _storeAdmin,
+                onChanged: (value) {
+                  setState(() {
+                    _storeAdmin = value;
+                  });
+                },
+                activeColor: brown500,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.white70),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('حساب نشط', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('تفعيل أو تعطيل حساب المستخدم', style: TextStyle(color: Colors.white70)),
+                value: _isActive,
+                onChanged: (value) {
+                  setState(() {
+                    _isActive = value;
+                  });
+                },
+                activeColor: _isActive ? Colors.green : Colors.red,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.white70),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'معلومات إضافية',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: teal900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: () async {
+                  final DateTime? picked = await showDatePicker(
+                    context: context,
+                    initialDate: _birthday ?? DateTime.now(),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime.now(),
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.light(
+                            primary: teal500,
+                            onPrimary: Colors.white,
+                            onSurface: teal900,
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _birthday = picked;
+                    });
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white70),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.cake_outlined, color: Colors.white70),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'تاريخ الميلاد',
+                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _birthday != null
+                                  ? '${_birthday!.day}/${_birthday!.month}/${_birthday!.year}'
+                                  : 'لم يتم تحديد تاريخ الميلاد',
+                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_birthday != null)
+                        IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.white70),
+                          onPressed: () {
+                            setState(() {
+                              _birthday = null;
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
               const Text(

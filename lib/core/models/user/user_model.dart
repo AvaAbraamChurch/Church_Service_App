@@ -23,6 +23,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// - firstLogin boolean always true when created
 /// - isAdmin boolean for admin privileges
 /// - storeAdmin boolean for store management privileges
+/// - isActive boolean for account enabled/disabled status
 class UserModel {
   final String id;
   final String fullName;
@@ -43,6 +44,7 @@ class UserModel {
   final DateTime? birthday;
   final bool isAdmin;
   final bool storeAdmin;
+  final bool isActive;
 
   const UserModel({
     required this.id,
@@ -64,6 +66,7 @@ class UserModel {
     this.birthday,
     this.isAdmin = false,
     this.storeAdmin = false,
+    this.isActive = true,
   });
 
   UserModel copyWith({
@@ -84,6 +87,7 @@ class UserModel {
     DateTime? birthday,
     bool? isAdmin,
     bool? storeAdmin,
+    bool? isActive,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -103,6 +107,7 @@ class UserModel {
       birthday: birthday ?? this.birthday,
       isAdmin: isAdmin ?? this.isAdmin,
       storeAdmin: storeAdmin ?? this.storeAdmin,
+      isActive: isActive ?? this.isActive,
     );
   }
 
@@ -126,6 +131,7 @@ class UserModel {
       'firstLogin': firstLogin,
       'isAdmin': isAdmin,
       'storeAdmin': storeAdmin,
+      'isActive': isActive,
       if (birthday != null) 'birthday': Timestamp.fromDate(birthday!),
     };
   }
@@ -158,6 +164,7 @@ class UserModel {
       birthday: birthdayValue,
       isAdmin: (data['isAdmin'] ?? false) as bool,
       storeAdmin: (data['storeAdmin'] ?? false) as bool,
+      isActive: (data['isActive'] ?? true) as bool,
     );
   }
 
@@ -191,7 +198,8 @@ class UserModel {
         other.firstLogin == firstLogin &&
         other.birthday == birthday &&
         other.isAdmin == isAdmin &&
-        other.storeAdmin == storeAdmin;
+        other.storeAdmin == storeAdmin &&
+        other.isActive == isActive;
   }
 
   @override

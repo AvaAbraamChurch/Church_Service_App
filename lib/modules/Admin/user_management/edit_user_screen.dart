@@ -31,6 +31,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
   late Gender _selectedGender;
   late ServiceType _selectedServiceType;
   late bool _firstLogin;
+  late bool _isAdmin;
+  late bool _storeAdmin;
+  DateTime? _birthday;
 
   @override
   void initState() {
@@ -47,6 +50,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _selectedGender = widget.user.gender;
     _selectedServiceType = widget.user.serviceType;
     _firstLogin = widget.user.firstLogin;
+    _isAdmin = widget.user.isAdmin;
+    _storeAdmin = widget.user.storeAdmin;
+    _birthday = widget.user.birthday;
   }
 
   @override
@@ -482,6 +488,124 @@ class _EditUserScreenState extends State<EditUserScreen> {
               ),
               const SizedBox(height: 24),
               const Text(
+                'الصلاحيات',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: teal900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('مسؤول النظام', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('منح صلاحيات المسؤول الكاملة', style: TextStyle(color: Colors.white70)),
+                value: _isAdmin,
+                onChanged: (value) {
+                  setState(() {
+                    _isAdmin = value;
+                  });
+                },
+                activeColor: brown500,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.white70),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('مسؤول المتجر', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('منح صلاحيات إدارة المتجر', style: TextStyle(color: Colors.white70)),
+                value: _storeAdmin,
+                onChanged: (value) {
+                  setState(() {
+                    _storeAdmin = value;
+                  });
+                },
+                activeColor: brown500,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.white70),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'معلومات إضافية',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: teal900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: () async {
+                  final DateTime? picked = await showDatePicker(
+                    context: context,
+                    initialDate: _birthday ?? DateTime.now(),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime.now(),
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.light(
+                            primary: teal500,
+                            onPrimary: Colors.white,
+                            onSurface: teal900,
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _birthday = picked;
+                    });
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white70),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.cake_outlined, color: Colors.white70),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'تاريخ الميلاد',
+                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _birthday != null
+                                  ? '${_birthday!.day}/${_birthday!.month}/${_birthday!.year}'
+                                  : 'لم يتم تحديد تاريخ الميلاد',
+                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_birthday != null)
+                        IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.white70),
+                          onPressed: () {
+                            setState(() {
+                              _birthday = null;
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
                 '* حقول مطلوبة',
                 style: TextStyle(
                   fontSize: 12,
@@ -549,6 +673,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
         'serviceType': _selectedServiceType.key,
         'couponPoints': int.tryParse(_couponPointsController.text) ?? widget.user.couponPoints,
         'firstLogin': _firstLogin,
+        'isAdmin': _isAdmin,
+        'storeAdmin': _storeAdmin,
+        if (_birthday != null) 'birthday': _birthday,
       };
 
       await cubit.updateUser(widget.user.id, userData);

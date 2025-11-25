@@ -6,6 +6,7 @@ import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
@@ -174,24 +175,48 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
                           const SizedBox(height: 16),
                           const Text('كلمة المرور المؤقتة:'),
                           const SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: teal50,
-                              border: Border.all(color: teal500, width: 2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: SelectableText(
-                              state.temporaryPassword,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 2,
-                                color: teal900,
+                          InkWell(
+                            onTap: () {
+                              _copyToClipboard(state.temporaryPassword, 'تم نسخ كلمة المرور');
+                            },
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: teal50,
+                                border: Border.all(color: teal500, width: 2),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              textAlign: TextAlign.center,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: SelectableText(
+                                      state.temporaryPassword,
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 2,
+                                        color: teal900,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(Icons.copy, color: teal700, size: 20),
+                                ],
+                              ),
                             ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'اضغط على كلمة المرور لنسخها',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: teal700,
+                              fontStyle: FontStyle.italic,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -401,8 +426,9 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
             // User details
             _buildInfoRow(Icons.email_outlined, request.email),
             if (request.phoneNumber != null)
-              _buildInfoRow(Icons.phone_outlined, request.phoneNumber!),
+              _buildCopyableInfoRow(Icons.phone_outlined, request.phoneNumber!),
             _buildInfoRow(Icons.person_outline, request.userType.label),
+            _buildInfoRow(Icons.class_outlined, request.userClass),
             _buildInfoRow(Icons.calendar_today_outlined,
               DateFormat('dd/MM/yyyy HH:mm').format(request.requestedAt)),
 
@@ -495,6 +521,51 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCopyableInfoRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.grey.shade600),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              _copyToClipboard(text, 'تم نسخ رقم الهاتف');
+            },
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: teal500.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Icon(Icons.copy, size: 16, color: teal700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _copyToClipboard(String text, String message) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
       ),
     );
   }

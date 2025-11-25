@@ -90,6 +90,18 @@ class AdminUserCubit extends Cubit<AdminUserState> {
     }
   }
 
+  /// Toggle user active status (enable/disable)
+  Future<void> toggleUserStatus(String userId, bool isActive) async {
+    emit(AdminUserLoading());
+    try {
+      await _adminRepository.updateUser(userId, {'isActive': isActive});
+      emit(AdminUserUpdated());
+    } catch (e) {
+      emit(AdminUserError(e.toString()));
+      debugPrint(e.toString());
+    }
+  }
+
   /// Reset user password
   Future<void> resetUserPassword(String userId, String newPassword) async {
     emit(AdminUserLoading());
