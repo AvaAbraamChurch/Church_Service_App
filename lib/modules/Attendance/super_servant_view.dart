@@ -78,27 +78,21 @@ class _SuperServantViewState extends State<SuperServantView> {
       userPointsMap[user.id] = user.couponPoints;
     }
     _loadedUsers = List<UserModel>.from(users);
-    filteredUsers = List.from(widget.cubit.users!);
-
-    servantsList =
-        widget.cubit.users
-            ?.where((u) => u.userType.code == UserType.servant.code)
-            .toList() ??
-        [];
-    chidrenList =
-        widget.cubit.users
-            ?.where((u) => u.userType.code == UserType.child.code)
-            .toList() ??
-        [];
+    filteredUsers = List<UserModel>.from(users);
   }
 
   void _filterUsers() {
     final query = normalizeArabic(searchController.text.toLowerCase());
     setState(() {
+      // Filter from the selected group (servants or children)
+      final sourceList = selectedUserType == UserType.servant.code
+          ? servantsList
+          : chidrenList;
+
       if (query.isEmpty) {
-        filteredUsers = List.from(widget.cubit.users ?? []);
+        filteredUsers = List.from(sourceList);
       } else {
-        filteredUsers = widget.cubit.users!
+        filteredUsers = sourceList
             .where(
               (user) =>
                   normalizeArabic(user.fullName.toLowerCase()).contains(query),
@@ -899,7 +893,9 @@ class _SuperServantViewState extends State<SuperServantView> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${userType.code == UserType.servant.code ? servantsList.length : chidrenList.length} مستخدم',
+                  searchController.text.isEmpty
+                      ? '${selectedUserType == UserType.servant.code ? servantsList.length : chidrenList.length} مستخدم'
+                      : '${filteredUsers.length} من ${selectedUserType == UserType.servant.code ? servantsList.length : chidrenList.length}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -954,24 +950,42 @@ class _SuperServantViewState extends State<SuperServantView> {
                     child: CircularProgressIndicator(),
                   ),
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: userType.code == UserType.servant.code
-                      ? servantsList.length
-                      : chidrenList.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final user = userType.code == UserType.servant.code
-                        ? servantsList[index]
-                        : chidrenList[index];
-                    final userId = user.id;
-                    final status =
-                        attendanceMap[userId] ?? AttendanceStatus.absent;
+              : filteredUsers.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.search_off,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'لا توجد نتائج',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: filteredUsers.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final user = filteredUsers[index];
+                        final userId = user.id;
+                        final status =
+                            attendanceMap[userId] ?? AttendanceStatus.absent;
 
-                    return _buildUserAttendanceCard(user, status);
-                  },
-                ),
+                        return _buildUserAttendanceCard(user, status);
+                      },
+                    ),
         ),
 
         // Bulk points button (only for children)

@@ -10,6 +10,7 @@ import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:math';
+import 'dart:async';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -47,14 +48,37 @@ class _SplashScreenState extends State<SplashScreen>
     final userId = _authRepository.getSavedUserId();
 
     if (isLoggedIn && userId.isNotEmpty) {
-      // Check connectivity status
-      final isConnected = await _connectivityService.checkConnection();
+      // Check connectivity status (with timeout protection)
+      bool isConnected = false;
+      try {
+        isConnected = await _connectivityService.checkConnection().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            debugPrint('⚠️ Connectivity check timed out - assuming offline');
+            return false;
+          },
+        );
+      } catch (e) {
+        debugPrint('❌ Connectivity check error: $e');
+        isConnected = false;
+      }
 
       bool isTokenValid = false;
 
       if (isConnected) {
-        // Online: Validate token with server
-        isTokenValid = await _authRepository.validateToken();
+        // Online: Validate token with server (with timeout protection)
+        try {
+          isTokenValid = await _authRepository.validateToken().timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              debugPrint('⚠️ Token validation timed out - treating as invalid');
+              return false;
+            },
+          );
+        } catch (e) {
+          debugPrint('❌ Token validation error: $e');
+          isTokenValid = false;
+        }
       } else {
         // Offline: Check if session hasn't expired locally
         isTokenValid = !_authRepository.isSessionExpired();
@@ -64,7 +88,12 @@ class _SplashScreenState extends State<SplashScreen>
       if (isTokenValid) {
         // Get user data
         try {
-          final currentUser = await _authRepository.getCurrentUserData();
+          final currentUser = await _authRepository.getCurrentUserData().timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw TimeoutException('Getting user data timed out');
+            },
+          );
 
           // Cache user profile for offline access
           await _authRepository.saveUserProfileToCache(currentUser);

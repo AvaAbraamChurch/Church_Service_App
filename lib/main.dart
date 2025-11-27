@@ -308,14 +308,22 @@ void main() async {
   final remoteConfig = FirebaseRemoteConfig.instance;
   try {
     await remoteConfig.setConfigSettings(RemoteConfigSettings(
-      fetchTimeout: const Duration(seconds: 60),
+      fetchTimeout: const Duration(seconds: 10),
       minimumFetchInterval: const Duration(seconds: 5),
     ));
-    await remoteConfig.fetchAndActivate();
+
+    // Add timeout protection to prevent hanging
+    await remoteConfig.fetchAndActivate().timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        debugPrint('Remote Config fetch timed out - using defaults');
+        return false;
+      },
+    );
     debugPrint('Remote Config fetched and activated.');
   } catch (e) {
     // avoid crashing on plugin issues; log and continue
-    debugPrint('`Remote Config fetch/activate failed`: $e');
+    debugPrint('Remote Config fetch/activate failed: $e');
   }
 
 
