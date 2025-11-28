@@ -240,7 +240,7 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
       case 1:
         return 'مدارس الأحد';
       case 2:
-        return 'الترانيم';
+        return 'الالحان';
       case 3:
         return 'درس الكتاب';
       case 4:

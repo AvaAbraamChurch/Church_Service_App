@@ -8,6 +8,7 @@ import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
+import 'package:church/core/utils/attendance_enum.dart';
 import 'package:flutter/material.dart';
 
 class StatisticsScreen extends StatefulWidget {
@@ -128,16 +129,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       final userAttendanceList = userAttendance.toList();
 
       final holyMassCount = userAttendanceList
-          .where((a) => a.attendanceType == holyMass)
+          .where((a) => a.attendanceType == holyMass && a.status == AttendanceStatus.present)
           .length;
       final sundayCount = userAttendanceList
-          .where((a) => a.attendanceType == sunday)
+          .where((a) => a.attendanceType == sunday && a.status == AttendanceStatus.present)
           .length;
       final bibleCount = userAttendanceList
-          .where((a) => a.attendanceType == bibleClass)
+          .where((a) => a.attendanceType == bibleClass && a.status == AttendanceStatus.present)
           .length;
       final hymnsCount = userAttendanceList
-          .where((a) => a.attendanceType == hymns)
+          .where((a) => a.attendanceType == hymns && a.status == AttendanceStatus.present)
           .length;
 
       final stats = UserAttendanceStats(
