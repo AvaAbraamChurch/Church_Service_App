@@ -1,15 +1,20 @@
 import 'package:church/core/constants/strings.dart';
 import 'package:church/core/models/attendance/attendance_model.dart';
+import 'package:church/core/models/attendance/visit_model.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/repositories/attendance_repository.dart';
 import 'package:church/core/repositories/classes_repository.dart';
 import 'package:church/core/repositories/users_reopsitory.dart';
+import 'package:church/core/repositories/visit_repository.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/attendance_enum.dart';
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -22,9 +27,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   final AttendanceRepository _attendanceRepo = AttendanceRepository();
   final UsersRepository _usersRepo = UsersRepository();
   final ClassesRepository _classesRepo = ClassesRepository();
+  final VisitRepository _visitRepo = VisitRepository();
 
   List<UserModel> _allUsers = [];
   List<AttendanceModel> _allAttendance = [];
+  List<VisitModel> _allVisits = [];
   bool _isLoading = true;
   String? _error;
   String? _selectedClass;
@@ -64,6 +71,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
       // Load all attendance records
       _allAttendance = await _attendanceRepo.getAttendanceFuture();
+
+      // Load all visits
+      _allVisits = await _visitRepo.getAllVisitsFuture();
 
       // Fetch class names from Firestore
       final classesStream = _classesRepo.getAllClasses();
@@ -141,12 +151,40 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           .where((a) => a.attendanceType == hymns && a.status == AttendanceStatus.present)
           .length;
 
+      // Calculate visit count for servants and super servants
+      int visitCount = 0;
+      if (user.userType == UserType.servant || user.userType == UserType.superServant) {
+        // Get all visits where this user is a servant
+        var userVisits = _allVisits.where((v) => v.servantsId.contains(user.id));
+
+        // Filter by month/year if selected
+        if (_selectedMonth != null || _selectedYear != null) {
+          userVisits = userVisits.where((v) {
+            final visitDate = v.date;
+            bool matchesMonth = _selectedMonth == null || visitDate.month == _selectedMonth;
+            bool matchesYear = _selectedYear == null || visitDate.year == _selectedYear;
+            return matchesMonth && matchesYear;
+          });
+        }
+
+        // Count unique weeks
+        final Set<String> uniqueWeeks = {};
+        for (final visit in userVisits) {
+          // Calculate week identifier as "year-week"
+          final weekOfYear = _getWeekOfYear(visit.date);
+          final weekId = '${visit.date.year}-$weekOfYear';
+          uniqueWeeks.add(weekId);
+        }
+        visitCount = uniqueWeeks.length;
+      }
+
       final stats = UserAttendanceStats(
         username: user.username,
         holyMass: holyMassCount,
         sunday: sundayCount,
         bible: bibleCount,
         hymns: hymnsCount,
+        visits: visitCount,
       );
 
       if (!groupedData.containsKey(user.userClass)) {
@@ -156,6 +194,255 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     }
 
     return groupedData;
+  }
+
+  /// Helper method to get the week number of the year for a given date
+  int _getWeekOfYear(DateTime date) {
+    // ISO 8601 week date: Week 1 is the first week with a Thursday
+    final firstDayOfYear = DateTime(date.year, 1, 1);
+    final daysSinceFirstDay = date.difference(firstDayOfYear).inDays;
+    final weekNumber = ((daysSinceFirstDay + firstDayOfYear.weekday) / 7).ceil();
+    return weekNumber;
+  }
+
+  Future<void> _exportToPdf() async {
+    final groupedData = _groupUsersByClass();
+
+    if (groupedData.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لا توجد بيانات للتصدير'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Filter by selected class or show all
+    final sortedClasses = _selectedClass != null
+        ? [_selectedClass!]
+        : (groupedData.keys.toList()..sort());
+
+    final pdf = pw.Document();
+
+    // Load Alexandria Arabic font
+    final arabicFont = await PdfGoogleFonts.alexandriaRegular();
+    final arabicFontBold = await PdfGoogleFonts.alexandriaBold();
+
+    // Build filter info text
+    String filterInfo = _buildFilterInfoText();
+
+    // Add pages for each class
+    for (final className in sortedClasses) {
+      final users = groupedData[className];
+      if (users == null || users.isEmpty) continue;
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          textDirection: pw.TextDirection.rtl,
+          theme: pw.ThemeData.withFont(
+            base: arabicFont,
+            bold: arabicFontBold,
+          ),
+          build: (pw.Context context) {
+            return [
+              // Header
+              pw.Container(
+                padding: const pw.EdgeInsets.all(20),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.teal700,
+                  borderRadius: pw.BorderRadius.circular(10),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'إحصائيات الحضور',
+                      style: pw.TextStyle(
+                        fontSize: 24,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.white,
+                        font: arabicFontBold,
+                      ),
+                      textDirection: pw.TextDirection.rtl,
+                    ),
+                    pw.SizedBox(height: 5),
+                    pw.Text(
+                      'الاسرة: $className',
+                      style: pw.TextStyle(
+                        fontSize: 18,
+                        color: PdfColors.white,
+                        font: arabicFont,
+                      ),
+                      textDirection: pw.TextDirection.rtl,
+                    ),
+                    if (filterInfo.isNotEmpty) ...[
+                      pw.SizedBox(height: 5),
+                      pw.Text(
+                        filterInfo,
+                        style: pw.TextStyle(
+                          fontSize: 12,
+                          color: PdfColors.white,
+                          font: arabicFont,
+                        ),
+                        textDirection: pw.TextDirection.rtl,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 20),
+
+              // User count info
+              pw.Container(
+                padding: const pw.EdgeInsets.all(10),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey200,
+                  borderRadius: pw.BorderRadius.circular(8),
+                ),
+                child: pw.Text(
+                  'عدد المستخدمين: ${users.length}',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                    font: arabicFontBold,
+                  ),
+                  textDirection: pw.TextDirection.rtl,
+                ),
+              ),
+              pw.SizedBox(height: 15),
+
+              // Table
+              pw.Directionality(
+                textDirection: pw.TextDirection.rtl,
+                child: pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey400, width: 1),
+                  columnWidths: {
+                    0: const pw.FlexColumnWidth(3),
+                    1: const pw.FlexColumnWidth(1.5),
+                    2: const pw.FlexColumnWidth(1.5),
+                    3: const pw.FlexColumnWidth(1.5),
+                    4: const pw.FlexColumnWidth(1.5),
+                    5: const pw.FlexColumnWidth(1.5),
+                  },
+                  children: [
+                    // Header row
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.grey300,
+                      ),
+                      children: [
+                        _buildPdfTableHeader('اسم المستخدم', arabicFontBold),
+                        _buildPdfTableHeader('القداس', arabicFontBold),
+                        _buildPdfTableHeader('مدارس الأحد', arabicFontBold),
+                        _buildPdfTableHeader('درس الكتاب', arabicFontBold),
+                        _buildPdfTableHeader('الحان', arabicFontBold),
+                        _buildPdfTableHeader('الإفتقاد', arabicFontBold),
+                      ],
+                    ),
+                    // Data rows
+                    ...users.map((user) {
+                      return pw.TableRow(
+                        children: [
+                          _buildPdfTableCell(user.username, arabicFont),
+                          _buildPdfTableCellWithColor(user.holyMass, arabicFont),
+                          _buildPdfTableCellWithColor(user.sunday, arabicFont),
+                          _buildPdfTableCellWithColor(user.bible, arabicFont),
+                          _buildPdfTableCellWithColor(user.hymns, arabicFont),
+                          _buildPdfTableCellWithColor(user.visits, arabicFont),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ];
+          },
+        ),
+      );
+    }
+
+    // Show print preview
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'إحصائيات_الحضور_${DateTime.now().toString().split(' ')[0]}.pdf',
+    );
+  }
+
+  String _buildFilterInfoText() {
+    List<String> filters = [];
+
+    if (_selectedMonth != null) {
+      filters.add('الشهر: ${_getMonthName(_selectedMonth!)}');
+    }
+
+    if (_selectedYear != null) {
+      filters.add('السنة: $_selectedYear');
+    }
+
+    return filters.isEmpty ? '' : ' ${filters.join(' - ')}';
+  }
+
+  pw.Widget _buildPdfTableHeader(String text, pw.Font font) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      alignment: pw.Alignment.center,
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 11,
+          fontWeight: pw.FontWeight.bold,
+          font: font,
+        ),
+        textAlign: pw.TextAlign.center,
+        textDirection: pw.TextDirection.rtl,
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfTableCell(String text, pw.Font font) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      alignment: pw.Alignment.centerRight,
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(fontSize: 10, font: font),
+        textDirection: pw.TextDirection.rtl,
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfTableCellWithColor(int count, pw.Font font) {
+    PdfColor backgroundColor;
+    PdfColor textColor;
+
+    if (count == 0) {
+      backgroundColor = PdfColors.red50;
+      textColor = PdfColors.red700;
+    } else if (count <= 5) {
+      backgroundColor = PdfColors.orange50;
+      textColor = PdfColors.orange700;
+    } else {
+      backgroundColor = PdfColors.green50;
+      textColor = PdfColors.green700;
+    }
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      alignment: pw.Alignment.center,
+      color: backgroundColor,
+      child: pw.Text(
+        count.toString(),
+        style: pw.TextStyle(
+          fontSize: 10,
+          fontWeight: pw.FontWeight.bold,
+          color: textColor,
+          font: font,
+        ),
+        textAlign: pw.TextAlign.center,
+      ),
+    );
   }
 
   @override
@@ -229,7 +516,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 48),
+                  IconButton(
+                    icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 28),
+                    onPressed: _exportToPdf,
+                    tooltip: 'تصدير إلى PDF',
+                  ),
                 ],
               ),
             ),
@@ -370,7 +661,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         },
         leading: const Icon(Icons.filter_list, color: teal700, size: 24),
         title: const Text(
-          'تصفية حسب الفصل',
+          'تصفية حسب الاسرة',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -379,7 +670,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ),
         subtitle: _selectedClass != null
             ? Text(
-                'الفصل المحدد: $_selectedClass',
+                'الاسرة المحدد: $_selectedClass',
                 style: TextStyle(fontSize: 12, color: teal700),
               )
             : const Text(
@@ -920,6 +1211,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),
+                DataColumn(
+                  label: Text(
+                    'الإفتقاد',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ),
               ],
               rows: users.map((user) {
                 return DataRow(
@@ -941,6 +1238,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     ),
                     DataCell(
                       _buildCountCell(user.hymns),
+                    ),
+                    DataCell(
+                      _buildCountCell(user.visits),
                     ),
                   ],
                 );
@@ -1027,6 +1327,7 @@ class UserAttendanceStats {
   final int sunday;
   final int bible;
   final int hymns;
+  final int visits;
 
   UserAttendanceStats({
     required this.username,
@@ -1034,6 +1335,7 @@ class UserAttendanceStats {
     required this.sunday,
     required this.bible,
     required this.hymns,
+    required this.visits,
   });
 }
 

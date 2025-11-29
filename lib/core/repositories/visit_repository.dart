@@ -91,6 +91,18 @@ class VisitRepository {
     }
   }
 
+  /// Get all visits (future)
+  Future<List<VisitModel>> getAllVisitsFuture() async {
+    try {
+      final snap = await _col.get();
+      return snap.docs
+          .map((d) => VisitModel.fromMap(d.data(), id: d.id))
+          .toList();
+    } catch (e) {
+      throw Exception('Error fetching all visits: $e');
+    }
+  }
+
   /// Get one visit for a child on a specific day with a given type (if exists)
   Future<VisitModel?> getVisitForChildByDateAndType({
     required String childId,
