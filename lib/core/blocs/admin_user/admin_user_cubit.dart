@@ -103,11 +103,12 @@ class AdminUserCubit extends Cubit<AdminUserState> {
   }
 
   /// Reset user password
-  Future<void> resetUserPassword(String userId, String newPassword) async {
+  /// Generates a new temporary password and returns it to be shown to the admin
+  Future<void> resetUserPassword(String userId) async {
     emit(AdminUserLoading());
     try {
-      await _adminRepository.resetUserPassword(userId, newPassword);
-      emit(AdminUserUpdated());
+      final temporaryPassword = await _adminRepository.resetUserPassword(userId);
+      emit(AdminPasswordReset(temporaryPassword: temporaryPassword));
     } catch (e) {
       emit(AdminUserError('فشل إعادة تعيين كلمة المرور: ${e.toString()}'));
       debugPrint(e.toString());
@@ -228,6 +229,7 @@ class AdminUserCubit extends Cubit<AdminUserState> {
   }
 
   /// Approve registration request
+  /// Note: This will log out the admin due to Firebase limitation
   Future<void> approveRegistrationRequest(
     String requestId,
     String adminId,
@@ -238,7 +240,11 @@ class AdminUserCubit extends Cubit<AdminUserState> {
         requestId,
         adminId,
       );
-      emit(AdminRequestApproved(requestId, temporaryPassword));
+      // Creating a user logs out the admin, so emit session lost state
+      emit(AdminSessionLost(
+        'تم إنشاء المستخدم بنجاح. يرجى تسجيل الدخول مرة أخرى.',
+        temporaryPassword: temporaryPassword,
+      ));
     } catch (e) {
       emit(AdminUserError(e.toString()));
     }

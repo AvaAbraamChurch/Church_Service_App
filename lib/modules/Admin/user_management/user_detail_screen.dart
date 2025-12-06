@@ -5,6 +5,7 @@ import 'package:church/core/utils/service_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/blocs/admin_user/admin_user_cubit.dart';
+import 'package:church/core/blocs/admin_user/admin_user_states.dart';
 import 'package:church/modules/Admin/user_management/edit_user_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,8 +18,22 @@ class UserDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ThemedScaffold(
-      appBar: PreferredSize(
+    return BlocListener<AdminUserCubit, AdminUserState>(
+      listener: (context, state) {
+        if (state is AdminPasswordReset) {
+          // Show dialog with the temporary password
+          _showPasswordResetSuccessDialog(context, state.temporaryPassword);
+        } else if (state is AdminUserError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+      child: ThemedScaffold(
+        appBar: PreferredSize(
         preferredSize: const Size.fromHeight(120),
         child: Container(
           decoration: BoxDecoration(
@@ -267,6 +282,7 @@ class UserDetailScreen extends StatelessWidget {
             ],
           ],
         ),
+      ),
       ),
     );
   }
@@ -549,9 +565,6 @@ class UserDetailScreen extends StatelessWidget {
   }
 
   void _showGeneratePasswordDialog(BuildContext context) {
-    final passwordController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -559,63 +572,65 @@ class UserDetailScreen extends StatelessWidget {
           children: [
             Icon(Icons.vpn_key_rounded, color: brown500),
             const SizedBox(width: 8),
-            const Text('إنشاء كلمة مرور مؤقتة'),
+            const Text('إعادة تعيين كلمة المرور'),
           ],
         ),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('سيتم إعادة تعيين كلمة المرور لـ ${user.fullName}'),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: passwordController,
-                decoration: InputDecoration(
-                  labelText: 'كلمة المرور الجديدة *',
-                  hintText: 'أدخل كلمة المرور المؤقتة',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'يرجى إدخال كلمة المرور';
-                  }
-                  if (value.length < 6) {
-                    return 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
-                  }
-                  return null;
-                },
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('هل تريد إرسال بريد إعادة تعيين كلمة المرور إلى ${user.fullName}؟'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: teal50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: teal500.withValues(alpha: 0.3)),
               ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: brown500.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: brown500.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: brown700, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'سيُطلب من المستخدم تغيير كلمة المرور عند تسجيل الدخول',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: brown700,
-                        ),
+              child: Row(
+                children: [
+                  Icon(Icons.email_outlined, color: teal700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'البريد الإلكتروني:\n${user.email}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: teal900,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: brown500.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: brown500.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, color: brown700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'سيتلقى المستخدم رابطاً لإعادة تعيين كلمة المرور. سيكون الرابط صالحاً لمدة ساعة واحدة.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: brown700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -624,8 +639,6 @@ class UserDetailScreen extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-
               Navigator.pop(dialogContext);
 
               // Show loading
@@ -639,102 +652,17 @@ class UserDetailScreen extends StatelessWidget {
 
               try {
                 final cubit = context.read<AdminUserCubit>();
-                await cubit.resetUserPassword(user.id, passwordController.text);
+                await cubit.resetUserPassword(user.id);
 
                 if (context.mounted) {
                   Navigator.pop(context); // Close loading
-
-                  // Show success dialog with copyable password
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (ctx) => AlertDialog(
-                      title: Row(
-                        children: [
-                          Icon(Icons.check_circle, color: Colors.green.shade600),
-                          const SizedBox(width: 8),
-                          const Text('تم إنشاء كلمة المرور'),
-                        ],
-                      ),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'كلمة المرور المؤقتة:',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          InkWell(
-                            onTap: () {
-                              Clipboard.setData(ClipboardData(text: passwordController.text));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('تم نسخ كلمة المرور'),
-                                  backgroundColor: Colors.green,
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: teal50,
-                                border: Border.all(color: teal500, width: 2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Expanded(
-                                    child: SelectableText(
-                                      passwordController.text,
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 2,
-                                        color: teal900,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Icon(Icons.copy, color: teal700, size: 20),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'اضغط على كلمة المرور لنسخها',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: teal700,
-                              fontStyle: FontStyle.italic,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                          },
-                          child: const Text('حسناً'),
-                        ),
-                      ],
-                    ),
-                  );
                 }
               } catch (e) {
                 if (context.mounted) {
                   Navigator.pop(context); // Close loading
-
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('فشل إعادة تعيين كلمة المرور: ${e.toString()}'),
+                      content: Text('فشل إرسال البريد: ${e.toString()}'),
                       backgroundColor: red500,
                     ),
                   );
@@ -745,7 +673,134 @@ class UserDetailScreen extends StatelessWidget {
               backgroundColor: brown500,
               foregroundColor: Colors.white,
             ),
-            child: const Text('إنشاء'),
+            child: const Text('إرسال البريد'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPasswordResetSuccessDialog(BuildContext context, String temporaryPassword) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 28),
+            const SizedBox(width: 12),
+            const Text(
+              'تم إعادة التعيين',
+              style: TextStyle(color: teal900),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'تم إرسال بريد إعادة تعيين كلمة المرور إلى ${user.email}',
+              style: const TextStyle(color: sage700),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 16),
+            Text(
+              'كلمة المرور المؤقتة (للطوارئ):',
+              style: TextStyle(
+                color: brown700,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: teal50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: teal500, width: 2),
+              ),
+              child: SelectableText(
+                temporaryPassword,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: teal900,
+                  letterSpacing: 2,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: temporaryPassword));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('تم نسخ كلمة المرور'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.copy),
+              label: const Text('نسخ كلمة المرور'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: teal500,
+                foregroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: brown100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: brown500.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, color: brown700, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'ملاحظات مهمة:',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: brown900,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '• سيتلقى المستخدم رابط إعادة التعيين عبر البريد الإلكتروني\n'
+                    '• الرابط صالح لمدة ساعة واحدة\n'
+                    '• كلمة المرور المؤقتة أعلاه للطوارئ فقط\n'
+                    '• سيُطلب من المستخدم تغيير كلمة المرور عند أول تسجيل دخول',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: brown900,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('إغلاق'),
           ),
         ],
       ),

@@ -392,6 +392,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
+          _searchController.clear();
           Navigator.push(
             context,
             MaterialPageRoute(

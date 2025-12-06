@@ -1,11 +1,15 @@
 import 'package:church/core/blocs/admin_user/admin_user_cubit.dart';
+import 'package:church/core/blocs/admin_user/admin_user_states.dart';
 import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/models/Classes/classes_model.dart';
+import 'package:church/core/repositories/classes_repository.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/service_enum.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class EditUserScreen extends StatefulWidget {
@@ -24,8 +28,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
-  late TextEditingController _userClassController;
   late TextEditingController _couponPointsController;
+
+  final ClassesRepository _classesRepository = ClassesRepository();
 
   late UserType _selectedUserType;
   late Gender _selectedGender;
@@ -33,6 +38,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
   late bool _firstLogin;
   late bool _isAdmin;
   late bool _storeAdmin;
+  Model? _selectedClass;
   DateTime? _birthday;
 
   @override
@@ -43,7 +49,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _emailController = TextEditingController(text: widget.user.email);
     _phoneController = TextEditingController(text: widget.user.phoneNumber ?? '');
     _addressController = TextEditingController(text: widget.user.address ?? '');
-    _userClassController = TextEditingController(text: widget.user.userClass);
     _couponPointsController = TextEditingController(text: widget.user.couponPoints.toString());
 
     _selectedUserType = widget.user.userType;
@@ -53,6 +58,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _isAdmin = widget.user.isAdmin;
     _storeAdmin = widget.user.storeAdmin;
     _birthday = widget.user.birthday;
+    // _selectedClass will be set when classes are loaded from stream
   }
 
   @override
@@ -62,101 +68,114 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _userClassController.dispose();
     _couponPointsController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ThemedScaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(120),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [teal700, teal500, teal300],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return BlocListener<AdminUserCubit, AdminUserState>(
+      listener: (context, state) {
+        if (state is AdminPasswordReset) {
+          // Show dialog with the temporary password
+          _showPasswordResetSuccessDialog(context, state.temporaryPassword);
+        } else if (state is AdminUserError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: teal700.withValues(alpha: 0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+          );
+        }
+      },
+      child: ThemedScaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(120),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [teal700, teal500, teal300],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-            ],
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.edit_rounded,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'تعديل المستخدم',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'تحديث بيانات المستخدم',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: 13,
-                            fontWeight: FontWeight.normal,
-                          ),
-                        ),
-                      ],
+              boxShadow: [
+                BoxShadow(
+                  color: teal700.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.edit_rounded,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'تعديل المستخدم',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'تحديث بيانات المستخدم',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 13,
+                              fontWeight: FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'المعلومات الشخصية',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'المعلومات الشخصية',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   color: teal900,
                 ),
               ),
@@ -376,31 +395,150 @@ class _EditUserScreenState extends State<EditUserScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _userClassController,
-                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
-                decoration: InputDecoration(
-                  labelText: 'الفصل *',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  prefixIcon: const Icon(Icons.class_outlined, color: Colors.white70),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white70),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white70),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'يرجى إدخال الفصل';
+              // Classes Dropdown from Database
+              StreamBuilder<List<Model>>(
+                stream: _classesRepository.getAllClasses(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: teal700.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white70),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white70,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'جاري تحميل الأسر...',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontFamily: 'Alexandria',
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
                   }
-                  return null;
+
+                  if (snapshot.hasError) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red, width: 2),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red, size: 20),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'خطأ في تحميل الأسر',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'Alexandria',
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final classes = snapshot.data ?? [];
+
+                  // Try to match the current user's class with the loaded classes
+                  if (_selectedClass == null && classes.isNotEmpty && widget.user.userClass.isNotEmpty) {
+                    _selectedClass = classes.firstWhere(
+                      (c) => c.name == widget.user.userClass,
+                      orElse: () => classes.first,
+                    );
+                  }
+
+                  if (classes.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange, width: 2),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning_rounded, color: Colors.orange, size: 20),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'لا توجد أسر متاحة حالياً',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'Alexandria',
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return DropdownButtonFormField<Model>(
+                    value: _selectedClass,
+                    style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
+                    dropdownColor: teal700,
+                    decoration: InputDecoration(
+                      labelText: 'الفصل *',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      prefixIcon: const Icon(Icons.class_outlined, color: Colors.white70),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.white70),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.white70),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.white, width: 2),
+                      ),
+                    ),
+                    items: classes.map((classItem) {
+                      return DropdownMenuItem<Model>(
+                        value: classItem,
+                        child: Text(
+                          classItem.name ?? '',
+                          style: const TextStyle(
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (Model? value) {
+                      setState(() {
+                        _selectedClass = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null) {
+                        return 'الرجاء اختيار الأسرة';
+                      }
+                      return null;
+                    },
+                  );
                 },
               ),
               const SizedBox(height: 16),
@@ -653,6 +791,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -669,7 +808,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
         'userType': _selectedUserType.code,
         'gender': _selectedGender.code,
         // Persist as 'userClass' to avoid creating duplicate legacy 'class' field
-        'userClass': _userClassController.text,
+        'userClass': _selectedClass?.name ?? '',
         'serviceType': _selectedServiceType.key,
         'couponPoints': int.tryParse(_couponPointsController.text) ?? widget.user.couponPoints,
         'firstLogin': _firstLogin,
@@ -693,153 +832,202 @@ class _EditUserScreenState extends State<EditUserScreen> {
   }
 
   void _showResetPasswordDialog(BuildContext context) {
-    final passwordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    bool obscurePassword = true;
-    bool obscureConfirm = true;
-
     showDialog(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: const Text(
-              'إعادة تعيين كلمة المرور',
-              style: TextStyle(color: teal900),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(
+          'إعادة تعيين كلمة المرور',
+          style: TextStyle(color: teal900),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'هل تريد إعادة تعيين كلمة المرور لـ ${widget.user.fullName}؟',
+              style: const TextStyle(color: sage700),
+              textAlign: TextAlign.center,
             ),
-            content: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: teal50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: teal500.withValues(alpha: 0.3)),
+              ),
+              child: Row(
                 children: [
-                  Text(
-                    'هل تريد إعادة تعيين كلمة مرور ${widget.user.fullName}؟',
-                    style: const TextStyle(color: sage700),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: passwordController,
-                    obscureText: obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: 'كلمة المرور الجديدة *',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscurePassword ? Icons.visibility_off : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            obscurePassword = !obscurePassword;
-                          });
-                        },
+                  Icon(Icons.email_outlined, color: teal700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'البريد الإلكتروني:\n${widget.user.email}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: teal900,
+                        fontWeight: FontWeight.w500,
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'يرجى إدخال كلمة المرور';
-                      }
-                      if (value.length < 6) {
-                        return 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: confirmPasswordController,
-                    obscureText: obscureConfirm,
-                    decoration: InputDecoration(
-                      labelText: 'تأكيد كلمة المرور *',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscureConfirm ? Icons.visibility_off : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            obscureConfirm = !obscureConfirm;
-                          });
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'يرجى تأكيد كلمة المرور';
-                      }
-                      if (value != passwordController.text) {
-                        return 'كلمة المرور غير متطابقة';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'سيتم تحديث كلمة المرور فوراً',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: sage600,
                     ),
                   ),
                 ],
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  passwordController.dispose();
-                  confirmPasswordController.dispose();
-                },
-                child: const Text('إلغاء'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: brown100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: brown500.withValues(alpha: 0.3)),
               ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (formKey.currentState!.validate()) {
-                    Navigator.pop(dialogContext);
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, color: brown700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'سيتم إنشاء كلمة مرور مؤقتة جديدة. يرجى نسخها وإرسالها للمستخدم.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: brown900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
 
-                    // Show loading
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('جاري تحديث كلمة المرور...'),
-                          duration: Duration(seconds: 1),
-                        ),
-                      );
-                    }
+              // Show loading
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('جاري إعادة تعيين كلمة المرور...'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              }
 
-                    // Call cubit to reset password
-                    final cubit = context.read<AdminUserCubit>();
-                    await cubit.resetUserPassword(widget.user.id, passwordController.text);
+              // Call cubit to reset password
+              final cubit = context.read<AdminUserCubit>();
+              await cubit.resetUserPassword(widget.user.id);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: brown500,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('إعادة تعيين'),
+          ),
+        ],
+      ),
+    );
+  }
 
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('تم إعادة تعيين كلمة المرور بنجاح'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
-
-                    passwordController.dispose();
-                    confirmPasswordController.dispose();
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: brown500,
-                  foregroundColor: Colors.white,
+  void _showPasswordResetSuccessDialog(BuildContext context, String temporaryPassword) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green.shade600),
+            const SizedBox(width: 8),
+            const Text('تم إعادة تعيين كلمة المرور'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'تم إنشاء كلمة مرور مؤقتة جديدة!',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            const Text('كلمة المرور المؤقتة:'),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: temporaryPassword));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('تم نسخ كلمة المرور'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: teal50,
+                  border: Border.all(color: teal500, width: 2),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text('إعادة تعيين'),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        temporaryPassword,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                          color: teal900,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(Icons.copy, color: teal700, size: 20),
+                  ],
+                ),
               ),
-            ],
-          );
-        },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'اضغط على كلمة المرور لنسخها',
+              style: TextStyle(
+                fontSize: 11,
+                color: teal700,
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'يرجى نسخ كلمة المرور وإرسالها للمستخدم. سيُطلب منه تغييرها عند تسجيل الدخول الأول.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: teal500,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('حسناً'),
+          ),
+        ],
       ),
     );
   }

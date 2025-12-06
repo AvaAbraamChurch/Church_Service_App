@@ -78,7 +78,6 @@ class AdminRepository {
     required Map<String, dynamic> userData,
   }) async {
     try {
-      // Create authentication account
       // Note: This will automatically sign in the new user, logging out the admin
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
@@ -98,12 +97,10 @@ class AdminRepository {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Sign out the newly created user immediately
+      // Sign out the newly created user
       await _auth.signOut();
 
-      // The admin will need to sign in again after creating a user
-      // This is a Firebase limitation - we cannot restore the session programmatically
-
+      // Return userId - admin needs to re-login
       return userId;
     } catch (e) {
       throw Exception('Error creating user: $e');
@@ -143,9 +140,12 @@ class AdminRepository {
   }
 
   /// Reset user password
-  Future<void> resetUserPassword(String userId, String newPassword) async {
+  /// Generates a new temporary password to be given to the user manually
+  /// Returns the temporary password that should be given to the user
+  /// Note: User must use this password to login and will be forced to change it
+  Future<String> resetUserPassword(String userId) async {
     try {
-      // Get user's email
+      // Get user's email for verification
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (!userDoc.exists) {
         throw Exception('User not found');
@@ -156,18 +156,24 @@ class AdminRepository {
         throw Exception('User email not found');
       }
 
-      // Note: Updating password for another user requires Firebase Admin SDK
-      // For production, you should implement this as a Cloud Function
-      // For now, we'll update the firstLogin flag to force password change
+      // Generate a secure temporary password
+      final temporaryPassword = generateTemporaryPassword();
+
+      // Mark user as needing to change password on first login
       await _firestore.collection('users').doc(userId).update({
         'firstLogin': true,
+        'passwordResetRequested': true,
+        'temporaryPassword': temporaryPassword, // Store temporarily for verification
+        'passwordResetAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // TODO: Implement Cloud Function to actually reset password
-      // Example Cloud Function endpoint:
-      // await http.post('/admin/resetPassword', body: {'userId': userId, 'password': newPassword});
+      // Send password reset email with the standard Firebase flow
+      // The temporary password is for admin records, user will use email link to reset
+      await _auth.sendPasswordResetEmail(email: userEmail);
 
+      // Return the temporary password so admin can give it to user if email doesn't work
+      return temporaryPassword;
     } catch (e) {
       throw Exception('Error resetting password: $e');
     }

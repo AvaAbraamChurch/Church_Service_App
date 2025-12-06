@@ -4,6 +4,8 @@ import 'package:church/core/models/registration_request_model.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/modules/Auth/login/login_screen.dart';
+import 'package:church/modules/Splash/splash_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -151,8 +153,137 @@ class _RegistrationRequestsScreenState extends State<RegistrationRequestsScreen>
           Expanded(
             child: BlocConsumer<AdminUserCubit, AdminUserState>(
               listener: (context, state) {
-                if (state is AdminRequestApproved) {
-                  // Show dialog with the generated temporary password
+                if (state is AdminSessionLost) {
+                  // Show dialog with the generated temporary password before logging out
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (dialogContext) => AlertDialog(
+                      title: Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green.shade600),
+                          const SizedBox(width: 8),
+                          const Text('تم قبول الطلب'),
+                        ],
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'تم إنشاء الحساب بنجاح!',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 16),
+                          if (state.temporaryPassword != null) ...[
+                            const Text('كلمة المرور المؤقتة:'),
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: () {
+                                _copyToClipboard(state.temporaryPassword!, 'تم نسخ كلمة المرور');
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: teal50,
+                                  border: Border.all(color: teal500, width: 2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                      child: SelectableText(
+                                        state.temporaryPassword!,
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 2,
+                                          color: teal900,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(Icons.copy, color: teal700, size: 20),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'اضغط على كلمة المرور لنسخها',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: teal700,
+                                fontStyle: FontStyle.italic,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          Text(
+                            'يرجى نسخ كلمة المرور وإرسالها للمستخدم. سيُطلب منه تغييرها عند تسجيل الدخول الأول.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'ستحتاج إلى تسجيل الدخول مرة أخرى',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.orange.shade900,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        ElevatedButton(
+                          onPressed: () async {
+                            Navigator.pop(dialogContext);
+                            // Sign out the current user (who got logged out when new user was created)
+                            await FirebaseAuth.instance.signOut();
+                            // Navigate back to splash screen (will handle authentication check)
+                            if (context.mounted) {
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginScreen(),
+                                ),
+                                (route) => false,
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: teal500,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('تسجيل الدخول'),
+                        ),
+                      ],
+                    ),
+                  );
+                } else if (state is AdminRequestApproved) {
+                  // Keep this for backwards compatibility if needed
                   showDialog(
                     context: context,
                     barrierDismissible: false,

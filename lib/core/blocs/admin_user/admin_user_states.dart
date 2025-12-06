@@ -72,6 +72,19 @@ class AdminRequestRejected extends AdminUserState {
 
 class AdminRequestDeleted extends AdminUserState {}
 
+class AdminSessionLost extends AdminUserState {
+  final String message;
+  final String? temporaryPassword;
+
+  AdminSessionLost(this.message, {this.temporaryPassword});
+}
+
+class AdminPasswordReset extends AdminUserState {
+  final String temporaryPassword;
+
+  AdminPasswordReset({required this.temporaryPassword});
+}
+
 class resetPassSuccess extends AdminUserState {}
 
 class resetPassError extends AdminUserState {}
