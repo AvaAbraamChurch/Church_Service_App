@@ -1,6 +1,8 @@
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/repositories/users_reopsitory.dart';
+import 'package:church/core/services/account_manager_service.dart';
 import 'package:church/core/utils/error_handler.dart';
+import 'package:church/core/utils/userType_enum.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/widgets.dart';
 import 'dart:io';
@@ -13,12 +15,17 @@ class AuthCubit extends Cubit<AuthState> {
 
   final AuthRepository _authRepository;
   final ImageUploadService _imageUploadService;
+  final AccountManagerService _accountManager;
 
   static AuthCubit get(BuildContext context) => BlocProvider.of<AuthCubit>(context);
 
-  AuthCubit({AuthRepository? authRepository, ImageUploadService? imageUploadService})
-      : _authRepository = authRepository ?? AuthRepository(),
+  AuthCubit({
+    AuthRepository? authRepository,
+    ImageUploadService? imageUploadService,
+    AccountManagerService? accountManager,
+  }) : _authRepository = authRepository ?? AuthRepository(),
         _imageUploadService = imageUploadService ?? ImageUploadService(),
+        _accountManager = accountManager ?? AccountManagerService(),
         super(AuthInitial());
 
   Future<void> logIn(String email, String password) async {
@@ -29,6 +36,17 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthFailure(loginFailed));
       } else {
         final UserModel model = await UsersRepository().getUserById(user.uid);
+
+        // Save account for future switching
+        await _accountManager.saveAccount(
+          userId: user.uid,
+          email: email,
+          password: password, // TODO: Encrypt in production
+          displayName: model.fullName,
+          photoUrl: model.profileImageUrl,
+          userType: model.userType.code,
+        );
+
         emit(AuthSuccess(model, user.uid, model.userType, model.userClass, model.gender, model.firstLogin));
       }
     } catch (error) {

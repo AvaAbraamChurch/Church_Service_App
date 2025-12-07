@@ -1,7 +1,9 @@
 import 'package:church/core/blocs/auth/auth_cubit.dart';
 import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/services/account_manager_service.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/modules/AccountSwitcher/account_switcher_screen.dart';
 import 'package:church/modules/Admin/admin_dashboard_screen.dart';
 import 'package:church/modules/Admin/navigation_screen.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
@@ -162,6 +164,11 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                     ),
 
                     const SizedBox(height: 24),
+
+                    // Account Switcher button
+                    _buildAccountSwitcherButton(context),
+
+                    const SizedBox(height: 12),
 
                     // Logout button
                     _buildLogoutButton(context),
@@ -407,6 +414,85 @@ Widget _buildMenuItem({
   );
 }
 
+Widget _buildAccountSwitcherButton(BuildContext context) {
+  return FutureBuilder<int>(
+    future: AccountManagerService().getAccountCount(),
+    builder: (context, snapshot) {
+      final accountCount = snapshot.data ?? 0;
+
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(colors: [Colors.blue[400]!, Colors.blue[600]!]),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              Navigator.pop(context); // Close drawer
+              navigateTo(context, const AccountSwitcherScreen());
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 24),
+                      if (accountCount > 1)
+                        Positioned(
+                          top: -4,
+                          right: -8,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: Text(
+                              '$accountCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'تبديل الحساب',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontFamily: 'Alexandria',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
 Widget _buildLogoutButton(BuildContext context) {
   return Container(
     margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -528,7 +614,7 @@ Widget _buildFooter() {
     child: Column(
       children: [
         Text(
-          'تطبيق الكنيسة',
+          'برنامج أبناء الملك',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
