@@ -5,6 +5,7 @@ import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/shared/widgets.dart';
+import 'package:church/shared/avatar_display_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -564,26 +565,30 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Search bar
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: coloredTextField(
-            controller: searchController,
-            hintColor: Colors.grey,
-            labelColor: Colors.black,
-            hintText: search,
-            prefixIcon: Icons.search,
-            prefixIconColor: Colors.grey,
-            label: search,
-          ),
-        ),
-        // Separator
-        const SizedBox(height: 8),
-        // Children list
-        Expanded(
-          child: ListView.separated(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
+        return Column(
+          children: [
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: coloredTextField(
+                controller: searchController,
+                hintColor: Colors.grey,
+                labelColor: Colors.black,
+                hintText: search,
+                prefixIcon: Icons.search,
+                prefixIconColor: Colors.grey,
+                label: search,
+              ),
+            ),
+            // Separator
+            const SizedBox(height: 8),
+            // Children list - Flexible instead of Expanded for better keyboard handling
+            Flexible(
+              child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             itemCount: filteredUsers.length,
             separatorBuilder: (context, index) => const SizedBox(height: 12.0),
@@ -631,8 +636,6 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                           // Avatar with animated border
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
-                            width: 60,
-                            height: 60,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
@@ -648,10 +651,12 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                                   blurRadius: 8,
                                 ),
                               ],
-                              image: const DecorationImage(
-                                image: AssetImage('assets/images/man.png'),
-                                fit: BoxFit.cover,
-                              ),
+                            ),
+                            child: AvatarDisplayWidget(
+                              user: user,
+                              size: 60,
+                              showBorder: false,
+                              borderWidth: 0,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -755,104 +760,111 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
             },
           ),
         ),
-        // Bulk points button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: isSubmitting ? null : _showBulkPointsDialog,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: teal700,
-                side: BorderSide(color: teal500, width: 2),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+        // Bulk points button - hide when keyboard is visible
+        if (!keyboardVisible) ...[
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: isSubmitting ? null : _showBulkPointsDialog,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: teal700,
+                  side: BorderSide(color: teal500, width: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-              ),
-              icon: Icon(Icons.card_giftcard, color: teal700, size: 22),
-              label: const Text(
-                'إضافة نقاط للحاضرين',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'Alexandria',
+                icon: Icon(Icons.card_giftcard, color: teal100, size: 22),
+                label: const Text(
+                  'إضافة نقاط للحاضرين',
+                  style: TextStyle(
+                    color: teal100,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Alexandria',
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        // Submit button with modern design
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SizedBox(
-            width: double.infinity,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  colors: isSubmitting
-                      ? [Colors.grey, Colors.grey[400]!]
-                      : [teal700, teal300],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isSubmitting
-                        ? Colors.black.withValues(alpha: 0.2)
-                        : teal500.withValues(alpha: 0.5),
-                    spreadRadius: 1,
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: isSubmitting ? null : _submitBulkAttendance,
+          // Submit button with modern design - hide when keyboard is visible
+
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SizedBox(
+              width: double.infinity,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    height: 56,
-                    alignment: Alignment.center,
-                    child: isSubmitting
-                        ? const SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 3,
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.check_circle_outline,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                submit,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                  fontFamily: 'Alexandria',
-                                ),
-                              ),
-                            ],
+                  gradient: LinearGradient(
+                    colors: isSubmitting
+                        ? [Colors.grey, Colors.grey[400]!]
+                        : [teal700, teal300],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isSubmitting
+                          ? Colors.black.withValues(alpha: 0.2)
+                          : teal500.withValues(alpha: 0.5),
+                      spreadRadius: 1,
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: isSubmitting ? null : _submitBulkAttendance,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      height: 56,
+                      alignment: Alignment.center,
+                      child: isSubmitting
+                          ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
+                          : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.check_circle_outline,
+                            color: Colors.white,
+                            size: 24,
                           ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            submit,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              fontFamily: 'Alexandria',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ],
+        );
+      },
     );
   }
 }

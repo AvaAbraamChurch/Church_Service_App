@@ -6,6 +6,7 @@ import 'package:church/modules/Admin/admin_dashboard_screen.dart';
 import 'package:church/modules/Admin/navigation_screen.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:church/modules/Birthdays/birthdays_screen.dart';
+import 'package:church/modules/Competitions/competitions_screen.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import '../../core/styles/colors.dart';
@@ -47,6 +48,17 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
+
+                    _buildMenuItem(
+                      context: context,
+                      icon: Icons.sports_score_outlined,
+                      title: 'مسابقات',
+                      subtitle: 'عرض المسابقات المتاحة',
+                      gradient: [Colors.green[400]!, Colors.green[600]!],
+                      onTap: () {
+                        navigateTo(context, CompetitionsScreen(user: userData, isAdmin: userData.isAdmin,type: userData.userType));
+                      },
+                    ),
 
                     if (userData.userType == UserType.priest || userData.userType == UserType.superServant) ...[
                       const SizedBox(height: 12),

@@ -36,6 +36,7 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
   Widget build(BuildContext context) {
     final canCreateGroup = widget.currentUser.userType == UserType.priest ||
         widget.currentUser.userType == UserType.superServant;
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return ThemedScaffold(
       appBar: _buildAppBar(),
@@ -44,13 +45,13 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
           // Search Bar
           _buildSearchBar(),
 
-          // Users List
-          Expanded(
+          // Users List - Flexible for better keyboard handling
+          Flexible(
             child: _buildUsersList(),
           ),
         ],
       ),
-      floatingActionButton: canCreateGroup
+      floatingActionButton: (canCreateGroup && !keyboardVisible)
           ? Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(30),

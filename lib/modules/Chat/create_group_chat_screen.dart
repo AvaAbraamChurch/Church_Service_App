@@ -42,6 +42,8 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return ThemedScaffold(
       appBar: _buildAppBar(),
       body: Column(
@@ -55,13 +57,13 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
           // Selected Users Chips
           if (_selectedUserIds.isNotEmpty) _buildSelectedUsersChips(),
 
-          // Users List
-          Expanded(
+          // Users List - Flexible for better keyboard handling
+          Flexible(
             child: _buildUsersList(),
           ),
         ],
       ),
-      floatingActionButton: _selectedUserIds.length >= 2
+      floatingActionButton: (_selectedUserIds.length >= 2 && !keyboardVisible)
           ? Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(30),

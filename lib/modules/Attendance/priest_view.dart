@@ -6,6 +6,7 @@ import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/shared/avatar_display_widget.dart';
 import 'package:flutter/material.dart';
 
 class PriestView extends StatefulWidget {
@@ -424,29 +425,34 @@ class _PriestViewState extends State<PriestView> {
   }
 
   Widget _buildAttendanceTaking() {
-    return Column(
-      children: [
-        // Header with back button
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: teal100,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
+        return Column(
+          children: [
+            // Header with back button
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: teal100,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
             children: [
-              IconButton(
-                onPressed: () {
-                  setState(() {
-                    selectedUserType = null;
-                    attendanceMap.clear();
-                    searchController.clear();
-                    selectedGroupUsers = [];
-                    filteredUsers = [];
-                  });
-                },
-                icon: const Icon(Icons.arrow_back, color: teal900),
-              ),
+              if (!keyboardVisible)
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedUserType = null;
+                      attendanceMap.clear();
+                      searchController.clear();
+                      selectedGroupUsers = [];
+                      filteredUsers = [];
+                    });
+                  },
+                  icon: const Icon(Icons.arrow_back, color: teal900),
+                ),
               Expanded(
                 child: Text(
                   selectedUserType == superServant
@@ -515,8 +521,8 @@ class _PriestViewState extends State<PriestView> {
         ),
         const SizedBox(height: 16),
 
-        // Users list
-        Expanded(
+        // Users list - Flexible for better keyboard handling
+        Flexible(
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: filteredUsers.length,
@@ -531,8 +537,9 @@ class _PriestViewState extends State<PriestView> {
           ),
         ),
 
-        // Submit button
-        Padding(
+        // Submit button - hide when keyboard is visible
+        if (!keyboardVisible)
+          Padding(
           padding: const EdgeInsets.all(16),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
@@ -599,6 +606,8 @@ class _PriestViewState extends State<PriestView> {
           ),
         ),
       ],
+        );
+      },
     );
   }
 
@@ -658,15 +667,15 @@ class _PriestViewState extends State<PriestView> {
                 children: [
                   // Avatar
                   Container(
-                    width: 56,
-                    height: 56,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: statusColor, width: 2),
-                      image: const DecorationImage(
-                        image: AssetImage('assets/images/man.png'),
-                        fit: BoxFit.cover,
-                      ),
+                    ),
+                    child: AvatarDisplayWidget(
+                      user: user,
+                      size: 56,
+                      showBorder: false,
+                      borderWidth: 0,
                     ),
                   ),
                   const SizedBox(width: 16),

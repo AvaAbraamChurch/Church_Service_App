@@ -562,6 +562,89 @@ exports.sendBirthdayNotifications = functions.https.onCall(async (data, context)
   }
 });
 
+/**
+ * Cloud Function to reset user password
+ * Only callable by authenticated admin users (Priests)
+ */
+exports.resetUserPassword = functions.https.onCall(async (data, context) => {
+  // Check if user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated to call this function.'
+    );
+  }
+
+  try {
+    // Verify user is admin (Priest)
+    const adminUid = context.auth.uid;
+    const adminDoc = await admin.firestore().collection('users').doc(adminUid).get();
+
+    if (!adminDoc.exists || adminDoc.data().userType !== 'PR') {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Only priests can reset user passwords.'
+      );
+    }
+
+    const userId = data.userId;
+    const newPassword = data.newPassword;
+
+    if (!userId || !newPassword) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Missing userId or newPassword'
+      );
+    }
+
+    // Validate password strength (minimum 6 characters as per Firebase requirement)
+    if (newPassword.length < 6) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Password must be at least 6 characters long'
+      );
+    }
+
+    // Update the user's password using Admin SDK
+    await admin.auth().updateUser(userId, {
+      password: newPassword,
+    });
+
+    // Update user document to mark that password needs to be changed
+    await admin.firestore().collection('users').doc(userId).update({
+      firstLogin: true,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      passwordResetBy: adminUid,
+      passwordResetAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Log the password reset action
+    await admin.firestore().collection('admin_actions').add({
+      action: 'reset_password',
+      adminId: adminUid,
+      targetUserId: userId,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return {
+      success: true,
+      message: 'Password reset successfully',
+    };
+
+  } catch (error) {
+    console.error('resetUserPassword error:', error);
+
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to reset password: ' + error.message
+    );
+  }
+});
+
 // Send a test notification via HTTP
 // Protected by a simple API key (set as an environment variable in the Functions runtime: TEST_NOTIFICATION_KEY)
 // Request body (JSON) or query params: { token, topic, title, body }

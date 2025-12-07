@@ -44,6 +44,8 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
     if (_currentUserId == null) {
       return ThemedScaffold(
         appBar: _buildAppBar(),
@@ -63,8 +65,8 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
           // Search Bar
           _buildSearchBar(),
 
-          // Conversations List
-          Expanded(
+          // Conversations List - Flexible for better keyboard handling
+          Flexible(
             child: StreamBuilder<List<MessageModel>>(
               stream: _messagesRepository.getUserMessages(_currentUserId!),
               builder: (context, messagesSnapshot) {
@@ -189,7 +191,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-      floatingActionButton: Container(
+      floatingActionButton: keyboardVisible ? null : Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: LinearGradient(

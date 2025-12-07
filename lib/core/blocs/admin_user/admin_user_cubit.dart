@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:church/core/repositories/admin_repository.dart';
 import 'package:church/core/blocs/admin_user/admin_user_states.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// Cubit for managing admin user operations
 class AdminUserCubit extends Cubit<AdminUserState> {
   final AdminRepository _adminRepository;
+  StreamSubscription? _usersSubscription;
+  StreamSubscription? _registrationRequestsSubscription;
+  StreamSubscription? _pendingRequestsSubscription;
+  StreamSubscription? _pendingCountSubscription;
 
   AdminUserCubit({AdminRepository? adminRepository})
       : _adminRepository = adminRepository ?? AdminRepository(),
@@ -13,36 +18,46 @@ class AdminUserCubit extends Cubit<AdminUserState> {
 
   static AdminUserCubit get(context) => BlocProvider.of(context);
 
+  /// Safe emit that checks if cubit is closed
+  void _safeEmit(AdminUserState state) {
+    if (!isClosed) {
+      emit(state);
+    }
+  }
+
 
   // ============ USER CRUD OPERATIONS ============
 
   /// Load all users
   void loadAllUsers() {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
-      _adminRepository.getAllUsers().listen(
+      // Cancel previous subscription if exists
+      _usersSubscription?.cancel();
+
+      _usersSubscription = _adminRepository.getAllUsers().listen(
         (users) {
-          emit(AdminUserLoaded(users));
+          _safeEmit(AdminUserLoaded(users));
         },
         onError: (error) {
-          emit(AdminUserError(error.toString()));
+          _safeEmit(AdminUserError(error.toString()));
           debugPrint(error.toString());
         },
       );
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
       debugPrint(e.toString());
     }
   }
 
   /// Get user by ID
   Future<void> getUserById(String userId) async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       final user = await _adminRepository.getUserById(userId);
-      emit(AdminUserLoaded([user]));
+      _safeEmit(AdminUserLoaded([user]));
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
       debugPrint(e.toString());
     }
   }
@@ -53,51 +68,51 @@ class AdminUserCubit extends Cubit<AdminUserState> {
     required String password,
     required Map<String, dynamic> userData,
   }) async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       final userId = await _adminRepository.createUser(
         email: email,
         password: password,
         userData: userData,
       );
-      emit(AdminUserCreated(userId));
+      _safeEmit(AdminUserCreated(userId));
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
     }
   }
 
   /// Update user
   Future<void> updateUser(String userId, Map<String, dynamic> userData) async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       await _adminRepository.updateUser(userId, userData);
-      emit(AdminUserUpdated());
+      _safeEmit(AdminUserUpdated());
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
       debugPrint(e.toString());
     }
   }
 
   /// Delete user
   Future<void> deleteUser(String userId) async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       await _adminRepository.deleteUser(userId);
-      emit(AdminUserDeleted());
+      _safeEmit(AdminUserDeleted());
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
       debugPrint(e.toString());
     }
   }
 
   /// Toggle user active status (enable/disable)
   Future<void> toggleUserStatus(String userId, bool isActive) async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       await _adminRepository.updateUser(userId, {'isActive': isActive});
-      emit(AdminUserUpdated());
+      _safeEmit(AdminUserUpdated());
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
       debugPrint(e.toString());
     }
   }
@@ -105,74 +120,80 @@ class AdminUserCubit extends Cubit<AdminUserState> {
   /// Reset user password
   /// Generates a new temporary password and returns it to be shown to the admin
   Future<void> resetUserPassword(String userId) async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       final temporaryPassword = await _adminRepository.resetUserPassword(userId);
-      emit(AdminPasswordReset(temporaryPassword: temporaryPassword));
+      _safeEmit(AdminPasswordReset(temporaryPassword: temporaryPassword));
     } catch (e) {
-      emit(AdminUserError('فشل إعادة تعيين كلمة المرور: ${e.toString()}'));
+      _safeEmit(AdminUserError('فشل إعادة تعيين كلمة المرور: ${e.toString()}'));
       debugPrint(e.toString());
     }
   }
 
   /// Search users
   Future<void> searchUsers(String query) async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       final users = await _adminRepository.searchUsers(query);
-      emit(AdminUserSearchResults(users));
+      _safeEmit(AdminUserSearchResults(users));
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
       debugPrint(e.toString());
     }
   }
 
   /// Load users by type
   void loadUsersByType(String userType) {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
-      _adminRepository.getUsersByType(userType).listen(
+      // Cancel previous subscription if exists
+      _usersSubscription?.cancel();
+
+      _usersSubscription = _adminRepository.getUsersByType(userType).listen(
         (users) {
-          emit(AdminUserLoaded(users));
+          _safeEmit(AdminUserLoaded(users));
         },
         onError: (error) {
-          emit(AdminUserError(error.toString()));
+          _safeEmit(AdminUserError(error.toString()));
           debugPrint(error.toString());
         },
       );
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
       debugPrint(e.toString());
     }
   }
 
   /// Load users by class
   void loadUsersByClass(String userClass) {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
-      _adminRepository.getUsersByClass(userClass).listen(
+      // Cancel previous subscription if exists
+      _usersSubscription?.cancel();
+
+      _usersSubscription = _adminRepository.getUsersByClass(userClass).listen(
         (users) {
-          emit(AdminUserLoaded(users));
+          _safeEmit(AdminUserLoaded(users));
         },
         onError: (error) {
-          emit(AdminUserError(error.toString()));
+          _safeEmit(AdminUserError(error.toString()));
           debugPrint(error.toString());
         },
       );
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
       debugPrint(e.toString());
     }
   }
 
   /// Get user statistics
   Future<void> getUserStatistics() async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       final stats = await _adminRepository.getUserStatistics();
-      emit(AdminUserStatisticsLoaded(stats));
+      _safeEmit(AdminUserStatisticsLoaded(stats));
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
     }
   }
 
@@ -180,51 +201,60 @@ class AdminUserCubit extends Cubit<AdminUserState> {
 
   /// Load all registration requests
   void loadAllRegistrationRequests() {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
-      _adminRepository.getAllRegistrationRequests().listen(
+      // Cancel previous subscription if exists
+      _registrationRequestsSubscription?.cancel();
+
+      _registrationRequestsSubscription = _adminRepository.getAllRegistrationRequests().listen(
         (requests) {
-          emit(AdminRegistrationRequestsLoaded(requests));
+          _safeEmit(AdminRegistrationRequestsLoaded(requests));
         },
         onError: (error) {
-          emit(AdminUserError(error.toString()));
+          _safeEmit(AdminUserError(error.toString()));
         },
       );
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
     }
   }
 
   /// Load pending registration requests
   void loadPendingRegistrationRequests() {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
-      _adminRepository.getPendingRegistrationRequests().listen(
+      // Cancel previous subscription if exists
+      _pendingRequestsSubscription?.cancel();
+
+      _pendingRequestsSubscription = _adminRepository.getPendingRegistrationRequests().listen(
         (requests) {
-          emit(AdminPendingRequestsLoaded(requests, requests.length));
+          _safeEmit(AdminPendingRequestsLoaded(requests, requests.length));
         },
         onError: (error) {
-          emit(AdminUserError(error.toString()));
+          _safeEmit(AdminUserError(error.toString()));
         },
       );
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
     }
   }
 
   /// Get pending requests count
   void getPendingRequestsCount() {
     try {
-      _adminRepository.getPendingRequestsCount().listen(
+      // Cancel previous subscription if exists
+      _pendingCountSubscription?.cancel();
+
+      _pendingCountSubscription = _adminRepository.getPendingRequestsCount().listen(
         (count) {
           // You can emit a specific state for count if needed
         },
         onError: (error) {
-          emit(AdminUserError(error.toString()));
+          _safeEmit(AdminUserError(error.toString()));
         },
       );
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
     }
   }
 
@@ -234,19 +264,19 @@ class AdminUserCubit extends Cubit<AdminUserState> {
     String requestId,
     String adminId,
   ) async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       final temporaryPassword = await _adminRepository.approveRegistrationRequest(
         requestId,
         adminId,
       );
       // Creating a user logs out the admin, so emit session lost state
-      emit(AdminSessionLost(
+      _safeEmit(AdminSessionLost(
         'تم إنشاء المستخدم بنجاح. يرجى تسجيل الدخول مرة أخرى.',
         temporaryPassword: temporaryPassword,
       ));
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
     }
   }
 
@@ -256,39 +286,49 @@ class AdminUserCubit extends Cubit<AdminUserState> {
     String adminId,
     String rejectionReason,
   ) async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       await _adminRepository.rejectRegistrationRequest(
         requestId,
         adminId,
         rejectionReason,
       );
-      emit(AdminRequestRejected(requestId));
+      _safeEmit(AdminRequestRejected(requestId));
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
     }
   }
 
   /// Delete registration request
   Future<void> deleteRegistrationRequest(String requestId) async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       await _adminRepository.deleteRegistrationRequest(requestId);
-      emit(AdminRequestDeleted());
+      _safeEmit(AdminRequestDeleted());
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
     }
   }
 
   /// Get registration request by ID
   Future<void> getRegistrationRequestById(String requestId) async {
-    emit(AdminUserLoading());
+    _safeEmit(AdminUserLoading());
     try {
       final request = await _adminRepository.getRegistrationRequestById(requestId);
-      emit(AdminRegistrationRequestsLoaded([request]));
+      _safeEmit(AdminRegistrationRequestsLoaded([request]));
     } catch (e) {
-      emit(AdminUserError(e.toString()));
+      _safeEmit(AdminUserError(e.toString()));
     }
+  }
+
+  @override
+  Future<void> close() {
+    // Cancel all stream subscriptions to prevent memory leaks
+    _usersSubscription?.cancel();
+    _registrationRequestsSubscription?.cancel();
+    _pendingRequestsSubscription?.cancel();
+    _pendingCountSubscription?.cancel();
+    return super.close();
   }
 }
 

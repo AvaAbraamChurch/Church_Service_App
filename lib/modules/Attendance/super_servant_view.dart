@@ -6,6 +6,7 @@ import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/shared/avatar_display_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -846,31 +847,36 @@ class _SuperServantViewState extends State<SuperServantView> {
   }
 
   Widget _buildAttendanceTaking(UserType userType) {
-    return Column(
-      children: [
-        // Header with back button
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: teal100,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: () {
-                  setState(() {
-                    selectedUserType = null;
-                    attendanceMap.clear();
-                    searchController.clear();
-                    _loadedUsers = [];
-                    filteredUsers = [];
-                    servantsList = [];
-                    chidrenList = [];
-                  });
-                },
-                icon: const Icon(Icons.arrow_back, color: teal900),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
+        return Column(
+          children: [
+            // Header with back button
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: teal100,
+                borderRadius: BorderRadius.circular(16),
               ),
+              child: Row(
+            children: [
+              if (!keyboardVisible)
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedUserType = null;
+                      attendanceMap.clear();
+                      searchController.clear();
+                      _loadedUsers = [];
+                      filteredUsers = [];
+                      servantsList = [];
+                      chidrenList = [];
+                    });
+                  },
+                  icon: const Icon(Icons.arrow_back, color: teal900),
+                ),
               Expanded(
                 child: Text(
                   selectedUserType == UserType.servant.code
@@ -940,8 +946,8 @@ class _SuperServantViewState extends State<SuperServantView> {
         ),
         const SizedBox(height: 16),
 
-        // Users list
-        Expanded(
+        // Users list - Flexible for better keyboard handling
+        Flexible(
           child: isLoadingUsers
               ? const Center(
                   child: SizedBox(
@@ -988,8 +994,8 @@ class _SuperServantViewState extends State<SuperServantView> {
                     ),
         ),
 
-        // Bulk points button (only for children)
-        if (userType.code == UserType.child.code)
+        // Bulk points button (only for children) - hide when keyboard is visible
+        if (userType.code == UserType.child.code && !keyboardVisible)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: SizedBox(
@@ -1016,8 +1022,9 @@ class _SuperServantViewState extends State<SuperServantView> {
               ),
             ),
           ),
-        // Submit button
-        Padding(
+        // Submit button - hide when keyboard is visible
+        if (!keyboardVisible)
+          Padding(
           padding: const EdgeInsets.all(16),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
@@ -1086,6 +1093,8 @@ class _SuperServantViewState extends State<SuperServantView> {
           ),
         ),
       ],
+        );
+      },
     );
   }
 
@@ -1145,15 +1154,15 @@ class _SuperServantViewState extends State<SuperServantView> {
                 children: [
                   // Avatar
                   Container(
-                    width: 56,
-                    height: 56,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: statusColor, width: 2),
-                      image: const DecorationImage(
-                        image: AssetImage('assets/images/man.png'),
-                        fit: BoxFit.cover,
-                      ),
+                    ),
+                    child: AvatarDisplayWidget(
+                      user: user,
+                      size: 56,
+                      showBorder: false,
+                      borderWidth: 0,
                     ),
                   ),
                   const SizedBox(width: 16),
