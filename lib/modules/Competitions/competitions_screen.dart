@@ -1,4 +1,5 @@
 import 'package:church/core/styles/themeScaffold.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/classes_mapping.dart';
 import 'package:church/core/blocs/competitions/competitions_cubit.dart';
@@ -164,7 +165,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                 final cubit = CompetitionsCubit.get(context);
                 final allCompetitions = cubit.displayList ?? [];
 
-                // Filter competitions based on user's class
+                // Filter competitions based on user's class and gender
                 // Servants/priests/superServants see all competitions for management
                 final List competitions;
                 if (widget.type.code == UserType.priest.code ||
@@ -175,10 +176,19 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                   // Regular users only see competitions they can access
                   competitions = allCompetitions.where((competition) {
                     final targetAudience = competition.targetAudience ?? 'all';
-                    return CompetitionClassMapping.canAccessCompetition(
+                    final targetGender = competition.targetGender ?? 'all';
+
+                    // Check class/audience access
+                    final hasClassAccess = CompetitionClassMapping.canAccessCompetition(
                       widget.user.userClass,
                       targetAudience,
                     );
+
+                    // Check gender access
+                    final hasGenderAccess = targetGender == 'all' ||
+                                           targetGender == widget.user.gender.code;
+
+                    return hasClassAccess && hasGenderAccess;
                   }).toList();
                 }
 

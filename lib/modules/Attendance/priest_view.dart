@@ -6,6 +6,7 @@ import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/shared/avatar_display_widget.dart';
 import 'package:flutter/material.dart';
 
@@ -33,6 +34,11 @@ class _PriestViewState extends State<PriestView> {
   List<UserModel> children = [];
   final searchController = TextEditingController();
   bool isSubmitting = false;
+
+  // Filter state
+  String? selectedClass;
+  String? selectedGender;
+  List<String> availableClasses = [];
 
   @override
   void initState() {
@@ -83,10 +89,24 @@ class _PriestViewState extends State<PriestView> {
   void _filterUsers() {
     final query = normalizeArabic(searchController.text.toLowerCase());
     setState(() {
+      List<UserModel> tempFiltered = List.from(selectedGroupUsers);
+
+      // Apply class filter
+      if (selectedClass != null && selectedClass != 'الكل') {
+        tempFiltered = tempFiltered.where((user) => user.userClass == selectedClass).toList();
+      }
+
+      // Apply gender filter
+      if (selectedGender != null && selectedGender != 'الكل') {
+        final genderCode = selectedGender == 'ذكر' ? 'M' : 'F';
+        tempFiltered = tempFiltered.where((user) => user.gender.code == genderCode).toList();
+      }
+
+      // Apply search query
       if (query.isEmpty) {
-        filteredUsers = List.from(selectedGroupUsers);
+        filteredUsers = tempFiltered;
       } else {
-        filteredUsers = selectedGroupUsers
+        filteredUsers = tempFiltered
             .where(
               (user) => normalizeArabic(user.fullName.toLowerCase()).contains(query),
             )
@@ -449,6 +469,9 @@ class _PriestViewState extends State<PriestView> {
                       searchController.clear();
                       selectedGroupUsers = [];
                       filteredUsers = [];
+                      selectedClass = null;
+                      selectedGender = null;
+                      availableClasses = [];
                     });
                   },
                   icon: const Icon(Icons.arrow_back, color: teal900),
@@ -477,7 +500,9 @@ class _PriestViewState extends State<PriestView> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${filteredUsers.length} مستخدم',
+                  searchController.text.isEmpty && selectedClass == 'الكل' && selectedGender == 'الكل'
+                      ? '${selectedGroupUsers.length} مستخدم'
+                      : '${filteredUsers.length} من ${selectedGroupUsers.length}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -519,7 +544,126 @@ class _PriestViewState extends State<PriestView> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+
+        // Filter chips
+        if (availableClasses.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Class filter
+                if (availableClasses.length > 1) ...[
+                  Row(
+                    children: [
+                      Icon(Icons.class_, color: teal700, size: 18),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'الفصل:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 40,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: availableClasses.length,
+                      separatorBuilder: (context, index) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final className = availableClasses[index];
+                        final isSelected = selectedClass == className;
+                        return FilterChip(
+                          label: Text(className),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              selectedClass = className;
+                              _filterUsers();
+                            });
+                          },
+                          backgroundColor: Colors.white,
+                          selectedColor: teal300,
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : teal900,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                          side: BorderSide(
+                            color: isSelected ? teal500 : Colors.grey[300]!,
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                // Gender filter
+                Row(
+                  children: [
+                    Icon(Icons.wc, color: teal700, size: 18),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'النوع:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      for (final gender in ['الكل', 'ذكر', 'أنثى']) ...[
+                        FilterChip(
+                          label: Text(gender),
+                          selected: selectedGender == gender,
+                          onSelected: (selected) {
+                            setState(() {
+                              selectedGender = gender;
+                              _filterUsers();
+                            });
+                          },
+                          backgroundColor: Colors.white,
+                          selectedColor: teal300,
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: selectedGender == gender ? Colors.white : teal900,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                          side: BorderSide(
+                            color: selectedGender == gender ? teal500 : Colors.grey[300]!,
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        const SizedBox(height: 8),
 
         // Users list - Flexible for better keyboard handling
         Flexible(

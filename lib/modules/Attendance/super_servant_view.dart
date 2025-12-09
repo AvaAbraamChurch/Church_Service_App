@@ -6,6 +6,7 @@ import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/shared/avatar_display_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,6 +49,11 @@ class _SuperServantViewState extends State<SuperServantView> {
   // Loading indicator for fetching users based on selected type and gender
   bool isLoadingUsers = false;
 
+  // Filter state
+  String? selectedClass;
+  String? selectedGender;
+  List<String> availableClasses = [];
+
   @override
   void initState() {
     super.initState();
@@ -79,6 +85,16 @@ class _SuperServantViewState extends State<SuperServantView> {
       userPointsMap[user.id] = user.couponPoints;
     }
     _loadedUsers = List<UserModel>.from(users);
+
+    // Extract unique classes
+    final classes = users.map((u) => u.userClass).toSet().toList();
+    classes.sort();
+    availableClasses = ['الكل', ...classes];
+
+    // Reset filters
+    selectedClass = 'الكل';
+    selectedGender = 'الكل';
+
     filteredUsers = List<UserModel>.from(users);
   }
 
@@ -90,10 +106,24 @@ class _SuperServantViewState extends State<SuperServantView> {
           ? servantsList
           : chidrenList;
 
+      List<UserModel> tempFiltered = List.from(sourceList);
+
+      // Apply class filter
+      if (selectedClass != null && selectedClass != 'الكل') {
+        tempFiltered = tempFiltered.where((user) => user.userClass == selectedClass).toList();
+      }
+
+      // Apply gender filter (only for priests)
+      if (selectedGender != null && selectedGender != 'الكل') {
+        final genderCode = selectedGender == 'ذكر' ? 'M' : 'F';
+        tempFiltered = tempFiltered.where((user) => user.gender.code == genderCode).toList();
+      }
+
+      // Apply search query
       if (query.isEmpty) {
-        filteredUsers = List.from(sourceList);
+        filteredUsers = tempFiltered;
       } else {
-        filteredUsers = sourceList
+        filteredUsers = tempFiltered
             .where(
               (user) =>
                   normalizeArabic(user.fullName.toLowerCase()).contains(query),
@@ -873,6 +903,9 @@ class _SuperServantViewState extends State<SuperServantView> {
                       filteredUsers = [];
                       servantsList = [];
                       chidrenList = [];
+                      selectedClass = null;
+                      selectedGender = null;
+                      availableClasses = [];
                     });
                   },
                   icon: const Icon(Icons.arrow_back, color: teal900),
@@ -944,7 +977,128 @@ class _SuperServantViewState extends State<SuperServantView> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+
+        // Filter chips
+        if (!isLoadingUsers && availableClasses.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Class filter
+                if (availableClasses.length > 1) ...[
+                  Row(
+                    children: [
+                      Icon(Icons.class_, color: teal700, size: 18),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'الفصل:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 40,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: availableClasses.length,
+                      separatorBuilder: (context, index) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final className = availableClasses[index];
+                        final isSelected = selectedClass == className;
+                        return FilterChip(
+                          label: Text(className),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              selectedClass = className;
+                              _filterUsers();
+                            });
+                          },
+                          backgroundColor: Colors.white,
+                          selectedColor: teal300,
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : teal900,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                          side: BorderSide(
+                            color: isSelected ? teal500 : Colors.grey[300]!,
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                // Gender filter (only for priests - userType priest)
+                if (widget.cubit.currentUser?.userType.code == UserType.priest.code) ...[
+                  Row(
+                    children: [
+                      Icon(Icons.wc, color: teal700, size: 18),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'النوع:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 40,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        for (final gender in ['الكل', 'ذكر', 'أنثى']) ...[
+                          FilterChip(
+                            label: Text(gender),
+                            selected: selectedGender == gender,
+                            onSelected: (selected) {
+                              setState(() {
+                                selectedGender = gender;
+                                _filterUsers();
+                              });
+                            },
+                            backgroundColor: Colors.white,
+                            selectedColor: teal300,
+                            checkmarkColor: Colors.white,
+                            labelStyle: TextStyle(
+                              color: selectedGender == gender ? Colors.white : teal900,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                            side: BorderSide(
+                              color: selectedGender == gender ? teal500 : Colors.grey[300]!,
+                              width: 1.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 8),
 
         // Users list - Flexible for better keyboard handling
         Flexible(

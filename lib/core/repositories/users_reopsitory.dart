@@ -4,7 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class UsersRepository {
   final FirebaseFirestore _firestore;
 
-  UsersRepository({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
+  UsersRepository({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   Future<void> addUser(Map<String, dynamic> userData) async {
     try {
@@ -32,10 +33,7 @@ class UsersRepository {
 
   Stream<List<Map<String, dynamic>>> getUsers() {
     return _firestore.collection('users').snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => {
-            'id': doc.id,
-            ...doc.data(),
-          }).toList();
+      return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
     });
   }
 
@@ -44,42 +42,80 @@ class UsersRepository {
     return _firestore
         .collection('users')
         .where('userType', isEqualTo: userType)
+        .orderBy('fullName')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => UserModel.fromJson(doc.data()..putIfAbsent('id', () => doc.id)))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => UserModel.fromJson(
+                  doc.data()..putIfAbsent('id', () => doc.id),
+                ),
+              )
+              .toList(),
+        );
   }
 
-  Stream<List<UserModel>> getUsersByMultipleTypesAndGender(List<String> userTypes, String gender) {
+  Stream<List<UserModel>> getUsersByMultipleTypesAndGender(
+    List<String> userTypes,
+    String gender,
+  ) {
     return _firestore
         .collection('users')
         .where('userType', whereIn: userTypes)
-    .where('gender', isEqualTo: gender)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-        .map((doc) => UserModel.fromJson(doc.data()..putIfAbsent('id', () => doc.id)))
-        .toList());
-  }
-
-  Stream<List<UserModel>> getUsersByMultipleTypes(String userClass, List<String> userTypes, String gender) {
-    return _firestore
-        .collection('users')
-        .where('userType', whereIn: userTypes).where('userClass', isEqualTo: userClass)
         .where('gender', isEqualTo: gender)
+        .orderBy('fullName')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-        .map((doc) => UserModel.fromJson(doc.data()..putIfAbsent('id', () => doc.id)))
-        .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => UserModel.fromJson(
+                  doc.data()..putIfAbsent('id', () => doc.id),
+                ),
+              )
+              .toList(),
+        );
   }
 
-  Stream<List<UserModel>> getUsersByMultipleTypesForPriest(List<String> userTypes) {
+  Stream<List<UserModel>> getUsersByMultipleTypes(
+    String userClass,
+    List<String> userTypes,
+    String gender,
+  ) {
     return _firestore
         .collection('users')
         .where('userType', whereIn: userTypes)
+        .where('userClass', isEqualTo: userClass)
+        .where('gender', isEqualTo: gender)
+        .orderBy('fullName')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-        .map((doc) => UserModel.fromJson(doc.data()..putIfAbsent('id', () => doc.id)))
-        .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => UserModel.fromJson(
+                  doc.data()..putIfAbsent('id', () => doc.id),
+                ),
+              )
+              .toList(),
+        );
+  }
+
+  Stream<List<UserModel>> getUsersByMultipleTypesForPriest(
+    List<String> userTypes,
+  ) {
+    return _firestore
+        .collection('users')
+        .where('userType', whereIn: userTypes)
+        .orderBy('fullName')
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => UserModel.fromJson(
+                  doc.data()..putIfAbsent('id', () => doc.id),
+                ),
+              )
+              .toList(),
+        );
   }
 
   Future<UserModel> getUserById(String userId) async {
@@ -100,8 +136,10 @@ class UsersRepository {
         .collection('users')
         .doc(userId)
         .snapshots()
-        .map((doc) => doc.exists && doc.data() != null
-            ? UserModel.fromJson(doc.data()!..putIfAbsent('id', () => doc.id))
-            : null);
+        .map(
+          (doc) => doc.exists && doc.data() != null
+              ? UserModel.fromJson(doc.data()!..putIfAbsent('id', () => doc.id))
+              : null,
+        );
   }
 }

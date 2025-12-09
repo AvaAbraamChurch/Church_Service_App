@@ -677,6 +677,7 @@ class _ManageUserClassesScreenState extends State<ManageUserClassesScreen> {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: teal700
                       ),
                     ),
                     const SizedBox(height: 4),

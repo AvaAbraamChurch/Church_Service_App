@@ -36,9 +36,14 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   String _targetAudience = 'all';
+  String _targetGender = 'all'; // 'all', 'M', 'F'
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
   bool _isActive = true;
+
+  // Scoring mode
+  String _scoringMode = 'perQuestion';
+  late TextEditingController _totalPointsController;
 
   List<QuestionModel> _questions = [];
 
@@ -50,9 +55,19 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
     _pointsPerQuestionController = TextEditingController(
       text: widget.competition.pointsPerQuestion?.toString() ?? '10',
     );
+    // Determine scoring mode from existing competition
+    if (widget.competition.pointsPerQuestion != null) {
+      _scoringMode = 'perQuestion';
+    } else {
+      _scoringMode = 'total';
+    }
+    _totalPointsController = TextEditingController(
+      text: widget.competition.totalPoints?.toString() ?? '',
+    );
     _startDate = widget.competition.startDate;
     _endDate = widget.competition.endDate;
     _targetAudience = widget.competition.targetAudience ?? 'all';
+    _targetGender = widget.competition.targetGender ?? 'all';
     _isActive = widget.competition.isActive;
     _questions = List.from(widget.competition.questions);
   }
@@ -62,6 +77,7 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
     _nameController.dispose();
     _descriptionController.dispose();
     _pointsPerQuestionController.dispose();
+    _totalPointsController.dispose();
     super.dispose();
   }
 
@@ -226,7 +242,9 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
     }
 
     final pointsPerQuestion = int.tryParse(_pointsPerQuestionController.text) ?? 10;
-    final totalPoints = pointsPerQuestion * _questions.length;
+    final totalPoints = _scoringMode == 'total'
+        ? (int.tryParse(_totalPointsController.text) ?? (_questions.length * 10))
+        : (pointsPerQuestion * _questions.length);
 
     final updatedData = {
       'competitionName': _nameController.text.trim(),
@@ -237,7 +255,8 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
       'questions': _questions.map((q) => q.toJson()).toList(),
       'isActive': _isActive,
       'targetAudience': _targetAudience,
-      'pointsPerQuestion': pointsPerQuestion,
+      'targetGender': _targetGender,
+      'pointsPerQuestion': _scoringMode == 'perQuestion' ? pointsPerQuestion : null,
       'totalPoints': totalPoints,
     };
 
@@ -515,28 +534,209 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Points per Question
-                    TextFormField(
-                      controller: _pointsPerQuestionController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'النقاط لكل سؤال',
-                        labelStyle: const TextStyle(color: Colors.white),
-                        prefixIcon: const Icon(Icons.card_giftcard, color: Colors.white),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                    // Scoring Mode Selector
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white30),
                       ),
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value != null && value.isNotEmpty) {
-                          final points = int.tryParse(value);
-                          if (points == null || points <= 0) {
-                            return 'يرجى إدخال رقم صحيح';
-                          }
-                        }
-                        return null;
-                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.star, color: Colors.white, size: 20),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'نظام النقاط',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'Alexandria',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _scoringMode = 'perQuestion';
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                    decoration: BoxDecoration(
+                                      color: _scoringMode == 'perQuestion'
+                                          ? Colors.green[600]
+                                          : Colors.white.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: _scoringMode == 'perQuestion'
+                                            ? Colors.green[600]!
+                                            : Colors.white30,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.quiz,
+                                          color: _scoringMode == 'perQuestion'
+                                              ? Colors.white
+                                              : Colors.white70,
+                                          size: 24,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'نقاط لكل سؤال',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: _scoringMode == 'perQuestion'
+                                                ? Colors.white
+                                                : Colors.white70,
+                                            fontSize: 12,
+                                            fontWeight: _scoringMode == 'perQuestion'
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            fontFamily: 'Alexandria',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _scoringMode = 'total';
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                    decoration: BoxDecoration(
+                                      color: _scoringMode == 'total'
+                                          ? Colors.green[600]
+                                          : Colors.white.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: _scoringMode == 'total'
+                                            ? Colors.green[600]!
+                                            : Colors.white30,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.emoji_events,
+                                          color: _scoringMode == 'total'
+                                              ? Colors.white
+                                              : Colors.white70,
+                                          size: 24,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'إجمالي النقاط',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: _scoringMode == 'total'
+                                                ? Colors.white
+                                                : Colors.white70,
+                                            fontSize: 12,
+                                            fontWeight: _scoringMode == 'total'
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            fontFamily: 'Alexandria',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (_scoringMode == 'perQuestion')
+                            TextFormField(
+                              controller: _pointsPerQuestionController,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                labelText: 'النقاط لكل سؤال',
+                                labelStyle: const TextStyle(color: Colors.white),
+                                hintText: 'مثال: 10',
+                                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                                prefixIcon: const Icon(Icons.card_giftcard, color: Colors.white),
+                                filled: true,
+                                fillColor: Colors.white.withValues(alpha: 0.1),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value != null && value.isNotEmpty) {
+                                  final points = int.tryParse(value);
+                                  if (points == null || points <= 0) {
+                                    return 'يرجى إدخال رقم صحيح';
+                                  }
+                                }
+                                return null;
+                              },
+                            )
+                          else
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextFormField(
+                                  controller: _totalPointsController,
+                                  style: const TextStyle(color: Colors.white),
+                                  decoration: InputDecoration(
+                                    labelText: 'إجمالي نقاط المسابقة',
+                                    labelStyle: const TextStyle(color: Colors.white),
+                                    hintText: 'مثال: 100',
+                                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                                    prefixIcon: const Icon(Icons.emoji_events, color: Colors.white),
+                                    filled: true,
+                                    fillColor: Colors.white.withValues(alpha: 0.1),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value != null && value.isNotEmpty) {
+                                      final points = int.tryParse(value);
+                                      if (points == null || points <= 0) {
+                                        return 'يرجى إدخال رقم صحيح';
+                                      }
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'سيتم توزيع النقاط على جميع الأسئلة',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 12,
+                                    fontFamily: 'Alexandria',
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -557,6 +757,42 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                         if (value != null) {
                           setState(() {
                             _targetAudience = value;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Target Gender
+                    DropdownButtonFormField<String>(
+                      value: _targetGender,
+                      style: const TextStyle(color: Colors.black, fontFamily: 'Alexandria'),
+                      decoration: InputDecoration(
+                        labelText: 'النوع المستهدف',
+                        labelStyle: const TextStyle(color: Colors.white),
+                        prefixIcon: const Icon(Icons.wc, color: Colors.white),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'all',
+                          child: Text('الكل'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'M',
+                          child: Text('ذكور فقط'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'F',
+                          child: Text('إناث فقط'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            _targetGender = value;
                           });
                         }
                       },

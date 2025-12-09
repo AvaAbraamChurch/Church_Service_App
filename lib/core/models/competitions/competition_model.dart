@@ -13,6 +13,7 @@ class CompetitionModel {
   final bool isActive;
   final String? createdBy; // User ID of creator
   final String? targetAudience; // 'all', 'children', 'servants', etc.
+  final String? targetGender; // 'all', 'M', 'F' - Filter by gender
   final int? pointsPerQuestion;
   final int? totalPoints;
   final String? imageUrl;
@@ -29,6 +30,7 @@ class CompetitionModel {
     this.isActive = true,
     this.createdBy,
     this.targetAudience,
+    this.targetGender,
     this.pointsPerQuestion,
     this.totalPoints,
     this.imageUrl,
@@ -61,6 +63,7 @@ class CompetitionModel {
       isActive: json['isActive'] as bool? ?? true,
       createdBy: json['createdBy'] as String?,
       targetAudience: json['targetAudience'] as String?,
+      targetGender: json['targetGender'] as String?,
       pointsPerQuestion: json['pointsPerQuestion'] as int?,
       totalPoints: json['totalPoints'] as int?,
       imageUrl: json['imageUrl'] as String?,
@@ -81,6 +84,7 @@ class CompetitionModel {
       'isActive': isActive,
       if (createdBy != null) 'createdBy': createdBy,
       if (targetAudience != null) 'targetAudience': targetAudience,
+      if (targetGender != null) 'targetGender': targetGender,
       if (pointsPerQuestion != null) 'pointsPerQuestion': pointsPerQuestion,
       if (totalPoints != null) 'totalPoints': totalPoints,
       if (imageUrl != null) 'imageUrl': imageUrl,
@@ -100,6 +104,7 @@ class CompetitionModel {
     bool? isActive,
     String? createdBy,
     String? targetAudience,
+    String? targetGender,
     int? pointsPerQuestion,
     int? totalPoints,
     String? imageUrl,
@@ -116,6 +121,7 @@ class CompetitionModel {
       isActive: isActive ?? this.isActive,
       createdBy: createdBy ?? this.createdBy,
       targetAudience: targetAudience ?? this.targetAudience,
+      targetGender: targetGender ?? this.targetGender,
       pointsPerQuestion: pointsPerQuestion ?? this.pointsPerQuestion,
       totalPoints: totalPoints ?? this.totalPoints,
       imageUrl: imageUrl ?? this.imageUrl,
