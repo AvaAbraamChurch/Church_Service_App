@@ -3,7 +3,11 @@ import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/service_enum.dart';
+import 'package:church/core/utils/classes_mapping.dart';
+import 'package:church/core/models/class_mapping/class_mapping_model.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/models/class_mapping/class_mapping_model.dart';
 
 class CreateUserScreen extends StatefulWidget {
   const CreateUserScreen({super.key});
@@ -20,12 +24,12 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  final _userClassController = TextEditingController();
   final _couponPointsController = TextEditingController(text: '0');
 
   UserType _selectedUserType = UserType.child;
   Gender _selectedGender = Gender.male;
   ServiceType _selectedServiceType = ServiceType.primaryBoys;
+  String _selectedUserClass = '1'; // Default to class 1
   bool _firstLogin = true;
   bool _isAdmin = false;
   bool _storeAdmin = false;
@@ -40,9 +44,45 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
     _passwordController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _userClassController.dispose();
     _couponPointsController.dispose();
     super.dispose();
+  }
+
+  List<DropdownMenuItem<String>> _buildClassDropdownItems(Map<String, List<ClassMapping>> groupedMappings) {
+    List<DropdownMenuItem<String>> items = [];
+
+    groupedMappings.forEach((classCode, mappings) {
+      // Add group header
+      items.add(
+        DropdownMenuItem<String>(
+          value: null,
+          enabled: false,
+          child: Text(
+            '${CompetitionClassMapping.getClassName(classCode)} ($classCode)',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+
+      // Add class options
+      for (var mapping in mappings) {
+        items.add(
+          DropdownMenuItem<String>(
+            value: mapping.id, // Use mapping ID as value
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Text(mapping.className),
+            ),
+          ),
+        );
+      }
+    });
+
+    return items;
   }
 
   @override
@@ -378,30 +418,87 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _userClassController,
-                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
-                decoration: InputDecoration(
-                  labelText: 'الفصل *',
-                  labelStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.class_outlined, color: Colors.white),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'يرجى إدخال الفصل';
+              // User Class Dropdown with StreamBuilder
+              StreamBuilder<List<ClassMapping>>(
+                stream: ClassMappingService.getActiveClassMappings(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Text('خطأ في تحميل الصفوف: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.red));
                   }
-                  return null;
+
+                  final classMappings = snapshot.data ?? [];
+
+                  if (classMappings.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.warning, color: Colors.orange),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'لا توجد صفوف متاحة. يرجى إضافة صفوف من لوحة التحكم.',
+                              style: TextStyle(color: Colors.orange),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  // Group by classCode
+                  final groupedMappings = <String, List<ClassMapping>>{};
+                  for (var mapping in classMappings) {
+                    groupedMappings.putIfAbsent(mapping.classCode, () => []).add(mapping);
+                  }
+
+                  // Ensure selected value is valid
+                  final allMappingIds = classMappings.map((m) => m.id).toList();
+                  if (classMappings.isNotEmpty && !allMappingIds.contains(_selectedUserClass)) {
+                    _selectedUserClass = classMappings.first.id;
+                  }
+
+                  return DropdownButtonFormField<String>(
+                    value: _selectedUserClass,
+                    style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
+                    dropdownColor: teal700,
+                    decoration: InputDecoration(
+                      labelText: 'الفصل *',
+                      labelStyle: const TextStyle(color: Colors.white),
+                      prefixIcon: const Icon(Icons.class_outlined, color: Colors.white),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.white),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.white, width: 2),
+                      ),
+                    ),
+                    items: _buildClassDropdownItems(groupedMappings),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedUserClass = value;
+                        });
+                      }
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'يرجى اختيار الفصل';
+                      }
+                      return null;
+                    },
+                  );
                 },
               ),
               const SizedBox(height: 16),

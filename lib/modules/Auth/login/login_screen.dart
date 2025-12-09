@@ -25,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  bool _isPasswordVisible = false;
 
 
   @override
@@ -193,6 +194,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 prefixIcon: Icons.lock_outline,
                                 fillColor: Colors.white.withValues(alpha: 0.15),
                                 isPassword: true,
+                                isPasswordVisible: _isPasswordVisible,
+                                onTogglePasswordVisibility: () {
+                                  setState(() {
+                                    _isPasswordVisible = !_isPasswordVisible;
+                                  });
+                                },
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
                                     return pleaseEnterYourPassword;
@@ -551,6 +558,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     required IconData prefixIcon,
     required Color fillColor,
     bool isPassword = false,
+    bool isPasswordVisible = false,
+    VoidCallback? onTogglePasswordVisibility,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
   }) {
@@ -567,7 +576,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       ),
       child: TextFormField(
         controller: controller,
-        obscureText: isPassword,
+        obscureText: isPassword && !isPasswordVisible,
         keyboardType: keyboardType,
         validator: validator,
         style: const TextStyle(
@@ -587,6 +596,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             color: teal100,
             size: 22,
           ),
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                    color: teal100.withValues(alpha: 0.8),
+                    size: 22,
+                  ),
+                  onPressed: onTogglePasswordVisibility,
+                )
+              : null,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,

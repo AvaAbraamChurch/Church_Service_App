@@ -3,6 +3,7 @@ import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/blocs/competitions/competitions_cubit.dart';
 import 'package:church/core/blocs/competitions/competitions_states.dart';
 import 'package:church/core/models/competitions/competition_model.dart';
+import 'package:church/core/utils/classes_mapping.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -82,6 +83,44 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
         }
       });
     }
+  }
+
+  List<DropdownMenuItem<String>> _buildClassDropdownItems() {
+    List<DropdownMenuItem<String>> items = [];
+    final groupedOptions = CompetitionClassMapping.getGroupedClassOptions();
+
+    groupedOptions.forEach((groupName, options) {
+      // Add group header (disabled item)
+      items.add(
+        DropdownMenuItem<String>(
+          value: null,
+          enabled: false,
+          child: Text(
+            groupName,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+
+      // Add options in this group
+      for (var option in options) {
+        items.add(
+          DropdownMenuItem<String>(
+            value: option.key,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Text(option.value),
+            ),
+          ),
+        );
+      }
+    });
+
+    return items;
   }
 
   void _addQuestion() {
@@ -208,17 +247,76 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
         final isLoading = state is CreateCompetitionLoading || state is UploadImageLoading;
 
         return ThemedScaffold(
-          appBar: AppBar(
-            title: const Text(
-              'إنشاء مسابقة جديدة',
-              style: TextStyle(
-                fontFamily: 'Alexandria',
-                fontWeight: FontWeight.bold,
-                color: Colors.white
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(70),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.green[400]!, Colors.green[700]!],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        tooltip: 'رجوع',
+                      ),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'إنشاء مسابقة جديدة',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Alexandria',
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'أضف أسئلة واختبر معرفة الطلاب',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 12,
+                                fontFamily: 'Alexandria',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.add_circle,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            backgroundColor: Colors.green[600],
-            foregroundColor: Colors.white,
           ),
           body: Stack(
             children: [
@@ -334,19 +432,14 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
                       value: _targetAudience,
                       style: const TextStyle(color: Colors.black, fontFamily: 'Alexandria'),
                       decoration: InputDecoration(
-                        labelText: 'الفئة المستهدفة',
+                        labelText: 'الفئة المستهدفة / الصف',
                         labelStyle: const TextStyle(color: Colors.white),
                         prefixIcon: const Icon(Icons.group, color: Colors.white),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      items: const [
-                        DropdownMenuItem(value: 'all', child: Text('الكل',)),
-                        DropdownMenuItem(value: 'children', child: Text('الأطفال')),
-                        DropdownMenuItem(value: 'servants', child: Text('الخدام')),
-                        DropdownMenuItem(value: 'youth', child: Text('الشباب')),
-                      ],
+                      items: _buildClassDropdownItems(),
                       onChanged: (value) {
                         if (value != null) {
                           setState(() {

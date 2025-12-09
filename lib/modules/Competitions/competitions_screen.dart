@@ -1,5 +1,6 @@
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/core/utils/classes_mapping.dart';
 import 'package:church/core/blocs/competitions/competitions_cubit.dart';
 import 'package:church/core/blocs/competitions/competitions_states.dart';
 import 'package:church/modules/Competitions/create_competition_screen.dart';
@@ -161,7 +162,25 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
             body: BlocBuilder<CompetitionsCubit, CompetitionsState>(
               builder: (context, state) {
                 final cubit = CompetitionsCubit.get(context);
-                final competitions = cubit.displayList ?? [];
+                final allCompetitions = cubit.displayList ?? [];
+
+                // Filter competitions based on user's class
+                // Servants/priests/superServants see all competitions for management
+                final List competitions;
+                if (widget.type.code == UserType.priest.code ||
+                    widget.type.code == UserType.superServant.code ||
+                    widget.type.code == UserType.servant.code) {
+                  competitions = allCompetitions;
+                } else {
+                  // Regular users only see competitions they can access
+                  competitions = allCompetitions.where((competition) {
+                    final targetAudience = competition.targetAudience ?? 'all';
+                    return CompetitionClassMapping.canAccessCompetition(
+                      widget.user.userClass,
+                      targetAudience,
+                    );
+                  }).toList();
+                }
 
                 // Load user results when competitions are loaded
                 if (state is LoadCompetitionsSuccess && competitions.isNotEmpty && !_loadingResults && _userResults.isEmpty) {
@@ -319,6 +338,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
               child: TakeCompetitionScreen(
                 competition: competition,
                 userId: userId,
+                user: widget.user,
               ),
             ),
           ),
@@ -651,6 +671,40 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 6),
+                            // Target Audience (Class)
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.school,
+                                    size: 16,
+                                    color: Colors.blue[700],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    CompetitionClassMapping.getClassName(
+                                      competition.targetAudience ?? 'all'
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.blue[700],
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'Alexandria',
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ] else ...[
                             // Number of Questions
                             Row(
@@ -703,6 +757,40 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                                     color: Colors.amber[800],
                                     fontWeight: FontWeight.w600,
                                     fontFamily: 'Alexandria',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            // Target Audience (Class)
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.school,
+                                    size: 16,
+                                    color: Colors.blue[700],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    CompetitionClassMapping.getClassName(
+                                      competition.targetAudience ?? 'all'
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.blue[700],
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'Alexandria',
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],

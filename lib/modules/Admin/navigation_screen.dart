@@ -3,6 +3,8 @@ import 'package:church/core/styles/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:church/modules/Admin/main_dashboard.dart';
 import 'package:church/modules/Admin/admin_dashboard_screen.dart';
+import 'package:church/modules/Admin/user_management/manage_user_classes_screen.dart';
+import 'package:church/modules/Admin/user_management/manage_class_mappings_screen.dart';
 
 class NavigationScreen extends StatelessWidget {
   const NavigationScreen({super.key});
@@ -144,6 +146,44 @@ class NavigationScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const AdminDashboardScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 24),
+
+                // User Classes Management Button
+                _buildModernButton(
+                  context,
+                  title: 'إدارة صفوف المستخدمين',
+                  subtitle: 'تعيين المستخدمين للصفوف الدراسية',
+                  icon: Icons.school_rounded,
+                  gradientColors: [Colors.green.shade400, Colors.green.shade600],
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ManageUserClassesScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 24),
+
+                // Class Mappings Configuration Button
+                _buildModernButton(
+                  context,
+                  title: 'إدارة تعيينات الصفوف',
+                  subtitle: 'إضافة وتعديل أسماء الصفوف (مثال: اسرة القديس استفانوس)',
+                  icon: Icons.settings_applications_rounded,
+                  gradientColors: [Colors.orange.shade400, Colors.orange.shade600],
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ManageClassMappingsScreen(),
                       ),
                     );
                   },

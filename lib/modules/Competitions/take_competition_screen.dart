@@ -1,16 +1,20 @@
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/blocs/competitions/competitions_cubit.dart';
 import 'package:church/core/models/competitions/competition_model.dart';
+import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/utils/classes_mapping.dart';
 import 'package:flutter/material.dart';
 
 class TakeCompetitionScreen extends StatefulWidget {
   final CompetitionModel competition;
   final String userId;
+  final UserModel? user; // Optional for backward compatibility
 
   const TakeCompetitionScreen({
     super.key,
     required this.competition,
     required this.userId,
+    this.user,
   });
 
   @override
@@ -96,18 +100,172 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Validate user has access to this competition
+    if (widget.user != null) {
+      final targetAudience = widget.competition.targetAudience ?? 'all';
+      final canAccess = CompetitionClassMapping.canAccessCompetition(
+        widget.user!.userClass,
+        targetAudience,
+      );
+
+      if (!canAccess) {
+        // User doesn't have access - show error and navigate back
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('عذراً، هذه المسابقة غير متاحة لصفك الدراسي'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 3),
+              ),
+            );
+            Navigator.pop(context);
+          }
+        });
+
+        return ThemedScaffold(
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(70),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.red[400]!, Colors.red[700]!],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        tooltip: 'رجوع',
+                      ),
+                      const Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'غير مسموح',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Alexandria',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.block,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          body: const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+    }
+
     return ThemedScaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.competition.competitionName,
-          style: const TextStyle(
-            color: Colors.white,
-            fontFamily: 'Alexandria',
-            fontWeight: FontWeight.bold,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(70),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.green[400]!, Colors.green[700]!],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    tooltip: 'رجوع',
+                  ),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.competition.competitionName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Alexandria',
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${widget.competition.numberOfQuestions} سؤال',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 12,
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.quiz,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        backgroundColor: const Color(0xFF43A047),
-        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [

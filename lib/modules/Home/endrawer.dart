@@ -4,7 +4,6 @@ import 'package:church/core/services/account_manager_service.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/AccountSwitcher/account_switcher_screen.dart';
-import 'package:church/modules/Admin/admin_dashboard_screen.dart';
 import 'package:church/modules/Admin/navigation_screen.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:church/modules/Birthdays/birthdays_screen.dart';
@@ -134,15 +133,15 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                       subtitle: 'الدعم والمساعدة',
                       gradient: [Colors.blue[400]!, Colors.blue[600]!],
                       onTap: () {
-                        // navigateTo(context, SupportScreen());
+                        navigateTo(context, SupportScreen());
                         // Display coming soon
-                        showComingSoonPopup(
-                          context,
-                          title: 'المساعدة',
-                          // write short message
-                          message: 'جاري العمل على إنشاء هذه الصفحة',
-                          icon: Icons.help,
-                        );
+                        // showComingSoonPopup(
+                        //   context,
+                        //   title: 'المساعدة',
+                        //   // write short message
+                        //   message: 'جاري العمل على إنشاء هذه الصفحة',
+                        //   icon: Icons.help,
+                        // );
                       },
                     ),
 
