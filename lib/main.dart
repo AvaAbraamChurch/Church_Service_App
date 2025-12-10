@@ -17,6 +17,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'core/repositories/local_attendance_repository.dart';
+import 'core/repositories/local_points_repository.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'core/utils/notification_service.dart';
@@ -151,18 +152,27 @@ void main() async {
   try {
     // Initialize Local Storage (Hive)
     await LocalAttendanceRepository.init();
+    await LocalPointsRepository.init();
     print('✅ Local storage initialized');
 
     // Optional: Clean up old pending items (older than 30 days)
-    final repo = LocalAttendanceRepository();
-    final deletedCount = await repo.deleteOldPending(olderThanDays: 30);
-    if (deletedCount > 0) {
-      print('🗑️ Deleted $deletedCount old pending items');
+    final attendanceRepo = LocalAttendanceRepository();
+    final attendanceDeletedCount = await attendanceRepo.deleteOldPending(olderThanDays: 30);
+    if (attendanceDeletedCount > 0) {
+      print('🗑️ Deleted $attendanceDeletedCount old pending attendance items');
+    }
+
+    final pointsRepo = LocalPointsRepository();
+    final pointsDeletedCount = await pointsRepo.deleteOldPending(olderThanDays: 30);
+    if (pointsDeletedCount > 0) {
+      print('🗑️ Deleted $pointsDeletedCount old pending points items');
     }
 
     // Show statistics
-    final stats = repo.getStatistics();
-    print('📊 Local storage stats: $stats');
+    final attendanceStats = attendanceRepo.getStatistics();
+    final pointsStats = pointsRepo.getStatistics();
+    print('📊 Attendance storage stats: $attendanceStats');
+    print('📊 Points storage stats: $pointsStats');
 
   } catch (e) {
     print('❌ Initialization error: $e');

@@ -9,6 +9,7 @@ import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:church/modules/Birthdays/birthdays_screen.dart';
 import 'package:church/modules/Competitions/competitions_screen.dart';
 import 'package:church/shared/widgets.dart';
+import 'package:church/shared/attendance_defaults_dialog.dart';
 import 'package:flutter/material.dart';
 import '../../core/styles/colors.dart';
 import '../Classes/manage_classes_screen.dart';
@@ -142,6 +143,20 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                         //   message: 'جاري العمل على إنشاء هذه الصفحة',
                         //   icon: Icons.help,
                         // );
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _buildMenuItem(
+                      context: context,
+                      icon: Icons.stars_rounded,
+                      title: 'نقاط الحضور',
+                      subtitle: 'عرض النقاط المكتسبة',
+                      gradient: [Colors.amber[400]!, Colors.amber[600]!],
+                      onTap: () {
+                        Navigator.pop(context); // Close drawer
+                        showAttendanceDefaultsDialog(context);
                       },
                     ),
 

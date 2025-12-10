@@ -1,15 +1,32 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:church/core/repositories/local_points_repository.dart';
 
-/// Coupon Points Service for managing user points
+/// Coupon Points Service for managing user points (with offline support)
 class CouponPointsService {
   final FirebaseFirestore _firestore;
+  final LocalPointsRepository _localRepo;
+  final Connectivity _connectivity;
 
-  CouponPointsService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  CouponPointsService({
+    FirebaseFirestore? firestore,
+    LocalPointsRepository? localRepo,
+    Connectivity? connectivity,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _localRepo = localRepo ?? LocalPointsRepository(),
+        _connectivity = connectivity ?? Connectivity();
 
   /// Points calculation rules
   /// 1 point = $1.00 (points are the transaction currency)
   static const double POINTS_VALUE = 1.0; // Each point worth $1.00
+
+  /// Check if device is online
+  Future<bool> _isOnline() async {
+    final result = await _connectivity.checkConnectivity();
+    return result.contains(ConnectivityResult.mobile) ||
+        result.contains(ConnectivityResult.wifi) ||
+        result.contains(ConnectivityResult.ethernet);
+  }
 
   /// Calculate points earned from order total
   /// Points earned equal the order total (1 point per $1)
@@ -23,16 +40,30 @@ class CouponPointsService {
     return points.toDouble();
   }
 
-  /// Get user's current points
-  Future<int> getUserPoints(String userId) async {
+  /// Get user's current points (including pending local adjustments)
+  Future<int> getUserPoints(String userId, {bool includePending = true}) async {
     try {
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (!userDoc.exists) return 0;
 
       final data = userDoc.data() as Map<String, dynamic>;
-      return data['couponPoints'] as int? ?? 0;
+      int onlinePoints = data['couponPoints'] as int? ?? 0;
+
+      // Add pending local adjustments if requested
+      if (includePending) {
+        final localAdjustment = _localRepo.getLocalBalanceAdjustment(userId);
+        return onlinePoints + localAdjustment;
+      }
+
+      return onlinePoints;
     } catch (e) {
-      throw Exception('Failed to get user points: $e');
+      // If offline, try to get from cache with local adjustments
+      try {
+        final localAdjustment = _localRepo.getLocalBalanceAdjustment(userId);
+        return localAdjustment; // Best effort
+      } catch (_) {
+        throw Exception('Failed to get user points: $e');
+      }
     }
   }
 
@@ -85,8 +116,22 @@ class CouponPointsService {
     }
   }
 
-  /// Add points to user (e.g., for completed orders)
+  /// Add points to user (e.g., for completed orders) - with offline support
   Future<void> addPoints(String userId, int points, {String? orderId}) async {
+    final isOnline = await _isOnline();
+
+    if (!isOnline) {
+      // Save to local storage for later sync
+      await _localRepo.savePendingTransaction(
+        userId: userId,
+        points: points,
+        type: 'ADDITION',
+        reason: orderId != null ? 'Order cashback' : 'Points addition',
+        orderId: orderId,
+      );
+      return;
+    }
+
     try {
       await _firestore.runTransaction((transaction) async {
         final userRef = _firestore.collection('users').doc(userId);
@@ -120,7 +165,14 @@ class CouponPointsService {
         }
       });
     } catch (e) {
-      throw Exception('Failed to add points: $e');
+      // If online but failed, save locally
+      await _localRepo.savePendingTransaction(
+        userId: userId,
+        points: points,
+        type: 'ADDITION',
+        reason: orderId != null ? 'Order cashback' : 'Points addition',
+        orderId: orderId,
+      );
     }
   }
 
@@ -158,13 +210,27 @@ class CouponPointsService {
   }
 
   /// Set points for a user (can be positive or negative adjustment)
-  /// Used by servants/super servants to manually adjust points
+  /// Used by servants/super servants to manually adjust points - with offline support
   Future<void> setPoints(
     String userId,
     int pointsToAdjust,
     String reason,
     String adjustedBy,
   ) async {
+    final isOnline = await _isOnline();
+
+    if (!isOnline) {
+      // Save to local storage for later sync
+      await _localRepo.savePendingTransaction(
+        userId: userId,
+        points: pointsToAdjust,
+        type: pointsToAdjust >= 0 ? 'MANUAL_ADDITION' : 'MANUAL_DEDUCTION',
+        reason: reason,
+        adjustedBy: adjustedBy,
+      );
+      return;
+    }
+
     try {
       await _firestore.runTransaction((transaction) async {
         final userRef = _firestore.collection('users').doc(userId);
@@ -201,7 +267,15 @@ class CouponPointsService {
         });
       });
     } catch (e) {
-      throw Exception('Failed to set points: $e');
+      // If online but failed, save locally
+      await _localRepo.savePendingTransaction(
+        userId: userId,
+        points: pointsToAdjust,
+        type: pointsToAdjust >= 0 ? 'MANUAL_ADDITION' : 'MANUAL_DEDUCTION',
+        reason: reason,
+        adjustedBy: adjustedBy,
+      );
+      throw Exception('Failed to set points online, saved locally: $e');
     }
   }
 

@@ -5,6 +5,7 @@ import 'package:church/modules/Admin/main_dashboard.dart';
 import 'package:church/modules/Admin/admin_dashboard_screen.dart';
 import 'package:church/modules/Admin/user_management/manage_user_classes_screen.dart';
 import 'package:church/modules/Admin/user_management/manage_class_mappings_screen.dart';
+import 'package:church/modules/Admin/attendance_defaults_page.dart';
 
 class NavigationScreen extends StatelessWidget {
   const NavigationScreen({super.key});
@@ -184,6 +185,25 @@ class NavigationScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const ManageClassMappingsScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 24),
+
+                // Attendance Defaults Button
+                _buildModernButton(
+                  context,
+                  title: 'النقاط الافتراضية للحضور',
+                  subtitle: 'تعيين قيم النقاط لأنواع الحضور المختلفة',
+                  icon: Icons.stars_rounded,
+                  gradientColors: [Colors.teal.shade400, Colors.teal.shade600],
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AttendanceDefaultsPage(),
                       ),
                     );
                   },
