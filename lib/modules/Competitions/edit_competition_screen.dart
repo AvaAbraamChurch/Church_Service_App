@@ -38,6 +38,7 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
   String _targetAudience = 'all';
   String _targetGender = 'all'; // 'all', 'M', 'F'
   File? _imageFile;
+  String? _imageUrl;
   final ImagePicker _picker = ImagePicker();
   bool _isActive = true;
 
@@ -86,6 +87,45 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
       widget.isAdmin == true;
 
   Future<void> _pickImage() async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'اختر مصدر الصورة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text(
+                'من المعرض',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text(
+                'من رابط URL',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
+              onTap: () => Navigator.pop(context, 'url'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == 'gallery') {
+      await _pickImageFromGallery();
+    } else if (choice == 'url') {
+      await _pickImageFromUrl();
+    }
+  }
+
+  Future<void> _pickImageFromGallery() async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -97,6 +137,7 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
       if (image != null) {
         setState(() {
           _imageFile = File(image.path);
+          _imageUrl = null;
         });
       }
     } catch (e) {
@@ -108,6 +149,48 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _pickImageFromUrl() async {
+    final urlController = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'أدخل رابط الصورة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(
+            labelText: 'URL',
+            hintText: 'https://example.com/image.jpg',
+          ),
+          keyboardType: TextInputType.url,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (urlController.text.trim().isNotEmpty) {
+                Navigator.pop(context, urlController.text.trim());
+              }
+            },
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+
+    if (url != null && url.isNotEmpty) {
+      setState(() {
+        _imageUrl = url;
+        _imageFile = null;
+      });
     }
   }
 
@@ -278,6 +361,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
         data: updatedData,
         newImageFile: _imageFile!,
       );
+    } else if (_imageUrl != null) {
+      // Add imageUrl to updatedData
+      updatedData['imageUrl'] = _imageUrl;
+      await cubit.updateCompetition(widget.competition.id!, updatedData);
     } else {
       await cubit.updateCompetition(widget.competition.id!, updatedData);
     }
@@ -462,23 +549,34 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                     fit: BoxFit.cover,
                                   ),
                                 )
-                              : widget.competition.imageUrl != null
+                              : _imageUrl != null
                                   ? ClipRRect(
                                       borderRadius: BorderRadius.circular(14),
                                       child: Image.network(
-                                        widget.competition.imageUrl!,
+                                        _imageUrl!,
                                         fit: BoxFit.cover,
+                                        loadingBuilder: (context, child, loadingProgress) {
+                                          if (loadingProgress == null) return child;
+                                          return Center(
+                                            child: CircularProgressIndicator(
+                                              value: loadingProgress.expectedTotalBytes != null
+                                                  ? loadingProgress.cumulativeBytesLoaded /
+                                                      loadingProgress.expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          );
+                                        },
                                         errorBuilder: (context, error, stackTrace) {
                                           return Column(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
-                                              Icon(Icons.add_photo_alternate,
-                                                  size: 50, color: const Color(0xFFA5D6A7)),
+                                              Icon(Icons.error, size: 40, color: Colors.red[300]),
                                               const SizedBox(height: 8),
                                               Text(
-                                                'تغيير الصورة',
+                                                'فشل تحميل الصورة',
                                                 style: TextStyle(
-                                                  color: const Color(0xFF388E3C),
+                                                  color: Colors.red[700],
+                                                  fontSize: 12,
                                                   fontFamily: 'Alexandria',
                                                 ),
                                               ),
@@ -486,6 +584,31 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                           );
                                         },
                                       ),
+                                    )
+                                  : widget.competition.imageUrl != null
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(14),
+                                          child: Image.network(
+                                            widget.competition.imageUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.add_photo_alternate,
+                                                      size: 50, color: const Color(0xFFA5D6A7)),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    'تغيير الصورة',
+                                                    style: TextStyle(
+                                                      color: const Color(0xFF388E3C),
+                                                      fontFamily: 'Alexandria',
+                                                    ),
+                                                  ),
+                                                ],
+                                              );
+                                            },
+                                          ),
                                     )
                                   : Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1082,6 +1205,36 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
   }
 
   Future<void> _pickQuestionImage() async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('اختر مصدر الصورة', style: TextStyle(fontFamily: 'Alexandria')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('من المعرض', style: TextStyle(fontFamily: 'Alexandria')),
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('من رابط URL', style: TextStyle(fontFamily: 'Alexandria')),
+              onTap: () => Navigator.pop(context, 'url'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == 'gallery') {
+      await _pickQuestionImageFromGallery();
+    } else if (choice == 'url') {
+      await _pickQuestionImageFromUrl();
+    }
+  }
+
+  Future<void> _pickQuestionImageFromGallery() async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -1093,21 +1246,80 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
       if (image != null) {
         setState(() {
           _questionImageFile = File(image.path);
+          _questionImageUrl = null;
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل اختيار صورة السؤال: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('فشل اختيار صورة السؤال: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
+  Future<void> _pickQuestionImageFromUrl() async {
+    final urlController = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('أدخل رابط صورة السؤال', style: TextStyle(fontFamily: 'Alexandria')),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(labelText: 'URL', hintText: 'https://example.com/image.jpg'),
+          keyboardType: TextInputType.url,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () {
+              if (urlController.text.trim().isNotEmpty) Navigator.pop(context, urlController.text.trim());
+            },
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+
+    if (url != null && url.isNotEmpty) {
+      setState(() {
+        _questionImageUrl = url;
+        _questionImageFile = null;
+      });
+    }
+  }
+
   Future<void> _pickAnswerImage(int index) async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('اختر مصدر الصورة', style: TextStyle(fontFamily: 'Alexandria')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('من المعرض', style: TextStyle(fontFamily: 'Alexandria')),
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('من رابط URL', style: TextStyle(fontFamily: 'Alexandria')),
+              onTap: () => Navigator.pop(context, 'url'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == 'gallery') {
+      await _pickAnswerImageFromGallery(index);
+    } else if (choice == 'url') {
+      await _pickAnswerImageFromUrl(index);
+    }
+  }
+
+  Future<void> _pickAnswerImageFromGallery(int index) async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -1119,17 +1331,46 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
       if (image != null) {
         setState(() {
           _answers[index].imageFile = File(image.path);
+          _answers[index].imageUrl = null;
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل اختيار صورة الإجابة: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('فشل اختيار صورة الإجابة: $e'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  Future<void> _pickAnswerImageFromUrl(int index) async {
+    final urlController = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('أدخل رابط صورة الإجابة', style: TextStyle(fontFamily: 'Alexandria')),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(labelText: 'URL', hintText: 'https://example.com/image.jpg'),
+          keyboardType: TextInputType.url,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () {
+              if (urlController.text.trim().isNotEmpty) Navigator.pop(context, urlController.text.trim());
+            },
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+
+    if (url != null && url.isNotEmpty) {
+      setState(() {
+        _answers[index].imageUrl = url;
+        _answers[index].imageFile = null;
+      });
     }
   }
 
@@ -1195,7 +1436,7 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
     }
 
     try {
-      // Upload question image if exists
+      // Upload question image if new image selected
       String? questionImageUrl = _questionImageUrl;
       if (_questionImageFile != null) {
         questionImageUrl = await _uploadImage(_questionImageFile!, 'questions');
@@ -1205,6 +1446,8 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
       final answerOptions = <AnswerOptionModel>[];
       for (var answer in _answers) {
         String? answerImageUrl = answer.imageUrl;
+
+        // Upload new image if selected
         if (answer.imageFile != null) {
           answerImageUrl = await _uploadImage(answer.imageFile!, 'answers');
         }
@@ -1435,6 +1678,94 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
                             foregroundColor: Colors.green[600],
                           ),
                         ),
+                    ],
+                  ),
+                )
+              else if (_questionImageUrl != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'صورة السؤال',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Alexandria',
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                            onPressed: () {
+                              setState(() {
+                                _questionImageFile = null;
+                                _questionImageUrl = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          _questionImageUrl!,
+                          height: 150,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              height: 150,
+                              color: Colors.grey[200],
+                              child: const Icon(Icons.error),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'صورة السؤال',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Alexandria',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _pickQuestionImage,
+                        icon: const Icon(Icons.add_photo_alternate),
+                        label: const Text('اختر صورة السؤال'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.green[600],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1711,6 +2042,36 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
   }
 
   Future<void> _pickQuestionImage() async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('اختر مصدر الصورة', style: TextStyle(fontFamily: 'Alexandria')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('من المعرض', style: TextStyle(fontFamily: 'Alexandria')),
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('من رابط URL', style: TextStyle(fontFamily: 'Alexandria')),
+              onTap: () => Navigator.pop(context, 'url'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == 'gallery') {
+      await _pickQuestionImageFromGallery();
+    } else if (choice == 'url') {
+      await _pickQuestionImageFromUrl();
+    }
+  }
+
+  Future<void> _pickQuestionImageFromGallery() async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -1722,21 +2083,80 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
       if (image != null) {
         setState(() {
           _questionImageFile = File(image.path);
+          _questionImageUrl = null;
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل اختيار صورة السؤال: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('فشل اختيار صورة السؤال: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
+  Future<void> _pickQuestionImageFromUrl() async {
+    final urlController = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('أدخل رابط صورة السؤال', style: TextStyle(fontFamily: 'Alexandria')),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(labelText: 'URL', hintText: 'https://example.com/image.jpg'),
+          keyboardType: TextInputType.url,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () {
+              if (urlController.text.trim().isNotEmpty) Navigator.pop(context, urlController.text.trim());
+            },
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+
+    if (url != null && url.isNotEmpty) {
+      setState(() {
+        _questionImageUrl = url;
+        _questionImageFile = null;
+      });
+    }
+  }
+
   Future<void> _pickAnswerImage(int index) async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('اختر مصدر الصورة', style: TextStyle(fontFamily: 'Alexandria')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('من المعرض', style: TextStyle(fontFamily: 'Alexandria')),
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('من رابط URL', style: TextStyle(fontFamily: 'Alexandria')),
+              onTap: () => Navigator.pop(context, 'url'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == 'gallery') {
+      await _pickAnswerImageFromGallery(index);
+    } else if (choice == 'url') {
+      await _pickAnswerImageFromUrl(index);
+    }
+  }
+
+  Future<void> _pickAnswerImageFromGallery(int index) async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -1748,17 +2168,46 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
       if (image != null) {
         setState(() {
           _answers[index].imageFile = File(image.path);
+          _answers[index].imageUrl = null;
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل اختيار صورة الإجابة: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('فشل اختيار صورة الإجابة: $e'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  Future<void> _pickAnswerImageFromUrl(int index) async {
+    final urlController = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('أدخل رابط صورة الإجابة', style: TextStyle(fontFamily: 'Alexandria')),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(labelText: 'URL', hintText: 'https://example.com/image.jpg'),
+          keyboardType: TextInputType.url,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () {
+              if (urlController.text.trim().isNotEmpty) Navigator.pop(context, urlController.text.trim());
+            },
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+
+    if (url != null && url.isNotEmpty) {
+      setState(() {
+        _answers[index].imageUrl = url;
+        _answers[index].imageFile = null;
+      });
     }
   }
 
@@ -2093,7 +2542,7 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                                   icon: const Icon(Icons.add_photo_alternate),
                                   label: const Text('اختر صورة السؤال'),
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF43A047),
+                                    foregroundColor: Colors.green[600],
                                   ),
                                 ),
                               if (_questionImageFile == null && _questionImageUrl != null)
@@ -2111,7 +2560,7 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                             ],
                           ),
                         ),
-                      if (_questionType == QuestionType.images || _questionImageFile != null || _questionImageUrl != null)
+                      if (_questionType == QuestionType.images || _questionImageFile != null)
                         const SizedBox(height: 16),
 
                       // Answers
@@ -2187,8 +2636,8 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                                         ),
                                     ],
                                   ),
-                                  // Answer image
-                                  if (_questionType == QuestionType.images || _answers[index].imageFile != null || _answers[index].imageUrl != null)
+                                  // Answer image (for images type or optional)
+                                  if (_questionType == QuestionType.images || _answers[index].imageFile != null)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 8, right: 48),
                                       child: Column(
@@ -2217,6 +2666,7 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                                                     onPressed: () {
                                                       setState(() {
                                                         _answers[index].imageFile = null;
+                                                        _answers[index].imageUrl = null;
                                                       });
                                                     },
                                                   ),

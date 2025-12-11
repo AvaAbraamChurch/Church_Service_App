@@ -171,20 +171,21 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   Future<String?> createCompetition({
     required CompetitionModel competition,
     File? imageFile,
+    String? imageUrl,
   }) async {
     try {
       emit(CreateCompetitionLoading());
 
-      String? imageUrl;
+      String? finalImageUrl = imageUrl;
 
       // Upload image if provided
       if (imageFile != null) {
-        imageUrl = await _uploadCompetitionImage(imageFile);
+        finalImageUrl = await _uploadCompetitionImage(imageFile);
       }
 
       // Create competition with image URL
       final competitionWithImage = competition.copyWith(
-        imageUrl: imageUrl,
+        imageUrl: finalImageUrl,
         createdAt: DateTime.now(),
       );
 

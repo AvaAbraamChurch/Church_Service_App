@@ -1,3 +1,4 @@
+import 'package:church/core/constants/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:church/core/repositories/attendance_defaults_repository.dart';
 import 'package:church/core/styles/colors.dart';
@@ -123,28 +124,28 @@ Future<void> showAttendanceDefaultsDialog(BuildContext context) async {
                 children: [
                   _buildPointItem(
                     icon: Icons.church_rounded,
-                    title: 'القداس الإلهي',
+                    title: holyMass,
                     points: values['holy_mass']!,
                     color: Colors.purple,
                   ),
                   const SizedBox(height: 16),
                   _buildPointItem(
                     icon: Icons.school_rounded,
-                    title: 'مدارس الأحد',
+                    title: sunday,
                     points: values['sunday_school']!,
                     color: Colors.blue,
                   ),
                   const SizedBox(height: 16),
                   _buildPointItem(
                     icon: Icons.music_note_rounded,
-                    title: 'الألحان',
+                    title: hymns,
                     points: values['hymns']!,
                     color: Colors.orange,
                   ),
                   const SizedBox(height: 16),
                   _buildPointItem(
                     icon: Icons.menu_book_rounded,
-                    title: 'الكتاب المقدس',
+                    title: bibleClass,
                     points: values['bible']!,
                     color: Colors.green,
                   ),

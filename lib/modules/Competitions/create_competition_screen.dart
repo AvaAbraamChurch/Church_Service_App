@@ -46,7 +46,48 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
     super.dispose();
   }
 
+  String? _imageUrl;
+
   Future<void> _pickImage() async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'اختر مصدر الصورة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text(
+                'من المعرض',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text(
+                'من رابط URL',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
+              onTap: () => Navigator.pop(context, 'url'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == 'gallery') {
+      await _pickImageFromGallery();
+    } else if (choice == 'url') {
+      await _pickImageFromUrl();
+    }
+  }
+
+  Future<void> _pickImageFromGallery() async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -58,6 +99,7 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
       if (image != null) {
         setState(() {
           _imageFile = File(image.path);
+          _imageUrl = null;
         });
       }
     } catch (e) {
@@ -69,6 +111,48 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _pickImageFromUrl() async {
+    final urlController = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'أدخل رابط الصورة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(
+            labelText: 'URL',
+            hintText: 'https://example.com/image.jpg',
+          ),
+          keyboardType: TextInputType.url,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (urlController.text.trim().isNotEmpty) {
+                Navigator.pop(context, urlController.text.trim());
+              }
+            },
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+
+    if (url != null && url.isNotEmpty) {
+      setState(() {
+        _imageUrl = url;
+        _imageFile = null;
+      });
     }
   }
 
@@ -236,6 +320,7 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
     final competitionId = await cubit.createCompetition(
       competition: competition,
       imageFile: _imageFile,
+      imageUrl: _imageUrl,
     );
 
     if (competitionId != null && mounted) {
@@ -358,26 +443,62 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
                           ),
                           child: _imageFile != null
                               ? ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: Image.file(
-                              _imageFile!,
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                              : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.add_photo_alternate, size: 50, color: Colors.green[300]),
-                              const SizedBox(height: 8),
-                              Text(
-                                'إضافة صورة',
-                                style: TextStyle(
-                                  color: Colors.green[700],
-                                  fontFamily: 'Alexandria',
-                                ),
-                              ),
-                            ],
-                          ),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.file(
+                                    _imageFile!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : _imageUrl != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: Image.network(
+                                        _imageUrl!,
+                                        fit: BoxFit.cover,
+                                        loadingBuilder: (context, child, loadingProgress) {
+                                          if (loadingProgress == null) return child;
+                                          return Center(
+                                            child: CircularProgressIndicator(
+                                              value: loadingProgress.expectedTotalBytes != null
+                                                  ? loadingProgress.cumulativeBytesLoaded /
+                                                      loadingProgress.expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          );
+                                        },
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.error, size: 40, color: Colors.red[300]),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'فشل تحميل الصورة',
+                                                style: TextStyle(
+                                                  color: Colors.red[700],
+                                                  fontSize: 12,
+                                                  fontFamily: 'Alexandria',
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    )
+                                  : Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.add_photo_alternate, size: 50, color: Colors.green[300]),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'إضافة صورة',
+                                          style: TextStyle(
+                                            color: Colors.green[700],
+                                            fontFamily: 'Alexandria',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                         ),
                       ),
                     ),
@@ -959,6 +1080,45 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
   }
 
   Future<void> _pickQuestionImage() async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'اختر مصدر الصورة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text(
+                'من المعرض',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text(
+                'من رابط URL',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
+              onTap: () => Navigator.pop(context, 'url'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == 'gallery') {
+      await _pickQuestionImageFromGallery();
+    } else if (choice == 'url') {
+      await _pickQuestionImageFromUrl();
+    }
+  }
+
+  Future<void> _pickQuestionImageFromGallery() async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -970,6 +1130,7 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
       if (image != null) {
         setState(() {
           _questionImageFile = File(image.path);
+          _questionImageUrl = null;
         });
       }
     } catch (e) {
@@ -984,7 +1145,88 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
     }
   }
 
+  Future<void> _pickQuestionImageFromUrl() async {
+    final urlController = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'أدخل رابط صورة السؤال',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(
+            labelText: 'URL',
+            hintText: 'https://example.com/image.jpg',
+          ),
+          keyboardType: TextInputType.url,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (urlController.text.trim().isNotEmpty) {
+                Navigator.pop(context, urlController.text.trim());
+              }
+            },
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+
+    if (url != null && url.isNotEmpty) {
+      setState(() {
+        _questionImageUrl = url;
+        _questionImageFile = null;
+      });
+    }
+  }
+
   Future<void> _pickAnswerImage(int index) async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'اختر مصدر الصورة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text(
+                'من المعرض',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text(
+                'من رابط URL',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
+              onTap: () => Navigator.pop(context, 'url'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == 'gallery') {
+      await _pickAnswerImageFromGallery(index);
+    } else if (choice == 'url') {
+      await _pickAnswerImageFromUrl(index);
+    }
+  }
+
+  Future<void> _pickAnswerImageFromGallery(int index) async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -996,6 +1238,7 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
       if (image != null) {
         setState(() {
           _answers[index].imageFile = File(image.path);
+          _answers[index].imageUrl = null;
         });
       }
     } catch (e) {
@@ -1007,6 +1250,48 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _pickAnswerImageFromUrl(int index) async {
+    final urlController = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'أدخل رابط صورة الإجابة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(
+            labelText: 'URL',
+            hintText: 'https://example.com/image.jpg',
+          ),
+          keyboardType: TextInputType.url,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (urlController.text.trim().isNotEmpty) {
+                Navigator.pop(context, urlController.text.trim());
+              }
+            },
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+
+    if (url != null && url.isNotEmpty) {
+      setState(() {
+        _answers[index].imageUrl = url;
+        _answers[index].imageFile = null;
+      });
     }
   }
 
@@ -1265,7 +1550,7 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
               const SizedBox(height: 16),
 
               // Question Image (for images type or optional for other types)
-              if (_questionType == QuestionType.images || _questionImageFile != null)
+              if (_questionType == QuestionType.images || _questionImageFile != null || _questionImageUrl != null)
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -1287,7 +1572,7 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
                               fontFamily: 'Alexandria',
                             ),
                           ),
-                          if (_questionImageFile != null)
+                          if (_questionImageFile != null || _questionImageUrl != null)
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red, size: 20),
                               onPressed: () {
@@ -1300,14 +1585,43 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      if (_questionImageFile != null)
+                      if (_questionImageFile != null || _questionImageUrl != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            _questionImageFile!,
-                            height: 150,
-                            fit: BoxFit.cover,
-                          ),
+                          child: _questionImageFile != null
+                              ? Image.file(
+                                  _questionImageFile!,
+                                  height: 150,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.network(
+                                  _questionImageUrl!,
+                                  height: 150,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return SizedBox(
+                                      height: 150,
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          value: loadingProgress.expectedTotalBytes != null
+                                              ? loadingProgress.cumulativeBytesLoaded /
+                                                  loadingProgress.expectedTotalBytes!
+                                              : null,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      height: 150,
+                                      color: Colors.grey[200],
+                                      child: const Center(
+                                        child: Icon(Icons.error, color: Colors.red, size: 40),
+                                      ),
+                                    );
+                                  },
+                                ),
                         )
                       else
                         OutlinedButton.icon(
@@ -1321,7 +1635,7 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
                     ],
                   ),
                 ),
-              if (_questionType == QuestionType.images || _questionImageFile != null)
+              if (_questionType == QuestionType.images || _questionImageFile != null || _questionImageUrl != null)
                 const SizedBox(height: 16),
 
               // Answers
@@ -1398,22 +1712,51 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
                               ],
                             ),
                             // Answer image (for images type or optional)
-                            if (_questionType == QuestionType.images || _answers[index].imageFile != null)
+                            if (_questionType == QuestionType.images || _answers[index].imageFile != null || _answers[index].imageUrl != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8, right: 48),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    if (_answers[index].imageFile != null)
+                                    if (_answers[index].imageFile != null || _answers[index].imageUrl != null)
                                       Stack(
                                         children: [
                                           ClipRRect(
                                             borderRadius: BorderRadius.circular(8),
-                                            child: Image.file(
-                                              _answers[index].imageFile!,
-                                              height: 100,
-                                              fit: BoxFit.cover,
-                                            ),
+                                            child: _answers[index].imageFile != null
+                                                ? Image.file(
+                                                    _answers[index].imageFile!,
+                                                    height: 100,
+                                                    fit: BoxFit.cover,
+                                                  )
+                                                : Image.network(
+                                                    _answers[index].imageUrl!,
+                                                    height: 100,
+                                                    fit: BoxFit.cover,
+                                                    loadingBuilder: (context, child, loadingProgress) {
+                                                      if (loadingProgress == null) return child;
+                                                      return SizedBox(
+                                                        height: 100,
+                                                        child: Center(
+                                                          child: CircularProgressIndicator(
+                                                            value: loadingProgress.expectedTotalBytes != null
+                                                                ? loadingProgress.cumulativeBytesLoaded /
+                                                                    loadingProgress.expectedTotalBytes!
+                                                                : null,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                    errorBuilder: (context, error, stackTrace) {
+                                                      return Container(
+                                                        height: 100,
+                                                        color: Colors.grey[200],
+                                                        child: const Center(
+                                                          child: Icon(Icons.error, color: Colors.red),
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
                                           ),
                                           Positioned(
                                             top: 4,
@@ -1467,36 +1810,36 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
                     foregroundColor: Colors.green[600],
                   ),
                 ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Save Button at bottom
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: ElevatedButton(
-                  onPressed: _saveQuestion,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[600],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'حفظ السؤال',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Alexandria',
-                    ),
-                  ),
-                ),
-              ),
             ],
+          ),
+        ),
+      ),
+
+      // Save Button at bottom
+      const Divider(height: 1),
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: ElevatedButton(
+          onPressed: _saveQuestion,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green[600],
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            'حفظ السؤال',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Alexandria',
+            ),
+          ),
+        ),
+      ),
+    ],
           ),
         ),
       ),
