@@ -428,7 +428,7 @@ class QuestionsRepository {
       final snapshot = await _questionsCollection
           .orderBy('questionText')
           .startAt([searchQuery])
-          .endAt([searchQuery + '\uf8ff'])
+          .endAt(['$searchQuery\uf8ff'])
           .get();
 
       return snapshot.docs

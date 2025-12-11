@@ -7,7 +7,6 @@ import 'package:church/core/utils/classes_mapping.dart';
 import 'package:church/core/models/class_mapping/class_mapping_model.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/models/class_mapping/class_mapping_model.dart';
 
 class CreateUserScreen extends StatefulWidget {
   const CreateUserScreen({super.key});

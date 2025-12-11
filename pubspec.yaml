@@ -76,6 +76,7 @@ dependencies:
   # UUID generation
   uuid: ^4.5.1
 
+  provider: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

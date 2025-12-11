@@ -86,8 +86,12 @@ class _VisitServantViewState extends State<VisitServantView> {
           _fetchedNonPriests = users;
           // Merge with priests list (if any) and deduplicate by id
           final Map<String, UserModel> merged = {};
-          for (final u in _fetchedNonPriests) merged[u.id] = u;
-          for (final p in _fetchedPriests) merged[p.id] = p;
+          for (final u in _fetchedNonPriests) {
+            merged[u.id] = u;
+          }
+          for (final p in _fetchedPriests) {
+            merged[p.id] = p;
+          }
           _fetchedUsers = merged.values.toList();
           _isLoadingUsers = false;
         });
@@ -114,8 +118,12 @@ class _VisitServantViewState extends State<VisitServantView> {
             _fetchedPriests = priests;
             // Merge and deduplicate
             final Map<String, UserModel> merged = {};
-            for (final u in _fetchedNonPriests) merged[u.id] = u;
-            for (final p in _fetchedPriests) merged[p.id] = p;
+            for (final u in _fetchedNonPriests) {
+              merged[u.id] = u;
+            }
+            for (final p in _fetchedPriests) {
+              merged[p.id] = p;
+            }
             _fetchedUsers = merged.values.toList();
             _isLoadingUsers = false;
           });

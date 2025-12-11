@@ -116,10 +116,10 @@ class _HomeLayoutState extends State<HomeLayout>
 
   @override
   Widget build(BuildContext context) {
-    final MessagesRepository _messagesRepo = MessagesRepository();
+    final MessagesRepository messagesRepo = MessagesRepository();
 
     // Stream for unread messages count for this user
-    final Stream<int> unreadStream = _messagesRepo.getUnreadMessageCount(widget.userId);
+    final Stream<int> unreadStream = messagesRepo.getUnreadMessageCount(widget.userId);
 
     // Icon builders that depend on current unread count
     List<Widget> buildActiveIcons(int unreadCount) => [

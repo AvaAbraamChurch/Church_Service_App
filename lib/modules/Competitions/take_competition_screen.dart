@@ -587,7 +587,7 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                               ),
                             ),
                           );
-                        }).toList(),
+                        }),
                       ],
                     ),
                   ),

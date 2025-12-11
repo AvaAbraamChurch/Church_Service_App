@@ -5,7 +5,7 @@ import 'package:church/core/providers/theme_provider.dart';
 /// Example screen showing how to use Remote Config Theme
 /// This can be integrated into your settings or admin panel
 class ThemeConfigScreen extends StatelessWidget {
-  const ThemeConfigScreen({Key? key}) : super(key: key);
+  const ThemeConfigScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

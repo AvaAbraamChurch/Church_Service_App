@@ -1,7 +1,6 @@
 import 'package:church/core/blocs/home/home_cubit.dart';
 import 'package:church/core/blocs/home/home_states.dart';
 import 'package:church/core/models/user/user_model.dart';
-import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/service_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';

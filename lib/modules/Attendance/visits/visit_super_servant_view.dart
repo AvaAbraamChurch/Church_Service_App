@@ -79,8 +79,12 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
         _fetchedNonPriests = users;
         // merge and dedupe
         final Map<String, UserModel> merged = {};
-        for (final u in _fetchedNonPriests) merged[u.id] = u;
-        for (final p in _fetchedPriests) merged[p.id] = p;
+        for (final u in _fetchedNonPriests) {
+          merged[u.id] = u;
+        }
+        for (final p in _fetchedPriests) {
+          merged[p.id] = p;
+        }
         _fetchedUsers = merged.values.toList();
         _isLoadingUsers = false;
       });
@@ -96,8 +100,12 @@ class _VisitSuperServantViewState extends State<VisitSuperServantView> {
         setState(() {
           _fetchedPriests = priests; // keep as-is (no gender filtering) so priests appear for visiting
           final Map<String, UserModel> merged = {};
-          for (final u in _fetchedNonPriests) merged[u.id] = u;
-          for (final p in _fetchedPriests) merged[p.id] = p;
+          for (final u in _fetchedNonPriests) {
+            merged[u.id] = u;
+          }
+          for (final p in _fetchedPriests) {
+            merged[p.id] = p;
+          }
           _fetchedUsers = merged.values.toList();
           _isLoadingUsers = false;
         });

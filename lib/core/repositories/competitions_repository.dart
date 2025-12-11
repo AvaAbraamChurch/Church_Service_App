@@ -269,7 +269,7 @@ class CompetitionsRepository {
       final snapshot = await _competitionsCollection
           .orderBy('competitionName')
           .startAt([searchQuery])
-          .endAt([searchQuery + '\uf8ff'])
+          .endAt(['$searchQuery\uf8ff'])
           .get();
 
       return snapshot.docs

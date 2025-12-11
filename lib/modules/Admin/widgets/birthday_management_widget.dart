@@ -124,7 +124,7 @@ class _BirthdayManagementWidgetState extends State<BirthdayManagementWidget> {
                               style: const TextStyle(fontSize: 14),
                             ),
                           );
-                        }).toList(),
+                        }),
                       ],
                     ),
                   );
