@@ -241,10 +241,20 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
       }
     }
 
-    final pointsPerQuestion = int.tryParse(_pointsPerQuestionController.text) ?? 10;
+    final pointsPerQuestion = double.tryParse(_pointsPerQuestionController.text) ?? 10.0;
     final totalPoints = _scoringMode == 'total'
-        ? (int.tryParse(_totalPointsController.text) ?? (_questions.length * 10))
+        ? (double.tryParse(_totalPointsController.text) ?? (_questions.length * 10.0))
         : (pointsPerQuestion * _questions.length);
+
+    // Distribute points to each question if using total points mode
+    final updatedQuestions = _questions.map((question) {
+      if (_scoringMode == 'total') {
+        final distributedPoints = totalPoints / _questions.length;
+        return question.copyWith(points: distributedPoints);
+      } else {
+        return question.copyWith(points: pointsPerQuestion);
+      }
+    }).toList();
 
     final updatedData = {
       'competitionName': _nameController.text.trim(),
@@ -252,7 +262,7 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
       'startDate': _startDate,
       'endDate': _endDate,
       'numberOfQuestions': _questions.length,
-      'questions': _questions.map((q) => q.toJson()).toList(),
+      'questions': updatedQuestions.map((q) => q.toJson()).toList(),
       'isActive': _isActive,
       'targetAudience': _targetAudience,
       'targetGender': _targetGender,
@@ -683,10 +693,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              keyboardType: TextInputType.number,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               validator: (value) {
                                 if (value != null && value.isNotEmpty) {
-                                  final points = int.tryParse(value);
+                                  final points = double.tryParse(value);
                                   if (points == null || points <= 0) {
                                     return 'يرجى إدخال رقم صحيح';
                                   }
@@ -713,25 +723,56 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  keyboardType: TextInputType.number,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                   validator: (value) {
                                     if (value != null && value.isNotEmpty) {
-                                      final points = int.tryParse(value);
+                                      final points = double.tryParse(value);
                                       if (points == null || points <= 0) {
                                         return 'يرجى إدخال رقم صحيح';
                                       }
                                     }
                                     return null;
                                   },
+                                  onChanged: (value) {
+                                    // Show real-time point distribution
+                                    setState(() {});
+                                  },
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  'سيتم توزيع النقاط على جميع الأسئلة',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.7),
-                                    fontSize: 12,
-                                    fontFamily: 'Alexandria',
-                                  ),
+                                Builder(
+                                  builder: (context) {
+                                    if (_questions.isEmpty || _totalPointsController.text.isEmpty) {
+                                      return Text(
+                                        'سيتم توزيع النقاط على جميع الأسئلة',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.7),
+                                          fontSize: 12,
+                                          fontFamily: 'Alexandria',
+                                        ),
+                                      );
+                                    }
+                                    final totalPoints = double.tryParse(_totalPointsController.text);
+                                    if (totalPoints != null && totalPoints > 0) {
+                                      final pointsPerQuestion = totalPoints / _questions.length;
+                                      return Text(
+                                        'سيتم توزيع النقاط: ${pointsPerQuestion.toStringAsFixed(3)} نقطة لكل سؤال (${_questions.length} سؤال)',
+                                        style: TextStyle(
+                                          color: Colors.green[300],
+                                          fontSize: 12,
+                                          fontFamily: 'Alexandria',
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      );
+                                    }
+                                    return Text(
+                                      'سيتم توزيع النقاط على جميع الأسئلة',
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.7),
+                                        fontSize: 12,
+                                        fontFamily: 'Alexandria',
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),

@@ -439,8 +439,8 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
         return null;
       }
 
-      int totalScore = 0;
-      int totalPoints = competition.totalPoints ?? 0;
+      double totalScore = 0.0;
+      double totalPoints = competition.totalPoints ?? 0.0;
 
       // Validate each answer
       for (final question in competition.questions) {
@@ -451,12 +451,12 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
         final isCorrect = question.isCorrectAnswer(selectedAnswers);
 
         if (isCorrect) {
-          totalScore += question.points ?? 0;
+          totalScore += question.points ?? 0.0;
         }
       }
 
       emit(SubmitAnswersSuccess(totalScore, totalPoints));
-      return totalScore;
+      return totalScore.ceil();
     } catch (e) {
       debugPrint('Error validating answers: $e');
       emit(SubmitAnswersError(e.toString()));
@@ -520,7 +520,7 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   Future<void> submitCompetitionResult({
     required String userId,
     required String competitionId,
-    required int score,
+    required double score,
     required int totalQuestions,
     required int correctAnswers,
   }) async {
@@ -532,7 +532,7 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
         userId: userId,
         competitionId: competitionId,
         score: score,
-        totalQuestions: totalQuestions,
+        totalQuestions: totalQuestions.toDouble(),
         correctAnswers: correctAnswers,
         completedAt: DateTime.now(),
       );
@@ -541,7 +541,7 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
       if (score > 0) {
         await _pointsService.addPoints(
           userId,
-          score,
+          score.ceil(), // Convert to integer for points service
           orderId: resultId,
         );
       }

@@ -403,8 +403,8 @@ class CompetitionsRepository {
   Future<String> saveCompetitionResult({
     required String userId,
     required String competitionId,
-    required int score,
-    required int totalQuestions,
+    required double score,
+    required double totalQuestions,
     required int correctAnswers,
     required DateTime completedAt,
   }) async {
@@ -423,7 +423,9 @@ class CompetitionsRepository {
       if (existingResult.docs.isNotEmpty) {
         // Update existing result if new score is better
         final existingDoc = existingResult.docs.first;
-        final existingScore = existingDoc.data()['score'] as int? ?? 0;
+        final existingScore = (existingDoc.data()['score'] is int)
+            ? (existingDoc.data()['score'] as int).toDouble()
+            : (existingDoc.data()['score'] as double? ?? 0.0);
 
         if (score > existingScore) {
           // Update with better score

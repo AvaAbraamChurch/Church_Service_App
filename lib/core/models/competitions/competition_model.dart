@@ -14,8 +14,8 @@ class CompetitionModel {
   final String? createdBy; // User ID of creator
   final String? targetAudience; // 'all', 'children', 'servants', etc.
   final String? targetGender; // 'all', 'M', 'F' - Filter by gender
-  final int? pointsPerQuestion;
-  final int? totalPoints;
+  final double? pointsPerQuestion;
+  final double? totalPoints;
   final String? imageUrl;
 
   CompetitionModel({
@@ -64,8 +64,16 @@ class CompetitionModel {
       createdBy: json['createdBy'] as String?,
       targetAudience: json['targetAudience'] as String?,
       targetGender: json['targetGender'] as String?,
-      pointsPerQuestion: json['pointsPerQuestion'] as int?,
-      totalPoints: json['totalPoints'] as int?,
+      pointsPerQuestion: json['pointsPerQuestion'] != null
+          ? (json['pointsPerQuestion'] is int
+              ? (json['pointsPerQuestion'] as int).toDouble()
+              : json['pointsPerQuestion'] as double)
+          : null,
+      totalPoints: json['totalPoints'] != null
+          ? (json['totalPoints'] is int
+              ? (json['totalPoints'] as int).toDouble()
+              : json['totalPoints'] as double)
+          : null,
       imageUrl: json['imageUrl'] as String?,
     );
   }
@@ -105,8 +113,8 @@ class CompetitionModel {
     String? createdBy,
     String? targetAudience,
     String? targetGender,
-    int? pointsPerQuestion,
-    int? totalPoints,
+    double? pointsPerQuestion,
+    double? totalPoints,
     String? imageUrl,
   }) {
     return CompetitionModel(
@@ -152,7 +160,7 @@ class QuestionModel {
   final String? correctAnswerId; // For single choice questions
   final List<String>? correctAnswerIds; // For multiple choice questions
   final String? imageUrl;
-  final int? points;
+  final double? points;
   final int orderIndex;
 
   QuestionModel({
@@ -185,7 +193,11 @@ class QuestionModel {
           ?.map((e) => e as String)
           .toList(),
       imageUrl: json['imageUrl'] as String?,
-      points: json['points'] as int?,
+      points: json['points'] != null
+          ? (json['points'] is int
+              ? (json['points'] as int).toDouble()
+              : json['points'] as double)
+          : null,
       orderIndex: json['orderIndex'] as int? ?? 0,
     );
   }
@@ -245,7 +257,7 @@ class QuestionModel {
     String? correctAnswerId,
     List<String>? correctAnswerIds,
     String? imageUrl,
-    int? points,
+    double? points,
     int? orderIndex,
   }) {
     return QuestionModel(

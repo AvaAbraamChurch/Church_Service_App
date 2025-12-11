@@ -103,8 +103,8 @@ class ToggleCompetitionStatusError extends CompetitionsState {
 class SubmitAnswersLoading extends CompetitionsState {}
 
 class SubmitAnswersSuccess extends CompetitionsState {
-  final int score;
-  final int totalPoints;
+  final double score;
+  final double totalPoints;
   SubmitAnswersSuccess(this.score, this.totalPoints);
 }
 

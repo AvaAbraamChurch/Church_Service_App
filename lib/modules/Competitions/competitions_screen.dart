@@ -370,8 +370,12 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
     final result = _userResults[competition.id];
     if (result == null) return;
 
-    final score = result['score'] as int? ?? 0;
-    final totalQuestions = result['totalQuestions'] as int? ?? 0;
+    final score = (result['score'] is int)
+        ? (result['score'] as int).toDouble()
+        : (result['score'] as double? ?? 0.0);
+    final totalQuestions = (result['totalQuestions'] is int)
+        ? (result['totalQuestions'] as int).toDouble()
+        : (result['totalQuestions'] as double? ?? 0.0);
     final correctAnswers = result['correctAnswers'] as int? ?? 0;
 
     showDialog(
@@ -437,7 +441,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                       _buildScoreItem(
                         icon: Icons.card_giftcard,
                         label: 'النقاط',
-                        value: '$score',
+                        value: score.toStringAsFixed(2),
                         color: Colors.amber,
                       ),
                       _buildScoreItem(
@@ -449,7 +453,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                       _buildScoreItem(
                         icon: Icons.quiz,
                         label: 'الأسئلة',
-                        value: '$totalQuestions',
+                        value: totalQuestions.toStringAsFixed(0),
                         color: Colors.blue,
                       ),
                     ],
@@ -530,8 +534,16 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
     required bool isCompleted,
     required VoidCallback onTap,
   }) {
-    final score = userResult?['score'] as int? ?? 0;
-    final totalQuestions = userResult?['totalQuestions'] as int? ?? 0;
+    final score = userResult != null
+        ? ((userResult['score'] is int)
+            ? (userResult['score'] as int).toDouble()
+            : (userResult['score'] as double? ?? 0.0))
+        : 0.0;
+    final totalQuestions = userResult != null
+        ? ((userResult['totalQuestions'] is int)
+            ? (userResult['totalQuestions'] as int).toDouble()
+            : (userResult['totalQuestions'] as double? ?? 0.0))
+        : 0.0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -644,7 +656,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'نتيجتك: $score نقطة',
+                                  'نتيجتك: ${score.toStringAsFixed(2)} نقطة',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.amber[800],
@@ -671,7 +683,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'من $totalQuestions سؤال',
+                                  'من ${totalQuestions.toStringAsFixed(0)} سؤال',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.green[700],
@@ -761,7 +773,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '${competition.totalPoints ?? 0} نقطة',
+                                  '${competition.totalPoints?.toStringAsFixed(2) ?? "0"} نقطة',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.amber[800],

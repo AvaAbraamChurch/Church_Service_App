@@ -24,7 +24,7 @@ class TakeCompetitionScreen extends StatefulWidget {
 class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
   final Map<int, List<String>> _userAnswers = {};
   bool _isSubmitted = false;
-  int _totalScore = 0;
+  double _totalScore = 0.0;
   List<bool> _correctness = [];
 
   void _selectAnswer(int questionIndex, String answerId, bool isMultiple) {
@@ -57,9 +57,9 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
     }
 
     // Calculate score
-    _totalScore = 0;
+    _totalScore = 0.0;
     _correctness = [];
-    final pointsPerQuestion = widget.competition.pointsPerQuestion ?? 10;
+    final pointsPerQuestion = widget.competition.pointsPerQuestion ?? 10.0;
 
     for (int i = 0; i < widget.competition.questions.length; i++) {
       final question = widget.competition.questions[i];
@@ -68,7 +68,8 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
 
       _correctness.add(isCorrect);
       if (isCorrect) {
-        _totalScore += pointsPerQuestion;
+        // Use question-specific points if available, otherwise use default pointsPerQuestion
+        _totalScore += (question.points ?? pointsPerQuestion);
       }
     }
 
@@ -325,7 +326,7 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                     ),
                     _buildInfoChip(
                       Icons.card_giftcard,
-                      '${widget.competition.totalPoints ?? 0} نقطة',
+                      '${widget.competition.totalPoints?.toStringAsFixed(2) ?? "0"} نقطة',
                     ),
                   ],
                 ),
@@ -636,7 +637,7 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '$_totalScore/${widget.competition.totalPoints}',
+                                  '${_totalScore.toStringAsFixed(2)}/${widget.competition.totalPoints?.toStringAsFixed(2) ?? "0"}',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 24,
