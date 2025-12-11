@@ -1,6 +1,7 @@
 import 'package:church/core/services/account_manager_service.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
+import 'package:church/modules/Splash/splash_screen.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 
@@ -29,6 +30,12 @@ class _AccountSwitcherScreenState extends State<AccountSwitcherScreen> {
     final accounts = await _accountManager.getSavedAccounts();
     final activeId = await _accountManager.getActiveAccountId();
 
+    debugPrint('📱 Loaded ${accounts.length} accounts');
+    debugPrint('📱 Active account ID: $activeId');
+    for (var acc in accounts) {
+      debugPrint('  - ${acc['displayName']} (${acc['email']})');
+    }
+
     setState(() {
       _accounts = accounts;
       _activeAccountId = activeId;
@@ -51,13 +58,59 @@ class _AccountSwitcherScreenState extends State<AccountSwitcherScreen> {
       Navigator.pop(context); // Close loading
 
       if (success) {
-        // Navigate back to home and refresh
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      } else {
+        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('فشل التبديل إلى الحساب'),
-            backgroundColor: Colors.red,
+            content: Text('تم التبديل إلى الحساب بنجاح'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+
+        // Wait a moment for the message to show
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        if (!mounted) return;
+
+        // Restart the app by navigating to splash screen and removing all previous routes
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => const SplashScreen(),
+          ),
+          (route) => false, // Remove all previous routes
+        );
+      } else {
+        // Show error dialog with option to login manually
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text(
+              'فشل التبديل',
+              style: TextStyle(fontFamily: 'Alexandria'),
+            ),
+            content: const Text(
+              'فشل التبديل إلى الحساب. قد يكون الحساب محذوف أو تم تغيير كلمة المرور.',
+              style: TextStyle(fontFamily: 'Alexandria'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('إلغاء'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  // Navigate to login screen
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                    (route) => false,
+                  );
+                },
+                child: const Text('تسجيل الدخول'),
+              ),
+            ],
           ),
         );
       }
@@ -175,6 +228,16 @@ class _AccountSwitcherScreenState extends State<AccountSwitcherScreen> {
               ),
               onPressed: () => Navigator.pop(context),
             ),
+            actions: [
+              // Debug button to reload accounts
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Colors.white),
+                onPressed: () {
+                  debugPrint('🔄 Manual refresh requested');
+                  _loadAccounts();
+                },
+              ),
+            ],
           ),
         ),
       ),

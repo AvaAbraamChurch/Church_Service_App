@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../network/local/cache_helper.dart';
@@ -9,18 +8,27 @@ class AccountManagerService {
   static const String _activeAccountKey = 'active_account_id';
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   /// Get all saved accounts
   Future<List<Map<String, dynamic>>> getSavedAccounts() async {
     try {
+      debugPrint('📖 Reading saved accounts from cache...');
       final accountsJson = await CacheHelper.getData(key: _accountsKey);
-      if (accountsJson == null) return [];
+
+      if (accountsJson == null) {
+        debugPrint('📖 No accounts found in cache');
+        return [];
+      }
+
+      debugPrint('📖 Raw data type: ${accountsJson.runtimeType}');
+      debugPrint('📖 Raw data: $accountsJson');
 
       final List<dynamic> accountsList = accountsJson as List<dynamic>;
-      return accountsList.map((e) => Map<String, dynamic>.from(e)).toList();
+      final result = accountsList.map((e) => Map<String, dynamic>.from(e)).toList();
+      debugPrint('📖 Successfully loaded ${result.length} accounts');
+      return result;
     } catch (e) {
-      debugPrint('Error getting saved accounts: $e');
+      debugPrint('❌ Error getting saved accounts: $e');
       return [];
     }
   }
@@ -35,7 +43,9 @@ class AccountManagerService {
     required String userType,
   }) async {
     try {
+      debugPrint('💾 Attempting to save account: $email (ID: $userId)');
       final accounts = await getSavedAccounts();
+      debugPrint('💾 Current accounts count: ${accounts.length}');
 
       // Check if account already exists
       final existingIndex = accounts.indexWhere((acc) => acc['userId'] == userId);
@@ -52,17 +62,26 @@ class AccountManagerService {
 
       if (existingIndex >= 0) {
         // Update existing account
+        debugPrint('💾 Updating existing account at index $existingIndex');
         accounts[existingIndex] = accountData;
       } else {
         // Add new account
+        debugPrint('💾 Adding new account');
         accounts.add(accountData);
       }
 
-      await CacheHelper.saveData(key: _accountsKey, value: accounts);
+      debugPrint('💾 Saving ${accounts.length} accounts to cache');
+      final saved = await CacheHelper.saveData(key: _accountsKey, value: accounts);
+      debugPrint('💾 Save result: $saved');
+
       await CacheHelper.saveData(key: _activeAccountKey, value: userId);
-      debugPrint('Account saved: $email');
+      debugPrint('✅ Account saved successfully: $email');
+
+      // Verify save
+      final savedAccounts = await getSavedAccounts();
+      debugPrint('🔍 Verification: ${savedAccounts.length} accounts in cache');
     } catch (e) {
-      debugPrint('Error saving account: $e');
+      debugPrint('❌ Error saving account: $e');
     }
   }
 
@@ -80,30 +99,40 @@ class AccountManagerService {
         return false;
       }
 
-      // Sign out current user
-      await _auth.signOut();
-
-      // Sign in with saved credentials
+      // Get credentials before signing out
       final email = account['email'] as String;
       final password = account['password'] as String;
 
-      await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      try {
+        // Sign out current user
+        await _auth.signOut();
 
-      // Update last used timestamp
-      account['lastUsed'] = DateTime.now().toIso8601String();
-      final index = accounts.indexWhere((acc) => acc['userId'] == userId);
-      accounts[index] = account;
+        // Sign in with saved credentials
+        await _auth.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
 
-      await CacheHelper.saveData(key: _accountsKey, value: accounts);
-      await CacheHelper.saveData(key: _activeAccountKey, value: userId);
+        // Update last used timestamp
+        account['lastUsed'] = DateTime.now().toIso8601String();
+        final index = accounts.indexWhere((acc) => acc['userId'] == userId);
+        accounts[index] = account;
 
-      debugPrint('Switched to account: $email');
-      return true;
+        await CacheHelper.saveData(key: _accountsKey, value: accounts);
+        await CacheHelper.saveData(key: _activeAccountKey, value: userId);
+
+        debugPrint('✅ Switched to account: $email');
+        return true;
+      } catch (authError) {
+        debugPrint('❌ Sign in failed during account switch: $authError');
+
+        // If sign-in failed, user is now signed out
+        // We can't rollback to previous account without their password
+        // Just return false and let the UI handle it
+        return false;
+      }
     } catch (e) {
-      debugPrint('Error switching account: $e');
+      debugPrint('❌ Error switching account: $e');
       return false;
     }
   }
