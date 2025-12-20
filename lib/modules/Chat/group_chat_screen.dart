@@ -50,7 +50,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   void _markMessagesAsRead() {
     if (_currentUserId != null) {
-      _groupChatRepository.markGroupMessagesAsSeen(widget.groupId, _currentUserId!);
+      _groupChatRepository.markGroupMessagesAsSeen(
+        widget.groupId,
+        _currentUserId!,
+      );
     }
   }
 
@@ -93,9 +96,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         backgroundColor: teal500,
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -179,7 +180,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 20,
+                  ),
                   itemCount: messages.length,
                   reverse: false,
                   itemBuilder: (context, index) {
@@ -245,7 +249,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: StreamBuilder<GroupChatModel?>(
-                    stream: _groupChatRepository.getGroupChatByIdStream(widget.groupId),
+                    stream: _groupChatRepository.getGroupChatByIdStream(
+                      widget.groupId,
+                    ),
                     builder: (context, snapshot) {
                       final group = snapshot.data;
                       final memberCount = group?.memberIds.length ?? 0;
@@ -357,12 +363,18 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   child: GestureDetector(
                     onLongPress: () => _copyMessageText(message.text),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: isMe
                               ? [teal500, teal900]
-                              : [sage700.withValues(alpha: 0.8), sage900.withValues(alpha: 0.8)],
+                              : [
+                                  sage700.withValues(alpha: 0.8),
+                                  sage900.withValues(alpha: 0.8),
+                                ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -371,66 +383,69 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           topRight: const Radius.circular(20),
                           bottomLeft: Radius.circular(isMe ? 20 : 4),
                           bottomRight: Radius.circular(isMe ? 4 : 20),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (!isMe)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              senderName,
-                              style: TextStyle(
-                                color: teal100,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (!isMe)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                senderName,
+                                style: TextStyle(
+                                  color: teal100,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
-                        LinkUtils.buildLinkifiedTextWidget(
-                          text: message.text,
-                          normalStyle: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                          linkStyle: TextStyle(
-                            color: isMe ? teal100 : Colors.lightBlueAccent,
-                            fontSize: 16,
-                            decoration: TextDecoration.underline,
-                            decorationColor: isMe ? teal100 : Colors.lightBlueAccent,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _formatTime(message.timestamp),
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.6),
-                                fontSize: 11,
-                              ),
+                          LinkUtils.buildLinkifiedTextWidget(
+                            text: message.text,
+                            normalStyle: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
                             ),
-                            if (isMe) ...[
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.done_all,
-                                size: 14,
-                                color: _getSeenIconColor(message),
+                            linkStyle: TextStyle(
+                              color: isMe ? teal100 : Colors.lightBlueAccent,
+                              fontSize: 16,
+                              decoration: TextDecoration.underline,
+                              decorationColor: isMe
+                                  ? teal100
+                                  : Colors.lightBlueAccent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _formatTime(message.timestamp),
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  fontSize: 11,
+                                ),
                               ),
+                              if (isMe) ...[
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.done_all,
+                                  size: 14,
+                                  color: _getSeenIconColor(message),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -472,7 +487,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   maxLines: null,
                   decoration: InputDecoration(
                     hintText: 'اكتب رسالة...',
-                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                    hintStyle: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
                     border: InputBorder.none,
                   ),
                 ),
@@ -515,7 +532,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Divider(color: Colors.white.withValues(alpha: 0.2), thickness: 1),
+            child: Divider(
+              color: Colors.white.withValues(alpha: 0.2),
+              thickness: 1,
+            ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -535,7 +555,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             ),
           ),
           Expanded(
-            child: Divider(color: Colors.white.withValues(alpha: 0.2), thickness: 1),
+            child: Divider(
+              color: Colors.white.withValues(alpha: 0.2),
+              thickness: 1,
+            ),
           ),
         ],
       ),
@@ -565,7 +588,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final messageDate = DateTime(
+      timestamp.year,
+      timestamp.month,
+      timestamp.day,
+    );
 
     if (messageDate == today) {
       return 'اليوم';
@@ -641,7 +668,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           ),
                           subtitle: Text(
                             user.userType.label,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                            ),
                           ),
                         );
                       },
@@ -701,4 +730,3 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 }
-
