@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/models/messages/message_model.dart';
@@ -7,6 +8,7 @@ import '../../core/repositories/messages_repository.dart';
 import '../../core/repositories/users_reopsitory.dart';
 import '../../core/styles/colors.dart';
 import '../../core/styles/themeScaffold.dart';
+import '../../core/utils/link_utils.dart';
 import '../../shared/avatar_display_widget.dart';
 
 class ChattingScreen extends StatefulWidget {
@@ -82,6 +84,24 @@ class _ChattingScreenState extends State<ChattingScreen> {
         );
       }
     });
+  }
+
+  void _copyMessageText(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'تم نسخ النص',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
+        backgroundColor: teal500,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
   }
 
   @override
@@ -182,7 +202,11 @@ class _ChattingScreenState extends State<ChattingScreen> {
                     return Column(
                       children: [
                         if (showTimestamp) _buildDateDivider(message.timestamp),
-                        _buildMessageBubble(message, isMe),
+                        InkWell(
+                          onLongPress: () {
+
+                    },
+                            child: _buildMessageBubble(message, isMe)),
                       ],
                     );
                   },
@@ -596,68 +620,78 @@ class _ChattingScreenState extends State<ChattingScreen> {
             const SizedBox(width: 8),
           ],
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                gradient: isMe
-                    ? LinearGradient(
-                        colors: [teal500, teal700],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : LinearGradient(
-                        colors: [
-                          sage600.withValues(alpha: 0.9),
-                          sage900.withValues(alpha: 0.9),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(20),
-                  topRight: const Radius.circular(20),
-                  bottomLeft: Radius.circular(isMe ? 20 : 4),
-                  bottomRight: Radius.circular(isMe ? 4 : 20),
+            child: GestureDetector(
+              onLongPress: () => _copyMessageText(message.text),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: isMe
+                      ? LinearGradient(
+                          colors: [teal500, teal700],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : LinearGradient(
+                          colors: [
+                            sage600.withValues(alpha: 0.9),
+                            sage900.withValues(alpha: 0.9),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(20),
+                    topRight: const Radius.circular(20),
+                    bottomLeft: Radius.circular(isMe ? 20 : 4),
+                    bottomRight: Radius.circular(isMe ? 4 : 20),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    message.text,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _formatTime(message.timestamp),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 11,
-                        ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LinkUtils.buildLinkifiedTextWidget(
+                      text: message.text,
+                      normalStyle: const TextStyle(color: Colors.white, fontSize: 16),
+                      linkStyle: TextStyle(
+                        color: isMe ? teal100 : Colors.lightBlueAccent,
+                        fontSize: 16,
+                        decoration: TextDecoration.underline,
+                        decorationColor: isMe ? teal100 : Colors.lightBlueAccent,
+                        fontWeight: FontWeight.w600,
                       ),
-                      if (isMe) ...[
-                        const SizedBox(width: 4),
-                        Icon(
-                          message.isSeen ? Icons.done_all : Icons.done,
-                          size: 16,
-                          color: message.isSeen
-                              ? teal100
-                              : Colors.white.withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _formatTime(message.timestamp),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 11,
+                          ),
                         ),
+                        if (isMe) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            message.isSeen ? Icons.done_all : Icons.done,
+                            size: 16,
+                            color: message.isSeen
+                                ? teal100
+                                : Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

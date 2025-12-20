@@ -1,6 +1,7 @@
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/models/messages/group_message_model.dart';
@@ -9,6 +10,7 @@ import '../../core/repositories/group_chat_repository.dart';
 import '../../core/repositories/users_reopsitory.dart';
 import '../../core/styles/colors.dart';
 import '../../core/styles/themeScaffold.dart';
+import '../../core/utils/link_utils.dart';
 import '../../shared/avatar_display_widget.dart';
 
 class GroupChatScreen extends StatefulWidget {
@@ -78,6 +80,24 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         );
       }
     });
+  }
+
+  void _copyMessageText(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'تم نسخ النص',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
+        backgroundColor: teal500,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
   }
 
   @override
@@ -334,21 +354,23 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   const SizedBox(width: 8),
                 ],
                 Flexible(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isMe
-                            ? [teal500, teal900]
-                            : [sage700.withValues(alpha: 0.8), sage900.withValues(alpha: 0.8)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(20),
-                        topRight: const Radius.circular(20),
-                        bottomLeft: Radius.circular(isMe ? 20 : 4),
-                        bottomRight: Radius.circular(isMe ? 4 : 20),
+                  child: GestureDetector(
+                    onLongPress: () => _copyMessageText(message.text),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isMe
+                              ? [teal500, teal900]
+                              : [sage700.withValues(alpha: 0.8), sage900.withValues(alpha: 0.8)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(20),
+                          topRight: const Radius.circular(20),
+                          bottomLeft: Radius.circular(isMe ? 20 : 4),
+                          bottomRight: Radius.circular(isMe ? 4 : 20),
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -373,11 +395,18 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                               ),
                             ),
                           ),
-                        Text(
-                          message.text,
-                          style: const TextStyle(
+                        LinkUtils.buildLinkifiedTextWidget(
+                          text: message.text,
+                          normalStyle: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
+                          ),
+                          linkStyle: TextStyle(
+                            color: isMe ? teal100 : Colors.lightBlueAccent,
+                            fontSize: 16,
+                            decoration: TextDecoration.underline,
+                            decorationColor: isMe ? teal100 : Colors.lightBlueAccent,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 4),
