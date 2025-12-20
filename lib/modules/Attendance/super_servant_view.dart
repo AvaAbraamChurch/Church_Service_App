@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/services/coupon_points_service.dart';
+import '../../core/repositories/attendance_defaults_repository.dart';
 import '../../shared/points_sync_widget.dart';
 
 class SuperServantView extends StatefulWidget {
@@ -20,25 +21,21 @@ class SuperServantView extends StatefulWidget {
   final String gender;
 
   const SuperServantView(
-    this.cubit, {
-    super.key,
-    required this.gender,
-    required this.pageIndex,
-  });
+      this.cubit, {
+        super.key,
+        required this.gender,
+        required this.pageIndex,
+      });
 
   @override
   State<SuperServantView> createState() => _SuperServantViewState();
 }
 
 class _SuperServantViewState extends State<SuperServantView> {
-  // Step 1: User type selection
   String? selectedUserType;
-
-  // Step 2: User attendance tracking
   final Map<String, AttendanceStatus> attendanceMap = {};
   final Map<String, int> userPointsMap = {};
 
-  // Local copy of loaded users based on selected type and gender
   List<UserModel> _loadedUsers = [];
   List<UserModel> filteredUsers = [];
   List<UserModel> servantsList = [];
@@ -46,11 +43,10 @@ class _SuperServantViewState extends State<SuperServantView> {
   final searchController = TextEditingController();
   bool isSubmitting = false;
   final CouponPointsService _pointsService = CouponPointsService();
+  final AttendanceDefaultsRepository _defaultsRepo = AttendanceDefaultsRepository();
 
-  // Loading indicator for fetching users based on selected type and gender
   bool isLoadingUsers = false;
 
-  // Filter state
   String? selectedClass;
   String? selectedGender;
   List<String> availableClasses = [];
@@ -64,12 +60,12 @@ class _SuperServantViewState extends State<SuperServantView> {
         widget.cubit.users
             ?.where((u) => u.userType.code == UserType.servant.code)
             .toList() ??
-        [];
+            [];
     chidrenList =
         widget.cubit.users
             ?.where((u) => u.userType.code == UserType.child.code)
             .toList() ??
-        [];
+            [];
   }
 
   @override
@@ -87,12 +83,10 @@ class _SuperServantViewState extends State<SuperServantView> {
     }
     _loadedUsers = List<UserModel>.from(users);
 
-    // Extract unique classes
     final classes = users.map((u) => u.userClass).toSet().toList();
     classes.sort();
     availableClasses = ['الكل', ...classes];
 
-    // Reset filters
     selectedClass = 'الكل';
     selectedGender = 'الكل';
 
@@ -102,33 +96,29 @@ class _SuperServantViewState extends State<SuperServantView> {
   void _filterUsers() {
     final query = normalizeArabic(searchController.text.toLowerCase());
     setState(() {
-      // Filter from the selected group (servants or children)
       final sourceList = selectedUserType == UserType.servant.code
           ? servantsList
           : chidrenList;
 
       List<UserModel> tempFiltered = List.from(sourceList);
 
-      // Apply class filter
       if (selectedClass != null && selectedClass != 'الكل') {
         tempFiltered = tempFiltered.where((user) => user.userClass == selectedClass).toList();
       }
 
-      // Apply gender filter (only for priests)
       if (selectedGender != null && selectedGender != 'الكل') {
         final genderCode = selectedGender == 'ذكر' ? 'M' : 'F';
         tempFiltered = tempFiltered.where((user) => user.gender.code == genderCode).toList();
       }
 
-      // Apply search query
       if (query.isEmpty) {
         filteredUsers = tempFiltered;
       } else {
         filteredUsers = tempFiltered
             .where(
               (user) =>
-                  normalizeArabic(user.fullName.toLowerCase()).contains(query),
-            )
+              normalizeArabic(user.fullName.toLowerCase()).contains(query),
+        )
             .toList();
       }
     });
@@ -148,6 +138,40 @@ class _SuperServantViewState extends State<SuperServantView> {
         return visit;
       default:
         return '';
+    }
+  }
+
+  String _getAttendanceTypeName() {
+    switch (widget.pageIndex) {
+      case 0:
+        return 'القداس';
+      case 1:
+        return 'مدارس الأحد';
+      case 2:
+        return 'الالحان';
+      case 3:
+        return 'درس الكتاب';
+      case 4:
+        return 'الافتقاد';
+      default:
+        return '';
+    }
+  }
+
+  int _getDefaultPointsForType(Map<String, int> defaults) {
+    switch (widget.pageIndex) {
+      case 0:
+        return defaults['holy_mass'] ?? 1;
+      case 1:
+        return defaults['sunday_school'] ?? 1;
+      case 2:
+        return defaults['hymns'] ?? 1;
+      case 3:
+        return defaults['bible'] ?? 1;
+      case 4:
+        return 1;
+      default:
+        return 1;
     }
   }
 
@@ -191,6 +215,32 @@ class _SuperServantViewState extends State<SuperServantView> {
       await widget.cubit.batchTakeAttendance(attendanceList);
       debugPrint('🟢 [SuperServantView] batchTakeAttendance completed');
 
+      // Add points automatically for present children
+      final defaults = await _defaultsRepo.getDefaults();
+      final defaultPoints = _getDefaultPointsForType(defaults);
+
+      final presentChildren = attendanceMap.entries
+          .where((entry) => entry.value == AttendanceStatus.present)
+          .map((entry) => entry.key)
+          .where((userId) {
+        final user = _loadedUsers.firstWhere((u) => u.id == userId);
+        return user.userType.code == UserType.child.code;
+      })
+          .toList();
+
+      if (presentChildren.isNotEmpty) {
+        debugPrint('🟢 [SuperServantView] Adding points to ${presentChildren.length} present children');
+
+        final result = await _pointsService.bulkSetPoints(
+          presentChildren,
+          defaultPoints,
+          'حضور - ${_getAttendanceTypeName()}',
+          widget.cubit.currentUser?.id ?? 'system',
+        );
+
+        debugPrint('🟢 [SuperServantView] Points added successfully to ${result['successCount']} children');
+      }
+
       if (mounted) {
         setState(() {
           attendanceMap.clear();
@@ -198,6 +248,22 @@ class _SuperServantViewState extends State<SuperServantView> {
           _loadedUsers = [];
           filteredUsers = [];
         });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              presentChildren.isNotEmpty
+                  ? 'تم تسجيل الحضور وإضافة $defaultPoints نقطة لـ ${presentChildren.length} مخدوم'
+                  : 'تم تسجيل الحضور بنجاح',
+              style: const TextStyle(fontFamily: 'Alexandria'),
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
       }
     } catch (e) {
       debugPrint('❌ [SuperServantView] Error in _submitAttendance: $e');
@@ -219,228 +285,6 @@ class _SuperServantViewState extends State<SuperServantView> {
         setState(() {
           isSubmitting = false;
         });
-      }
-    }
-  }
-
-  void _showBulkPointsDialog() {
-    final TextEditingController pointsController = TextEditingController();
-    final TextEditingController reasonController = TextEditingController(text: 'حضور - ${_getAttendanceTypeFromIndex(widget.pageIndex)}');
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: teal100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.card_giftcard, color: teal700, size: 24),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'إضافة نقاط للمخدومين',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'سيتم إضافة النقاط فقط للمخدومين الحاضرين',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: pointsController,
-                keyboardType: TextInputType.numberWithOptions(signed: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^-?\d*')),
-                ],
-                decoration: InputDecoration(
-                  labelText: 'عدد النقاط',
-                  hintText: 'أدخل عدد النقاط (موجب أو سالب)',
-                  prefixIcon: Icon(Icons.add_circle_outline, color: teal500),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: teal500, width: 2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: reasonController,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  labelText: 'السبب',
-                  hintText: 'سبب إضافة النقاط',
-                  prefixIcon: Icon(Icons.notes, color: teal500),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: teal500, width: 2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: teal50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: teal300),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: teal700, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'يمكنك إدخال قيم سالبة لخصم النقاط',
-                        style: TextStyle(fontSize: 12, color: teal900),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final pointsText = pointsController.text.trim();
-              final reason = reasonController.text.trim();
-
-              if (pointsText.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('الرجاء إدخال عدد النقاط'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
-              final points = int.tryParse(pointsText);
-              if (points == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('الرجاء إدخال رقم صحيح'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
-              if (reason.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('الرجاء إدخال السبب'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
-              Navigator.pop(context);
-              await _applyBulkPoints(points, reason);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: teal500,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: const Text('تطبيق', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _applyBulkPoints(int points, String reason) async {
-    try {
-      setState(() => isSubmitting = true);
-
-      // Get only present children
-      final presentChildren = attendanceMap.entries
-          .where((entry) => entry.value == AttendanceStatus.present)
-          .map((entry) => entry.key)
-          .where((userId) {
-            final user = _loadedUsers.firstWhere((u) => u.id == userId);
-            return user.userType.code == UserType.child.code;
-          })
-          .toList();
-
-      if (presentChildren.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('لا يوجد مخدومين حاضرين لإضافة النقاط لهم'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
-
-      final result = await _pointsService.bulkSetPoints(
-        presentChildren,
-        points,
-        reason,
-        widget.cubit.currentUser?.id ?? 'system',
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم ${points >= 0 ? 'إضافة' : 'خصم'} ${points.abs()} نقطة لـ ${result['successCount']} مخدوم بنجاح',
-              style: const TextStyle(fontFamily: 'Alexandria'),
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // Refresh user points
-        for (var userId in presentChildren) {
-          final currentPoints = await _pointsService.getUserPoints(userId);
-          setState(() {
-            userPointsMap[userId] = currentPoints;
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في تطبيق النقاط: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => isSubmitting = false);
       }
     }
   }
@@ -590,7 +434,6 @@ class _SuperServantViewState extends State<SuperServantView> {
         widget.cubit.currentUser?.id ?? 'system',
       );
 
-      // Refresh user points
       final currentPoints = await _pointsService.getUserPoints(userId);
       setState(() {
         userPointsMap[userId] = currentPoints;
@@ -625,12 +468,10 @@ class _SuperServantViewState extends State<SuperServantView> {
 
   @override
   Widget build(BuildContext context) {
-    // Step 1: User type selection
     if (selectedUserType == null) {
       return _buildUserTypeSelection();
     }
 
-    // Step 2: Attendance taking
     return _buildAttendanceTaking(
       selectedUserType == UserType.servant.code
           ? UserType.servant
@@ -641,9 +482,7 @@ class _SuperServantViewState extends State<SuperServantView> {
   Widget _buildUserTypeSelection() {
     return Column(
       children: [
-        // Points sync status widget
         const PointsSyncStatusWidget(),
-        // Header
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -706,7 +545,6 @@ class _SuperServantViewState extends State<SuperServantView> {
         ),
         const SizedBox(height: 30),
 
-        // User type cards
         Expanded(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -718,9 +556,9 @@ class _SuperServantViewState extends State<SuperServantView> {
                 color: red500,
                 userType: UserType.servant.code,
                 count:
-                    widget.cubit.users
-                        ?.where((u) => u.userType.code == UserType.servant.code)
-                        .length ??
+                widget.cubit.users
+                    ?.where((u) => u.userType.code == UserType.servant.code)
+                    .length ??
                     0,
               ),
               const SizedBox(height: 16),
@@ -731,9 +569,9 @@ class _SuperServantViewState extends State<SuperServantView> {
                 color: sage500,
                 userType: UserType.child.code,
                 count:
-                    widget.cubit.users
-                        ?.where((u) => u.userType.code == UserType.child.code)
-                        .length ??
+                widget.cubit.users
+                    ?.where((u) => u.userType.code == UserType.child.code)
+                    .length ??
                     0,
               ),
             ],
@@ -779,12 +617,12 @@ class _SuperServantViewState extends State<SuperServantView> {
                   widget.cubit.users
                       ?.where((u) => u.userType.code == UserType.servant.code)
                       .toList() ??
-                  [];
+                      [];
               chidrenList =
                   widget.cubit.users
                       ?.where((u) => u.userType.code == UserType.child.code)
                       .toList() ??
-                  [];
+                      [];
               isLoadingUsers = true;
             });
 
@@ -799,7 +637,7 @@ class _SuperServantViewState extends State<SuperServantView> {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('تمعتذر تحميل المستخدمين: $e'),
+                    content: Text('تعذر تحميل المستخدمين: $e'),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -886,9 +724,7 @@ class _SuperServantViewState extends State<SuperServantView> {
 
         return Column(
           children: [
-            // Points sync status widget
             const PointsSyncStatusWidget(),
-            // Header with back button
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -896,329 +732,295 @@ class _SuperServantViewState extends State<SuperServantView> {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
-            children: [
-              if (!keyboardVisible)
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      selectedUserType = null;
-                      attendanceMap.clear();
-                      searchController.clear();
-                      _loadedUsers = [];
-                      filteredUsers = [];
-                      servantsList = [];
-                      chidrenList = [];
-                      selectedClass = null;
-                      selectedGender = null;
-                      availableClasses = [];
-                    });
-                  },
-                  icon: const Icon(Icons.arrow_back, color: teal900),
-                ),
-              Expanded(
-                child: Text(
-                  selectedUserType == UserType.servant.code
-                      ? 'الخدام'
-                      : 'المخدومين',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: teal900,
+                children: [
+                  if (!keyboardVisible)
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          selectedUserType = null;
+                          attendanceMap.clear();
+                          searchController.clear();
+                          _loadedUsers = [];
+                          filteredUsers = [];
+                          servantsList = [];
+                          chidrenList = [];
+                          selectedClass = null;
+                          selectedGender = null;
+                          availableClasses = [];
+                        });
+                      },
+                      icon: const Icon(Icons.arrow_back, color: teal900),
+                    ),
+                  Expanded(
+                    child: Text(
+                      selectedUserType == UserType.servant.code
+                          ? 'الخدام'
+                          : 'المخدومين',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: teal900,
+                      ),
+                    ),
                   ),
-                ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: teal300,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      searchController.text.isEmpty
+                          ? '${selectedUserType == UserType.servant.code ? servantsList.length : chidrenList.length} مستخدم'
+                          : '${filteredUsers.length} من ${selectedUserType == UserType.servant.code ? servantsList.length : chidrenList.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
+            ),
+            const SizedBox(height: 16),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
                 decoration: BoxDecoration(
-                  color: teal300,
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  searchController.text.isEmpty
-                      ? '${selectedUserType == UserType.servant.code ? servantsList.length : chidrenList.length} مستخدم'
-                      : '${filteredUsers.length} من ${selectedUserType == UserType.servant.code ? servantsList.length : chidrenList.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                child: TextField(
+                  controller: searchController,
+                  enabled: !isLoadingUsers,
+                  decoration: InputDecoration(
+                    hintText: 'بحث...',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    prefixIcon: Icon(Icons.search, color: teal500),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Search bar
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
-            child: TextField(
-              controller: searchController,
-              enabled: !isLoadingUsers,
-              decoration: InputDecoration(
-                hintText: 'بحث...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: Icon(Icons.search, color: teal500),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-        // Filter chips
-        if (!isLoadingUsers && availableClasses.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Class filter
-                if (availableClasses.length > 1) ...[
-                  Row(
-                    children: [
-                      Icon(Icons.class_, color: teal700, size: 18),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'الفصل:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 40,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: availableClasses.length,
-                      separatorBuilder: (context, index) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        final className = availableClasses[index];
-                        final isSelected = selectedClass == className;
-                        return FilterChip(
-                          label: Text(className),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              selectedClass = className;
-                              _filterUsers();
-                            });
-                          },
-                          backgroundColor: Colors.white,
-                          selectedColor: teal300,
-                          checkmarkColor: Colors.white,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : teal900,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                          side: BorderSide(
-                            color: isSelected ? teal500 : Colors.grey[300]!,
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                // Gender filter (only for priests - userType priest)
-                if (widget.cubit.currentUser?.userType.code == UserType.priest.code) ...[
-                  Row(
-                    children: [
-                      Icon(Icons.wc, color: teal700, size: 18),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'النوع:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 40,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        for (final gender in ['الكل', 'ذكر', 'أنثى']) ...[
-                          FilterChip(
-                            label: Text(gender),
-                            selected: selectedGender == gender,
-                            onSelected: (selected) {
-                              setState(() {
-                                selectedGender = gender;
-                                _filterUsers();
-                              });
-                            },
-                            backgroundColor: Colors.white,
-                            selectedColor: teal300,
-                            checkmarkColor: Colors.white,
-                            labelStyle: TextStyle(
-                              color: selectedGender == gender ? Colors.white : teal900,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                            side: BorderSide(
-                              color: selectedGender == gender ? teal500 : Colors.grey[300]!,
-                              width: 1.5,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-              ],
-            ),
-          ),
-        const SizedBox(height: 8),
-
-        // Users list - Flexible for better keyboard handling
-        Flexible(
-          child: isLoadingUsers
-              ? const Center(
-                  child: SizedBox(
-                    height: 32,
-                    width: 32,
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              : filteredUsers.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+            if (!isLoadingUsers && availableClasses.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (availableClasses.length > 1) ...[
+                      Row(
                         children: [
-                          Icon(
-                            Icons.search_off,
-                            size: 64,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'لا توجد نتائج',
+                          Icon(Icons.class_, color: teal700, size: 18),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'الفصل:',
                             style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey[600],
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: filteredUsers.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final user = filteredUsers[index];
-                        final userId = user.id;
-                        final status =
-                            attendanceMap[userId] ?? AttendanceStatus.absent;
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 40,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: availableClasses.length,
+                          separatorBuilder: (context, index) => const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            final className = availableClasses[index];
+                            final isSelected = selectedClass == className;
+                            return FilterChip(
+                              label: Text(className),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() {
+                                  selectedClass = className;
+                                  _filterUsers();
+                                });
+                              },
+                              backgroundColor: Colors.white,
+                              selectedColor: teal300,
+                              checkmarkColor: Colors.white,
+                              labelStyle: TextStyle(
+                                color: isSelected ? Colors.white : teal900,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                              side: BorderSide(
+                                color: isSelected ? teal500 : Colors.grey[300]!,
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (widget.cubit.currentUser?.userType.code == UserType.priest.code) ...[
+                      Row(
+                        children: [
+                          Icon(Icons.wc, color: teal700, size: 18),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'النوع:',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 40,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            for (final gender in ['الكل', 'ذكر', 'أنثى']) ...[
+                              FilterChip(
+                                label: Text(gender),
+                                selected: selectedGender == gender,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    selectedGender = gender;
+                                    _filterUsers();
+                                  });
+                                },
+                                backgroundColor: Colors.white,
+                                selectedColor: teal300,
+                                checkmarkColor: Colors.white,
+                                labelStyle: TextStyle(
+                                  color: selectedGender == gender ? Colors.white : teal900,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                                side: BorderSide(
+                                  color: selectedGender == gender ? teal500 : Colors.grey[300]!,
+                                  width: 1.5,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ],
+                ),
+              ),
+            const SizedBox(height: 8),
 
-                        return _buildUserAttendanceCard(user, status);
-                      },
+            Flexible(
+              child: isLoadingUsers
+                  ? const Center(
+                child: SizedBox(
+                  height: 32,
+                  width: 32,
+                  child: CircularProgressIndicator(),
+                ),
+              )
+                  : filteredUsers.isEmpty
+                  ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.search_off,
+                      size: 64,
+                      color: Colors.grey[400],
                     ),
-        ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'لا توجد نتائج',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+                  : ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: filteredUsers.length,
+                separatorBuilder: (context, index) =>
+                const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final user = filteredUsers[index];
+                  final userId = user.id;
+                  final status =
+                      attendanceMap[userId] ?? AttendanceStatus.absent;
 
-        // Bulk points button (only for children) - hide when keyboard is visible
-        if (userType.code == UserType.child.code && !keyboardVisible)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: (isSubmitting || isLoadingUsers) ? null : _showBulkPointsDialog,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: teal700,
-                  side: BorderSide(color: teal500, width: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
+                  return _buildUserAttendanceCard(user, status);
+                },
+              ),
+            ),
+
+            if (!keyboardVisible)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      colors: (isSubmitting || isLoadingUsers)
+                          ? [Colors.grey, Colors.grey[400]!]
+                          : [teal700, teal300],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isSubmitting || isLoadingUsers)
+                            ? Colors.black.withValues(alpha: 0.2)
+                            : teal500.withValues(alpha: 0.5),
+                        spreadRadius: 1,
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ),
-                icon: Icon(Icons.card_giftcard, color: teal700, size: 22),
-                label: const Text(
-                  'إضافة نقاط للحاضرين',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Alexandria',
-                  ),
-                ),
-              ),
-            ),
-          ),
-        // Submit button - hide when keyboard is visible
-        if (!keyboardVisible)
-          Padding(
-          padding: const EdgeInsets.all(16),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                colors: (isSubmitting || isLoadingUsers)
-                    ? [Colors.grey, Colors.grey[400]!]
-                    : [teal700, teal300],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: (isSubmitting || isLoadingUsers)
-                      ? Colors.black.withValues(alpha: 0.2)
-                      : teal500.withValues(alpha: 0.5),
-                  spreadRadius: 1,
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: (isSubmitting || isLoadingUsers)
-                    ? null
-                    : _submitAttendance,
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  height: 56,
-                  alignment: Alignment.center,
-                  child: isSubmitting
-                      ? const SizedBox(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: (isSubmitting || isLoadingUsers)
+                          ? null
+                          : _submitAttendance,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        height: 56,
+                        alignment: Alignment.center,
+                        child: isSubmitting
+                            ? const SizedBox(
                           height: 24,
                           width: 24,
                           child: CircularProgressIndicator(
@@ -1226,7 +1028,7 @@ class _SuperServantViewState extends State<SuperServantView> {
                             strokeWidth: 3,
                           ),
                         )
-                      : Row(
+                            : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Icon(
@@ -1236,22 +1038,23 @@ class _SuperServantViewState extends State<SuperServantView> {
                             ),
                             const SizedBox(width: 8),
                             const Text(
-                              'حفظ الحضور',
+                              'حفظ الحضور وإضافة النقاط',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,
                                 letterSpacing: 1,
+                                fontFamily: 'Alexandria',
                               ),
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ),
-      ],
+          ],
         );
       },
     );
@@ -1311,7 +1114,6 @@ class _SuperServantViewState extends State<SuperServantView> {
             children: [
               Row(
                 children: [
-                  // Avatar
                   Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -1326,7 +1128,6 @@ class _SuperServantViewState extends State<SuperServantView> {
                   ),
                   const SizedBox(width: 16),
 
-                  // Name and current status
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1365,7 +1166,6 @@ class _SuperServantViewState extends State<SuperServantView> {
                             ],
                           ),
                         ),
-                        // Show points for children
                         if (user.userType.code == UserType.child.code) ...[
                           const SizedBox(height: 6),
                           Row(
@@ -1386,7 +1186,6 @@ class _SuperServantViewState extends State<SuperServantView> {
                       ],
                     ),
                   ),
-                  // Points edit button for children
                   if (user.userType.code == UserType.child.code)
                     IconButton(
                       onPressed: () => _showIndividualPointsDialog(user),
@@ -1397,7 +1196,6 @@ class _SuperServantViewState extends State<SuperServantView> {
               ),
               const SizedBox(height: 16),
 
-              // Status selection buttons
               Row(
                 children: [
                   Expanded(
