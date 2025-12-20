@@ -809,8 +809,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                     ),
                   ),
                 ElevatedButton.icon(
-                  onPressed: () =>
-                      _updateOrderStatus(order.id, OrderStatus.cancelled),
+                  onPressed: () => _showCancelOrderDialog(order),
                   icon: Icon(Icons.cancel, size: 18),
                   label: Text('إلغاء'),
                   style: ElevatedButton.styleFrom(
@@ -1371,6 +1370,111 @@ class _AdminDashboardState extends State<AdminDashboard>
               foregroundColor: Colors.white,
             ),
             child: Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCancelOrderDialog(OrderModel order) {
+    final notesController = TextEditingController(text: order.notes ?? '');
+
+    // Check if order was paid with points
+    final paidWithPoints = order.metadata?['paidWithPoints'] as bool? ?? false;
+    final pointsDeducted = order.metadata?['pointsDeducted'] as int? ?? 0;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: teal700,
+        title: Text(
+          'إلغاء الطلب',
+          style: TextStyle(color: red300, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'هل أنت متأكد من إلغاء هذا الطلب؟',
+              style: TextStyle(color: teal300, fontSize: 16),
+            ),
+            SizedBox(height: 16),
+
+            // Show points refund notice if applicable
+            if (paidWithPoints && pointsDeducted > 0) ...[
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: brown500.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: brown300.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: brown300, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'سيتم إرجاع $pointsDeducted نقطة إلى حساب ال$child',
+                        style: TextStyle(
+                          color: brown300,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16),
+            ],
+
+            Text(
+              'يمكنك إضافة ملاحظات للعميل (اختياري):',
+              style: TextStyle(color: teal300, fontSize: 14),
+            ),
+            SizedBox(height: 12),
+            TextField(
+              controller: notesController,
+              style: TextStyle(color: teal100),
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'مثال: تم إلغاء الطلب بسبب نفاد المخزون',
+                hintStyle: TextStyle(color: teal300.withValues(alpha: 0.5), fontSize: 12),
+                labelText: 'سبب الإلغاء',
+                labelStyle: TextStyle(color: teal300),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: teal300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: teal100),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('رجوع', style: TextStyle(color: teal300)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _updateOrderStatus(
+                order.id,
+                OrderStatus.cancelled,
+                notes: notesController.text.trim().isEmpty
+                    ? null
+                    : notesController.text.trim(),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: red500,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('تأكيد الإلغاء'),
           ),
         ],
       ),
