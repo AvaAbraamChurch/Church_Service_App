@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import '../../core/blocs/attendance/attendance_cubit.dart';
 import '../../core/models/user/user_model.dart';
 import '../../core/services/coupon_points_service.dart';
+import '../../shared/points_sync_widget.dart';
 
 class ServantView extends StatefulWidget {
   final AttendanceCubit cubit;
@@ -571,6 +572,8 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
 
         return Column(
           children: [
+            // Points sync status widget
+            const PointsSyncStatusWidget(),
             // Search bar
             Padding(
               padding: const EdgeInsets.all(16.0),

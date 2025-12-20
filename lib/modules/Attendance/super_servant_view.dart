@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/services/coupon_points_service.dart';
+import '../../shared/points_sync_widget.dart';
 
 class SuperServantView extends StatefulWidget {
   final AttendanceCubit cubit;
@@ -640,6 +641,8 @@ class _SuperServantViewState extends State<SuperServantView> {
   Widget _buildUserTypeSelection() {
     return Column(
       children: [
+        // Points sync status widget
+        const PointsSyncStatusWidget(),
         // Header
         Container(
           padding: const EdgeInsets.all(20),
@@ -883,6 +886,8 @@ class _SuperServantViewState extends State<SuperServantView> {
 
         return Column(
           children: [
+            // Points sync status widget
+            const PointsSyncStatusWidget(),
             // Header with back button
             Container(
               padding: const EdgeInsets.all(16),

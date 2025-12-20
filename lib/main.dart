@@ -18,7 +18,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'core/repositories/local_attendance_repository.dart';
 import 'core/repositories/local_points_repository.dart';
+import 'core/services/points_sync_service.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'core/utils/notification_service.dart';
 
@@ -131,13 +133,29 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    // Ensure Flutter binding exists in background isolate
-    WidgetsFlutterBinding.ensureInitialized();
+    try {
+      // Ensure Flutter binding exists in background isolate
+      WidgetsFlutterBinding.ensureInitialized();
 
-    // Initialize Hive and AttendanceRepository
+      // Initialize Firebase
+      await Firebase.initializeApp();
 
+      // Initialize Hive and Repositories
+      await LocalPointsRepository.init();
 
-    return Future.value(true);
+      // Sync pending points in background
+      if (task == 'syncPendingAttendance') {
+        final pointsSync = PointsSyncService();
+        final result = await pointsSync.syncPendingTransactions();
+
+        debugPrint('✅ Background points sync completed: ${result['synced']} synced, ${result['failed']} failed');
+      }
+
+      return Future.value(true);
+    } catch (e) {
+      debugPrint('❌ Background sync failed: $e');
+      return Future.value(false);
+    }
   });
 }
 
@@ -348,10 +366,55 @@ void main() async {
   ));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final Widget startWidget;
 
   const MyApp({super.key, required this.startWidget});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final PointsSyncService _syncService = PointsSyncService();
+  bool _hasShownSyncNotification = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupConnectivityListener();
+  }
+
+  void _setupConnectivityListener() {
+    // Listen to connectivity changes and auto-sync when online
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) async {
+      final isOnline = results.contains(ConnectivityResult.mobile) ||
+          results.contains(ConnectivityResult.wifi) ||
+          results.contains(ConnectivityResult.ethernet);
+
+      if (isOnline) {
+        // Wait a bit for connection to stabilize
+        await Future.delayed(const Duration(seconds: 2));
+
+        // Check if there are pending items to sync
+        final pendingCount = LocalPointsRepository().getPendingCount();
+        if (pendingCount > 0) {
+          debugPrint('🔄 Connection restored. Syncing $pendingCount pending points...');
+
+          final result = await _syncService.syncPendingTransactions();
+
+          debugPrint('✅ Auto-sync completed: ${result['synced']} synced, ${result['failed']} failed');
+
+          // Show notification only once per app session if sync was successful
+          if (mounted && result['synced'] > 0 && !_hasShownSyncNotification) {
+            _hasShownSyncNotification = true;
+            // Note: ScaffoldMessenger needs a scaffold context, so we'll just log for now
+            // You can show a toast or notification here if needed
+          }
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -385,7 +448,7 @@ class MyApp extends StatelessWidget {
               ],
               debugShowCheckedModeBanner: false,
               theme: themeProvider.currentTheme,
-              home: startWidget,
+              home: widget.startWidget,
             );
           },
         ),
