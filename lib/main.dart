@@ -21,6 +21,7 @@ import 'core/repositories/local_points_repository.dart';
 import 'core/services/points_sync_service.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'core/utils/notification_service.dart';
 
@@ -166,56 +167,71 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Web startup should be as light as possible.
+  // Many plugins used below are mobile-only and can cause web runtime errors / long stalls.
+  if (!kIsWeb) {
+    try {
+      // Initialize Local Storage (Hive)
+      await LocalAttendanceRepository.init();
+      await LocalPointsRepository.init();
+      // ignore: avoid_print
+      print('✅ Local storage initialized');
 
-  try {
-    // Initialize Local Storage (Hive)
-    await LocalAttendanceRepository.init();
-    await LocalPointsRepository.init();
-    print('✅ Local storage initialized');
+      // Optional: Clean up old pending items (older than 30 days)
+      final attendanceRepo = LocalAttendanceRepository();
+      final attendanceDeletedCount =
+          await attendanceRepo.deleteOldPending(olderThanDays: 30);
+      if (attendanceDeletedCount > 0) {
+        // ignore: avoid_print
+        print('🗑️ Deleted $attendanceDeletedCount old pending attendance items');
+      }
 
-    // Optional: Clean up old pending items (older than 30 days)
-    final attendanceRepo = LocalAttendanceRepository();
-    final attendanceDeletedCount = await attendanceRepo.deleteOldPending(olderThanDays: 30);
-    if (attendanceDeletedCount > 0) {
-      print('🗑️ Deleted $attendanceDeletedCount old pending attendance items');
+      final pointsRepo = LocalPointsRepository();
+      final pointsDeletedCount =
+          await pointsRepo.deleteOldPending(olderThanDays: 30);
+      if (pointsDeletedCount > 0) {
+        // ignore: avoid_print
+        print('🗑️ Deleted $pointsDeletedCount old pending points items');
+      }
+
+      // Show statistics
+      final attendanceStats = attendanceRepo.getStatistics();
+      final pointsStats = pointsRepo.getStatistics();
+      // ignore: avoid_print
+      print('📊 Attendance storage stats: $attendanceStats');
+      // ignore: avoid_print
+      print('📊 Points storage stats: $pointsStats');
+    } catch (e) {
+      // ignore: avoid_print
+      print('❌ Initialization error: $e');
     }
-
-    final pointsRepo = LocalPointsRepository();
-    final pointsDeletedCount = await pointsRepo.deleteOldPending(olderThanDays: 30);
-    if (pointsDeletedCount > 0) {
-      print('🗑️ Deleted $pointsDeletedCount old pending points items');
-    }
-
-    // Show statistics
-    final attendanceStats = attendanceRepo.getStatistics();
-    final pointsStats = pointsRepo.getStatistics();
-    print('📊 Attendance storage stats: $attendanceStats');
-    print('📊 Points storage stats: $pointsStats');
-
-  } catch (e) {
-    print('❌ Initialization error: $e');
+  } else {
+    debugPrint('Web build: skipping Hive/local storage initialization');
   }
 
+  // Initialize Workmanager to run periodic background sync.
+  // IMPORTANT: Workmanager is not supported on Flutter Web, so skip it there.
+  if (!kIsWeb) {
+    try {
+      await Workmanager().initialize(
+        callbackDispatcher,
+        isInDebugMode: false,
+      );
 
-
-  // Initialize Workmanager to run periodic background sync (optional - graceful failure)
-  try {
-    await Workmanager().initialize(
-      callbackDispatcher,
-      isInDebugMode: false,
-    );
-
-    // Register a periodic task to sync pending attendance every 15 minutes (Android minimum)
-    await Workmanager().registerPeriodicTask(
-      'church_sync_pending_attendance',
-      'syncPendingAttendance',
-      frequency: const Duration(minutes: 15),
-    );
-    debugPrint('Workmanager initialized successfully for background sync');
-  } catch (e) {
-    // Workmanager failed - app will still work with foreground sync via connectivity listener
-    debugPrint('Workmanager initialization failed (background sync disabled): $e');
-    debugPrint('Offline attendance will still work - sync will happen when app is open');
+      // Register a periodic task to sync pending attendance every 15 minutes (Android minimum)
+      await Workmanager().registerPeriodicTask(
+        'church_sync_pending_attendance',
+        'syncPendingAttendance',
+        frequency: const Duration(minutes: 15),
+      );
+      debugPrint('Workmanager initialized successfully for background sync');
+    } catch (e) {
+      // Workmanager failed - app will still work with foreground sync via connectivity listener
+      debugPrint('Workmanager initialization failed (background sync disabled): $e');
+      debugPrint('Offline attendance will still work - sync will happen when app is open');
+    }
+  } else {
+    debugPrint('Web build: skipping Workmanager initialization');
   }
 
   // If user is signed in, save the device FCM token to their user doc
@@ -223,137 +239,140 @@ void main() async {
     if (token == null || token.isEmpty) return;
     final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
     try {
-      await userRef.set({
-        'fcmTokens': FieldValue.arrayUnion([token])
-      }, SetOptions(merge: true));
+      await userRef.set({'fcmTokens': FieldValue.arrayUnion([token])},
+          SetOptions(merge: true));
       debugPrint('Saved FCM token for user $uid');
     } catch (e) {
       debugPrint('Failed saving FCM token: $e');
     }
   }
 
-  // When token refreshes, update Firestore
-  FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-    debugPrint('FCM token refreshed: $newToken');
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) registerTokenToFirestore(uid, newToken);
-  });
+  if (!kIsWeb) {
+    // When token refreshes, update Firestore
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      debugPrint('FCM token refreshed: $newToken');
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) registerTokenToFirestore(uid, newToken);
+    });
 
-  // If user already signed in, register current token
-  final currentUid = FirebaseAuth.instance.currentUser?.uid;
-  if (currentUid != null) {
-    final token = await FirebaseMessaging.instance.getToken();
-    debugPrint('Current FCM token: $token');
-    registerTokenToFirestore(currentUid, token);
-  }
-
-  // Request notification permissions (iOS) and show what the user allowed.
-  // On Android 13+ the app still needs the POST_NOTIFICATIONS runtime permission
-  // which you may need to request separately if targeting SDK 33+. This call
-  // is important for iOS to allow foreground notifications.
-  final settings = await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    announcement: false,
-    badge: true,
-    carPlay: false,
-    criticalAlert: false,
-    provisional: false,
-    sound: true,
-  );
-  debugPrint('User granted permission: ${settings.authorizationStatus}');
-
-  // On iOS, show notifications when app is in foreground
-  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
-
-  // Initialize the flutter_local_notifications plugin and create channel
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  final InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-    // Handle notification tap when app is in foreground/background
-    // You can navigate using a navigatorKey or handle payload here
-    // final payload = response.payload;
-  });
-
-  // Create Android notification channel for heads-up notifications
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(channel);
-
-  // Register background handler once, before runApp
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  // Helper to save notifications to Firestore
-  Future<void> saveNotificationToFirestore(RemoteMessage message) async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
-
-    try {
-      await FirebaseFirestore.instance.collection('notifications').add({
-        'title': message.notification?.title ?? message.data['title'] ?? 'إشعار جديد',
-        'body': message.notification?.body ?? message.data['body'] ?? '',
-        'imageUrl': message.notification?.android?.imageUrl ?? message.data['imageUrl'],
-        'data': message.data,
-        'timestamp': FieldValue.serverTimestamp(),
-        'isRead': false,
-        'userId': userId,
-        'type': message.data['type'] ?? 'message',
-        'actionUrl': message.data['actionUrl'],
-      });
-      debugPrint('Notification saved to Firestore for user $userId');
-    } catch (e) {
-      debugPrint('Failed to save notification to Firestore: $e');
+    // If user already signed in, register current token
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUid != null) {
+      final token = await FirebaseMessaging.instance.getToken();
+      debugPrint('Current FCM token: $token');
+      registerTokenToFirestore(currentUid, token);
     }
-  }
 
-  // Listen for messages when the app is in the foreground
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-    debugPrint('onMessage (foreground) received: id=${message.messageId}, data=${message.data}, notification=${message.notification}');
-     // If a notification payload is present (notification/title/body), show it
-     try {
-       await showLocalNotification(message);
-       await saveNotificationToFirestore(message);
-     } catch (e) {
-       // log and continue
-       debugPrint('Error showing local notification: $e');
-     }
-   });
-
-   // Handle when app is opened from a notification
-   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-     // Handle navigation / payload processing here
-     debugPrint('Message clicked! payload: ${message.data}');
-     saveNotificationToFirestore(message);
-   });
-
-  final remoteConfig = FirebaseRemoteConfig.instance;
-  try {
-    await remoteConfig.setConfigSettings(RemoteConfigSettings(
-      fetchTimeout: const Duration(seconds: 10),
-      minimumFetchInterval: const Duration(seconds: 5),
-    ));
-
-    // Add timeout protection to prevent hanging
-    await remoteConfig.fetchAndActivate().timeout(
-      const Duration(seconds: 10),
-      onTimeout: () {
-        debugPrint('Remote Config fetch timed out - using defaults');
-        return false;
-      },
+    // Request notification permissions (iOS)
+    final settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
     );
-    debugPrint('Remote Config fetched and activated.');
-  } catch (e) {
-    // avoid crashing on plugin issues; log and continue
-    debugPrint('Remote Config fetch/activate failed: $e');
+    debugPrint('User granted permission: ${settings.authorizationStatus}');
+
+    // On iOS, show notifications when app is in foreground
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    // Initialize the flutter_local_notifications plugin and create channel
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    final InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings,
+        onDidReceiveNotificationResponse:
+            (NotificationResponse response) {
+      // Handle notification tap when app is in foreground/background
+    });
+
+    // Create Android notification channel for heads-up notifications
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
+    // Register background handler once, before runApp
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    // Helper to save notifications to Firestore
+    Future<void> saveNotificationToFirestore(RemoteMessage message) async {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) return;
+
+      try {
+        await FirebaseFirestore.instance.collection('notifications').add({
+          'title': message.notification?.title ??
+              message.data['title'] ??
+              'إشعار جديد',
+          'body': message.notification?.body ?? message.data['body'] ?? '',
+          'imageUrl': message.notification?.android?.imageUrl ??
+              message.data['imageUrl'],
+          'data': message.data,
+          'timestamp': FieldValue.serverTimestamp(),
+          'isRead': false,
+          'userId': userId,
+          'type': message.data['type'] ?? 'message',
+          'actionUrl': message.data['actionUrl'],
+        });
+        debugPrint('Notification saved to Firestore for user $userId');
+      } catch (e) {
+        debugPrint('Failed to save notification to Firestore: $e');
+      }
+    }
+
+    // Listen for messages when the app is in the foreground
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      debugPrint(
+          'onMessage (foreground) received: id=${message.messageId}, data=${message.data}, notification=${message.notification}');
+      try {
+        await showLocalNotification(message);
+        await saveNotificationToFirestore(message);
+      } catch (e) {
+        debugPrint('Error showing local notification: $e');
+      }
+    });
+
+    // Handle when app is opened from a notification
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      debugPrint('Message clicked! payload: ${message.data}');
+      saveNotificationToFirestore(message);
+    });
+  } else {
+    debugPrint('Web build: skipping Firebase Messaging & local notifications init');
   }
 
+  if (!kIsWeb) {
+    final remoteConfig = FirebaseRemoteConfig.instance;
+    try {
+      await remoteConfig.setConfigSettings(RemoteConfigSettings(
+        fetchTimeout: const Duration(seconds: 5),
+        minimumFetchInterval: const Duration(seconds: 5),
+      ));
+
+      // Add timeout protection to prevent hanging
+      await remoteConfig.fetchAndActivate().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('Remote Config fetch timed out - using defaults');
+          return false;
+        },
+      );
+      debugPrint('Remote Config fetched and activated.');
+    } catch (e) {
+      debugPrint('Remote Config fetch/activate failed: $e');
+    }
+  } else {
+    debugPrint('Web build: skipping Firebase Remote Config init');
+  }
 
 
   // Initialize cache helper
@@ -382,7 +401,11 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _setupConnectivityListener();
+    if (!kIsWeb) {
+      _setupConnectivityListener();
+    } else {
+      debugPrint('Web build: skipping connectivity listener / local sync');
+    }
   }
 
   void _setupConnectivityListener() {

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -31,8 +31,111 @@
 
   <title>church</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body { height: 100%; width: 100%; margin: 0; }
+    body { background: #ffffff; font-family: Arial, Helvetica, sans-serif; }
+    #preloader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 4px solid #e5e7eb;
+      border-top-color: #0175C2;
+      border-radius: 999px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #startup-error {
+      display: none;
+      max-width: 720px;
+      padding: 16px;
+      margin: 16px;
+      border: 1px solid #ef4444;
+      background: #fff5f5;
+      color: #991b1b;
+      white-space: pre-wrap;
+      direction: ltr;
+    }
+  </style>
+
+  <script>
+    // Surface startup errors instead of a silent white screen.
+    window.addEventListener('error', function (e) {
+      var el = document.getElementById('startup-error');
+      if (!el) return;
+      el.style.display = 'block';
+      el.textContent = 'Startup error:\n' + (e.message || e.error || e);
+      console.error(e);
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      var el = document.getElementById('startup-error');
+      if (!el) return;
+      el.style.display = 'block';
+      el.textContent = 'Unhandled rejection:\n' + (e.reason || e);
+      console.error(e);
+    });
+  </script>
 </head>
 <body>
+  <div id="preloader">
+    <div class="spinner"></div>
+    <div>Loading…</div>
+    <pre id="startup-error"></pre>
+  </div>
+
+  <script>
+    // Disable Flutter's service worker on production web to avoid startup stalls/timeouts.
+    // If you want PWA/offline later, we can re-enable it with a custom update flow.
+    window.__DISABLE_FLUTTER_SW__ = true;
+  </script>
+
+  <script>
+    // If flutter_bootstrap.js reads serviceWorkerSettings from the load() call, we can override it
+    // by making _flutter.loader.load be called without SW settings.
+    // Newer Flutter will call _flutter.loader.load({ serviceWorkerSettings: { ... } }) inside flutter_bootstrap.js
+    // so we patch it after flutter.js is ready.
+    window.addEventListener('flutter-first-frame', function () {
+      var preloader = document.getElementById('preloader');
+      if (preloader) preloader.style.display = 'none';
+    });
+  </script>
+
+  <script>
+    // Monkey-patch: once flutter_bootstrap.js sets up window._flutter.loader, intercept the load call.
+    // This keeps the rest of the bootstrap behavior unchanged.
+    Object.defineProperty(window, '_flutter', {
+      configurable: true,
+      set: function (value) {
+        try {
+          if (window.__DISABLE_FLUTTER_SW__ && value && value.loader && value.loader.load) {
+            var originalLoad = value.loader.load.bind(value.loader);
+            value.loader.load = function (opts) {
+              if (opts && opts.serviceWorkerSettings) {
+                opts = Object.assign({}, opts);
+                opts.serviceWorkerSettings = null;
+              }
+              return originalLoad(opts);
+            };
+          }
+        } catch (e) {
+          console.warn('Failed to patch Flutter loader for SW disable:', e);
+        }
+        window.__flutter_internal__ = value;
+      },
+      get: function () {
+        return window.__flutter_internal__;
+      }
+    });
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
