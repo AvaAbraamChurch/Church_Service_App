@@ -10,6 +10,8 @@ import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/shared/avatar_display_widget.dart';
 import 'package:flutter/material.dart';
 
+import '../requests/requests_screen.dart';
+
 class PriestView extends StatefulWidget {
   final AttendanceCubit cubit;
   final int pageIndex;
@@ -439,9 +441,8 @@ class _PriestViewState extends State<PriestView> {
               ],
             ),
           ),
-        ),
-      ),
-    );
+        ),)
+      );
   }
 
   Widget _buildAttendanceTaking() {
@@ -749,6 +750,24 @@ class _PriestViewState extends State<PriestView> {
             ),
           ),
         ),
+
+        // Floating Action Button for Requests
+        if (!keyboardVisible)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => RequestsScreen(cubit: widget.cubit),
+                  ),
+                );
+              },
+              child: Icon(Icons.request_page),
+            ),
+          ),
       ],
         );
       },
@@ -933,8 +952,7 @@ class _PriestViewState extends State<PriestView> {
             ],
           ),
         ),
-      ),
-    );
+      )      );
   }
 
   Widget _buildStatusButton({

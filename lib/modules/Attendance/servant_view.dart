@@ -13,10 +13,11 @@ import '../../core/models/user/user_model.dart';
 import '../../core/services/coupon_points_service.dart';
 import '../../core/repositories/attendance_defaults_repository.dart';
 import '../../shared/points_sync_widget.dart';
+import '../requests/requests_screen.dart';
 
 class ServantView extends StatefulWidget {
   final AttendanceCubit cubit;
-  final pageIndex;
+  final int pageIndex;
 
   const ServantView({super.key, required this.cubit, required this.pageIndex});
 
@@ -245,42 +246,42 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
         const PointsSyncStatusWidget(),
 
         // Current attendance type header
-        Container(
-          margin: const EdgeInsets.all(16.0),
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [currentColor, currentColor.withValues(alpha: 0.7)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: currentColor.withValues(alpha: 0.4),
-                spreadRadius: 1,
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(currentIcon, color: Colors.white, size: 28),
-              const SizedBox(width: 12),
-              Text(
-                'تسجيل حضور $currentLabel',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Alexandria',
-                ),
-              ),
-            ],
-          ),
-        ),
+        // Container(
+        //   margin: const EdgeInsets.all(16.0),
+        //   padding: const EdgeInsets.all(16.0),
+        //   decoration: BoxDecoration(
+        //     gradient: LinearGradient(
+        //       colors: [currentColor, currentColor.withValues(alpha: 0.7)],
+        //       begin: Alignment.topLeft,
+        //       end: Alignment.bottomRight,
+        //     ),
+        //     borderRadius: BorderRadius.circular(16),
+        //     boxShadow: [
+        //       BoxShadow(
+        //         color: currentColor.withValues(alpha: 0.4),
+        //         spreadRadius: 1,
+        //         blurRadius: 8,
+        //         offset: const Offset(0, 3),
+        //       ),
+        //     ],
+        //   ),
+        //   child: Row(
+        //     mainAxisAlignment: MainAxisAlignment.center,
+        //     children: [
+        //       Icon(currentIcon, color: Colors.white, size: 28),
+        //       const SizedBox(width: 12),
+        //       Text(
+        //         'تسجيل حضور $currentLabel',
+        //         style: const TextStyle(
+        //           color: Colors.white,
+        //           fontSize: 20,
+        //           fontWeight: FontWeight.bold,
+        //           fontFamily: 'Alexandria',
+        //         ),
+        //       ),
+        //     ],
+        //   ),
+        // ),
 
         // Search bar
         Padding(
@@ -539,7 +540,39 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
             ),
           ),
         ),
+
+        // Requests button
+        // Padding(
+        //   padding: const EdgeInsets.only(top: 12.0),
+        //   child: SizedBox(
+        //     width: double.infinity,
+        //     height: 52,
+        //     child: ElevatedButton.icon(
+        //       onPressed: () {
+        //         Navigator.push(
+        //           context,
+        //           MaterialPageRoute(
+        //             builder: (context) => RequestsScreen(cubit: widget.cubit),
+        //           ),
+        //         );
+        //       },
+        //       icon: const Icon(Icons.request_page),
+        //       label: const Text(
+        //         'الطلبات',
+        //         style: TextStyle(fontFamily: 'Alexandria', fontWeight: FontWeight.w600),
+        //       ),
+        //       style: ElevatedButton.styleFrom(
+        //         backgroundColor: teal500,
+        //         foregroundColor: Colors.white,
+        //         shape: RoundedRectangleBorder(
+        //           borderRadius: BorderRadius.circular(14),
+        //         ),
+        //       ),
+        //     ),
+        //   ),
+        // ),
       ],
     );
   }
 }
+

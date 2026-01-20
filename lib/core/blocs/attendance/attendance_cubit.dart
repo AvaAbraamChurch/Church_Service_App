@@ -1,4 +1,6 @@
 import 'package:church/core/repositories/visit_repository.dart';
+import 'package:church/core/repositories/attendance_defaults_repository.dart';
+import 'package:church/core/services/coupon_points_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:church/core/repositories/users_reopsitory.dart';
@@ -11,11 +13,21 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:async';
 import 'dart:convert';
 import '../../repositories/local_attendance_repository.dart';
+import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/core/utils/attendance_enum.dart';
+import 'package:church/core/repositories/attendance_requests_repository.dart';
+import 'package:church/core/models/attendance/attendance_request_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:church/core/constants/strings.dart';
+import 'package:church/core/utils/gender_enum.dart';
 
 class AttendanceCubit extends Cubit<AttendanceState> {
   final UsersRepository usersRepository;
   final AttendanceRepository attendanceRepository;
   final VisitRepository visitRepository;
+  final AttendanceRequestsRepository attendanceRequestsRepository;
+  final AttendanceDefaultsRepository attendanceDefaultsRepository;
+  final CouponPointsService couponPointsService;
   final LocalAttendanceRepository _localRepo = LocalAttendanceRepository();
 
   StreamSubscription<dynamic>? _connectivitySub;
@@ -35,9 +47,17 @@ class AttendanceCubit extends Cubit<AttendanceState> {
     UsersRepository? usersRepository,
     AttendanceRepository? attendanceRepository,
     VisitRepository? visitRepository,
+    AttendanceRequestsRepository? attendanceRequestsRepository,
+    AttendanceDefaultsRepository? attendanceDefaultsRepository,
+    CouponPointsService? couponPointsService,
   })  : usersRepository = usersRepository ?? UsersRepository(),
         attendanceRepository = attendanceRepository ?? AttendanceRepository(),
         visitRepository = visitRepository ?? VisitRepository(),
+        attendanceRequestsRepository =
+            attendanceRequestsRepository ?? AttendanceRequestsRepository(),
+        attendanceDefaultsRepository =
+            attendanceDefaultsRepository ?? AttendanceDefaultsRepository(),
+        couponPointsService = couponPointsService ?? CouponPointsService(),
         super(AttendanceInitial()) {
     initOfflineSupport();
   }
@@ -62,8 +82,17 @@ class AttendanceCubit extends Cubit<AttendanceState> {
 
   void initOfflineSupport() {
     // Listen for connectivity changes
-    _connectivitySub = Connectivity().onConnectivityChanged.listen((status) async {
-      if (status != ConnectivityResult.none) {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((dynamic status) async {
+      List<ConnectivityResult> toList(dynamic v) {
+        if (v is List<ConnectivityResult>) return v;
+        if (v is ConnectivityResult) return <ConnectivityResult>[v];
+        return const <ConnectivityResult>[];
+      }
+
+      final results = toList(status);
+      final isOnline = results.isNotEmpty && !results.contains(ConnectivityResult.none);
+
+      if (isOnline) {
         debugPrint('📡 Network restored, syncing pending data...');
         await syncPendingAttendances();
       } else {
@@ -92,8 +121,8 @@ class AttendanceCubit extends Cubit<AttendanceState> {
 
   Future<bool> _hasNetwork() async {
     try {
-      final result = await Connectivity().checkConnectivity();
-      return result != ConnectivityResult.none;
+      final results = await Connectivity().checkConnectivity();
+      return !results.contains(ConnectivityResult.none);
     } catch (e) {
       debugPrint('Error checking connectivity: $e');
       return false;
@@ -497,6 +526,181 @@ class AttendanceCubit extends Cubit<AttendanceState> {
       debugPrint('❌ Error clearing pending data: $e');
     }
   }
+
+  Stream<List<AttendanceRequestModel>> streamAttendanceRequestsForChild(String childId) {
+    return attendanceRequestsRepository.streamForChild(childId);
+  }
+
+  Stream<List<AttendanceRequestModel>> streamPendingAttendanceRequestsForPriest() {
+    return attendanceRequestsRepository.streamPendingForPriest();
+  }
+
+  Stream<List<AttendanceRequestModel>> streamPendingAttendanceRequestsForSuperServant() {
+    final genderJson = currentUser == null ? '' : genderToJson(currentUser!.gender);
+    return attendanceRequestsRepository.streamPendingForSuperServant(gender: genderJson);
+  }
+
+  Stream<List<AttendanceRequestModel>> streamPendingAttendanceRequestsForServant() {
+    final genderJson = currentUser == null ? '' : genderToJson(currentUser!.gender);
+    final userClass = currentUser?.userClass ?? '';
+    return attendanceRequestsRepository.streamPendingForServant(
+      gender: genderJson,
+      userClass: userClass,
+    );
+  }
+
+  /// Submit attendance request for the currently logged-in child.
+  /// This creates a document in `attendance_requests` with status=pending.
+  Future<void> submitAttendanceRequest({
+    required String attendanceKey,
+    required DateTime date,
+  }) async {
+    try {
+      if (currentUser == null) {
+        throw Exception('Current user not loaded');
+      }
+      if (currentUser!.userType != UserType.child) {
+        throw Exception('Only children can submit attendance requests');
+      }
+
+      final day = DateTime(date.year, date.month, date.day);
+
+      final request = AttendanceRequestModel(
+        id: '',
+        childId: currentUser!.id,
+        childName: currentUser!.fullName,
+        childClass: currentUser!.userClass,
+        childGender: genderToJson(currentUser!.gender),
+        attendanceKey: attendanceKey,
+        requestedDate: day,
+        status: 'pending',
+        createdAt: DateTime.now(),
+      );
+
+      await attendanceRequestsRepository.createRequest(request);
+    } catch (e) {
+      debugPrint('Error submitting attendance request: $e');
+      emit(takeAttendanceError(e.toString()));
+      rethrow;
+    }
+  }
+
+  Future<void> acceptAttendanceRequest(AttendanceRequestModel request) async {
+    try {
+      if (currentUser == null) {
+        throw Exception('Current user not loaded');
+      }
+
+      final now = DateTime.now();
+      final day = DateTime(
+        request.requestedDate.year,
+        request.requestedDate.month,
+        request.requestedDate.day,
+      );
+
+      final attendance = AttendanceModel(
+        id: '',
+        userId: request.childId,
+        userName: request.childName,
+        userType: UserType.child,
+        date: day,
+        attendanceType: _attendanceTypeLabelFromKey(request.attendanceKey),
+        status: AttendanceStatus.present,
+        checkInTime: now,
+        createdAt: now,
+        recordedBy: currentUser!.id,
+      );
+
+      // Upsert attendance (existing per-day doc may already exist).
+      final existing = await attendanceRepository.getAttendanceByUserAndDate(
+        attendance.userId,
+        attendance.date,
+      );
+      String linkedId;
+      if (existing != null) {
+        await attendanceRepository.updateAttendance(existing.id, attendance.toMap());
+        linkedId = existing.id;
+      } else {
+        linkedId = await attendanceRepository.addAttendance(attendance);
+      }
+
+      // ✅ Automatically award points for the accepted attendance.
+      // Uses per-type defaults from settings/attendance_defaults.
+      int? awardedPoints;
+      String? awardReason;
+       try {
+         final defaults = await attendanceDefaultsRepository.getDefaults();
+         final points = defaults[request.attendanceKey] ?? 1;
+         final typeLabel = _attendanceTypeLabelFromKey(request.attendanceKey);
+         awardReason = 'حضور $typeLabel';
+
+         if (points > 0) {
+           awardedPoints = points;
+           await couponPointsService.setPoints(
+             request.childId,
+             points,
+             awardReason,
+             currentUser!.id,
+           );
+           debugPrint('⭐ Awarded $points points to child ${request.childId} for ${request.attendanceKey}');
+         }
+       } catch (e) {
+         // Points are a side effect; don’t fail acceptance if points fail.
+         debugPrint('⚠️ Failed to award points for accepted request: $e');
+       }
+
+       await attendanceRequestsRepository.updateRequest(request.id, {
+         'status': 'accepted',
+         'updatedAt': FieldValue.serverTimestamp(),
+         'reviewedById': currentUser!.id,
+         'reviewedByName': currentUser!.fullName,
+         'linkedAttendanceId': linkedId,
+         if (awardedPoints != null) 'awardedPoints': awardedPoints,
+         if (awardReason != null) 'awardReason': awardReason,
+       });
+    } catch (e) {
+      debugPrint('Error accepting attendance request: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> declineAttendanceRequest(
+    AttendanceRequestModel request, {
+    String? reason,
+  }) async {
+    try {
+      if (currentUser == null) {
+        throw Exception('Current user not loaded');
+      }
+
+      await attendanceRequestsRepository.updateRequest(request.id, {
+        'status': 'declined',
+        'updatedAt': FieldValue.serverTimestamp(),
+        'reviewedById': currentUser!.id,
+        'reviewedByName': currentUser!.fullName,
+        if (reason != null) 'decisionReason': reason,
+      });
+    } catch (e) {
+      debugPrint('Error declining attendance request: $e');
+      rethrow;
+    }
+  }
+
+  String _attendanceTypeLabelFromKey(String key) {
+    switch (key) {
+      case 'holy_mass':
+        return holyMass;
+      case 'sunday_school':
+        return sunday;
+      case 'hymns':
+        return hymns;
+      case 'bible':
+        return bibleClass;
+      default:
+        return key;
+    }
+  }
+
 }
 
 // Helper classes
@@ -527,3 +731,4 @@ class BatchResult {
     this.error,
   });
 }
+

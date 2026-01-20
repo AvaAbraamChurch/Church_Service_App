@@ -1258,8 +1258,8 @@ class _SuperServantViewState extends State<SuperServantView> {
             ],
           ),
         ),
-      ),
-    );
+      )
+      );
   }
 
   Widget _buildStatusButton({
@@ -1306,3 +1306,6 @@ class _SuperServantViewState extends State<SuperServantView> {
     );
   }
 }
+
+
+

@@ -12,6 +12,7 @@ import 'package:church/modules/Attendance/visits/visit_priest_view.dart';
 import 'package:church/modules/Attendance/visits/visit_super_servant_view.dart';
 import 'package:church/modules/Attendance/visits/visit_servant_view.dart';
 import 'package:church/modules/Attendance/visits/visit_child_view.dart';
+import 'package:church/modules/requests/requests_screen.dart';
 import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -51,7 +52,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     final genderEnum = widget.gender;
 
     // Load current user first (subscribe to the stream to set currentUser)
-    _currentUserSubscription = cubit.getCurrentUser(widget.userId).listen((user) {
+    _currentUserSubscription = cubit.getCurrentUser(widget.userId).listen((
+      user,
+    ) {
       // currentUser is updated inside the stream
     });
 
@@ -70,11 +73,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       ], genderToJson(genderEnum));
     } else if (userTypeEnum == UserType.servant) {
       // Servant can see children of same class and gender
-      stream = cubit.getUsersByType(
-        widget.userClass,
-        [userTypeToJson(UserType.child)],
-        genderToJson(genderEnum)
-      );
+      stream = cubit.getUsersByType(widget.userClass, [
+        userTypeToJson(UserType.child),
+      ], genderToJson(genderEnum));
     } else if (userTypeEnum == UserType.child) {
       // Get attendance history for children
       stream = cubit.getUserAttendanceHistory(widget.userId);
@@ -104,7 +105,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
             builder: (context, snapshot) {
               return Scaffold(
                 appBar: PreferredSize(
-                  preferredSize: Size.fromHeight(MediaQuery.of(context).size.height * 0.18),
+                  preferredSize: Size.fromHeight(
+                    MediaQuery.of(context).size.height * 0.18,
+                  ),
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: const BorderRadius.only(
@@ -127,30 +130,112 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                     child: SafeArea(
                       child: Column(
                         children: [
-                          // Top toolbar with title
+                          // Top toolbar with title and requests button
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                            child: Text(
-                              attendance,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 1.2,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                    blurRadius: 4,
-                                    offset: Offset(0, 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                              vertical: 12.0,
+                            ),
+                            child: Row(
+                              children: [
+                                const Spacer(),
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    attendance,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 1.2,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black.withValues(alpha: 0.2),
+                                          blurRadius: 4,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ],
-                              ),
+                                ),
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: (userTypeEnum == UserType.servant ||
+                                            userTypeEnum == UserType.superServant ||
+                                            userTypeEnum == UserType.priest)
+                                        ? StreamBuilder(
+                                            stream: userTypeEnum == UserType.priest
+                                                ? cubit.streamPendingAttendanceRequestsForPriest()
+                                                : userTypeEnum == UserType.superServant
+                                                    ? cubit.streamPendingAttendanceRequestsForSuperServant()
+                                                    : cubit.streamPendingAttendanceRequestsForServant(),
+                                            builder: (context, reqSnapshot) {
+                                              final pendingCount = (reqSnapshot.data ?? []).length;
+                                              return Stack(
+                                                children: [
+                                                  Container(
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white.withValues(alpha: 0.2),
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                    child: IconButton(
+                                                      icon: const Icon(Icons.receipt_long, color: Colors.white),
+                                                      onPressed: () {
+                                                        Navigator.push(
+                                                          context,
+                                                          MaterialPageRoute(
+                                                            builder: (context) => RequestsScreen(cubit: cubit),
+                                                          ),
+                                                        );
+                                                      },
+                                                      tooltip: 'الطلبات',
+                                                    ),
+                                                  ),
+                                                  if (pendingCount > 0)
+                                                    Positioned(
+                                                      left: 6,
+                                                      top: 6,
+                                                      child: Container(
+                                                        padding: const EdgeInsets.all(4),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.red,
+                                                          shape: BoxShape.circle,
+                                                          border: Border.all(color: Colors.white, width: 2),
+                                                        ),
+                                                        constraints: const BoxConstraints(
+                                                          minWidth: 20,
+                                                          minHeight: 20,
+                                                        ),
+                                                        child: Center(
+                                                          child: Text(
+                                                            pendingCount > 99 ? '99+' : '$pendingCount',
+                                                            style: const TextStyle(
+                                                              color: Colors.white,
+                                                              fontSize: 10,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
+                                              );
+                                            },
+                                          )
+                                        : const SizedBox.shrink(),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           // Modern TabBar
                           Container(
-                            margin: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                            margin: EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                              vertical: 8.0,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(20),
@@ -164,7 +249,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               dividerColor: Colors.transparent,
                               indicator: BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Colors.white, Colors.white.withValues(alpha: 0.9)],
+                                  colors: [
+                                    Colors.white,
+                                    Colors.white.withValues(alpha: 0.9),
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
@@ -196,7 +284,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               tabs: [
                                 Tab(
                                   child: Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -209,7 +300,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                 ),
                                 Tab(
                                   child: Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -222,7 +316,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                 ),
                                 Tab(
                                   child: Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -235,7 +332,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                 ),
                                 Tab(
                                   child: Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -248,7 +348,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                 ),
                                 Tab(
                                   child: Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -269,9 +372,14 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                 ),
                 backgroundColor: Colors.transparent,
                 body: ConditionalBuilder(
-                  condition: snapshot.hasData &&
-                             ((userTypeEnum != UserType.child && cubit.users != null && cubit.users!.isNotEmpty) ||
-                              (userTypeEnum == UserType.child && cubit.attendanceHistory != null && cubit.attendanceHistory!.isNotEmpty)),
+                  condition:
+                      snapshot.hasData &&
+                      ((userTypeEnum != UserType.child &&
+                              cubit.users != null &&
+                              cubit.users!.isNotEmpty) ||
+                          (userTypeEnum == UserType.child &&
+                              cubit.attendanceHistory != null &&
+                              cubit.attendanceHistory!.isNotEmpty)),
                   builder: (BuildContext context) {
                     return TabBarView(
                       controller: _tabController,
@@ -282,11 +390,25 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                           child: Column(
                             children: [
                               if (userTypeEnum == UserType.priest) ...[
-                                Expanded(child: PriestView(cubit, pageIndex: 0)),
-                              ] else if (userTypeEnum == UserType.superServant) ...[
-                                Expanded(child: SuperServantView(cubit, gender: genderToJson(genderEnum), pageIndex: 0)),
+                                Expanded(
+                                  child: PriestView(cubit, pageIndex: 0),
+                                ),
+                              ] else if (userTypeEnum ==
+                                  UserType.superServant) ...[
+                                Expanded(
+                                  child: SuperServantView(
+                                    cubit,
+                                    gender: genderToJson(genderEnum),
+                                    pageIndex: 0,
+                                  ),
+                                ),
                               ] else if (userTypeEnum == UserType.servant) ...[
-                                Expanded(child: ServantView(cubit: cubit, pageIndex: 0)),
+                                Expanded(
+                                  child: ServantView(
+                                    cubit: cubit,
+                                    pageIndex: 0,
+                                  ),
+                                ),
                               ] else ...[
                                 Expanded(child: ChildView(cubit, pageIndex: 0)),
                               ],
@@ -299,11 +421,25 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                           child: Column(
                             children: [
                               if (userTypeEnum == UserType.priest) ...[
-                                Expanded(child: PriestView(cubit, pageIndex: 1)),
-                              ] else if (userTypeEnum == UserType.superServant) ...[
-                                Expanded(child: SuperServantView(cubit, pageIndex: 1, gender: genderToJson(genderEnum),)),
+                                Expanded(
+                                  child: PriestView(cubit, pageIndex: 1),
+                                ),
+                              ] else if (userTypeEnum ==
+                                  UserType.superServant) ...[
+                                Expanded(
+                                  child: SuperServantView(
+                                    cubit,
+                                    pageIndex: 1,
+                                    gender: genderToJson(genderEnum),
+                                  ),
+                                ),
                               ] else if (userTypeEnum == UserType.servant) ...[
-                                Expanded(child: ServantView(cubit: cubit, pageIndex: 1)),
+                                Expanded(
+                                  child: ServantView(
+                                    cubit: cubit,
+                                    pageIndex: 1,
+                                  ),
+                                ),
                               ] else ...[
                                 Expanded(child: ChildView(cubit, pageIndex: 1)),
                               ],
@@ -316,11 +452,25 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                           child: Column(
                             children: [
                               if (userTypeEnum == UserType.priest) ...[
-                                Expanded(child: PriestView(cubit, pageIndex: 2)),
-                              ] else if (userTypeEnum == UserType.superServant) ...[
-                                Expanded(child: SuperServantView(cubit, pageIndex: 2, gender: genderToJson(genderEnum),)),
+                                Expanded(
+                                  child: PriestView(cubit, pageIndex: 2),
+                                ),
+                              ] else if (userTypeEnum ==
+                                  UserType.superServant) ...[
+                                Expanded(
+                                  child: SuperServantView(
+                                    cubit,
+                                    pageIndex: 2,
+                                    gender: genderToJson(genderEnum),
+                                  ),
+                                ),
                               ] else if (userTypeEnum == UserType.servant) ...[
-                                Expanded(child: ServantView(cubit: cubit, pageIndex: 2)),
+                                Expanded(
+                                  child: ServantView(
+                                    cubit: cubit,
+                                    pageIndex: 2,
+                                  ),
+                                ),
                               ] else ...[
                                 Expanded(child: ChildView(cubit, pageIndex: 2)),
                               ],
@@ -333,11 +483,25 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                           child: Column(
                             children: [
                               if (userTypeEnum == UserType.priest) ...[
-                                Expanded(child: PriestView(cubit, pageIndex: 3)),
-                              ] else if (userTypeEnum == UserType.superServant) ...[
-                                Expanded(child: SuperServantView(cubit, pageIndex: 3, gender: genderToJson(genderEnum))),
+                                Expanded(
+                                  child: PriestView(cubit, pageIndex: 3),
+                                ),
+                              ] else if (userTypeEnum ==
+                                  UserType.superServant) ...[
+                                Expanded(
+                                  child: SuperServantView(
+                                    cubit,
+                                    pageIndex: 3,
+                                    gender: genderToJson(genderEnum),
+                                  ),
+                                ),
                               ] else if (userTypeEnum == UserType.servant) ...[
-                                Expanded(child: ServantView(cubit: cubit, pageIndex: 3)),
+                                Expanded(
+                                  child: ServantView(
+                                    cubit: cubit,
+                                    pageIndex: 3,
+                                  ),
+                                ),
                               ] else ...[
                                 Expanded(child: ChildView(cubit, pageIndex: 3)),
                               ],
@@ -355,7 +519,8 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                   currentUser: cubit.currentUser!,
                                   attendanceCubit: cubit,
                                 );
-                              } else if (userTypeEnum == UserType.superServant) {
+                              } else if (userTypeEnum ==
+                                  UserType.superServant) {
                                 return VisitSuperServantView(
                                   users: cubit.users ?? [],
                                   currentUser: cubit.currentUser!,
@@ -432,89 +597,236 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                             ],
                           )
                         : snapshot.hasError
-                            ? Container(
-                                margin: const EdgeInsets.all(24.0),
-                                padding: const EdgeInsets.all(24.0),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.red.withValues(alpha: 0.1),
-                                      blurRadius: 20,
-                                      spreadRadius: 2,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
+                        ? Container(
+                            margin: const EdgeInsets.all(24.0),
+                            padding: const EdgeInsets.all(24.0),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.red.withValues(alpha: 0.1),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
+                                  offset: const Offset(0, 4),
                                 ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 80,
-                                      height: 80,
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.withValues(alpha: 0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.error_outline,
-                                        size: 50,
-                                        color: Colors.red[400],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    Text(
-                                      'حدث خطأ!',
-                                      style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.red[700],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'حدث خطأ أثناء تحميل البيانات',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey[700],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    ElevatedButton.icon(
-                                      onPressed: () {
-                                        setState(() {
-                                          // Trigger a rebuild to retry loading
-                                        });
-                                      },
-                                      icon: const Icon(Icons.refresh, color: Colors.white),
-                                      label: const Text(
-                                        'إعادة المحاولة',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: teal500,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 32,
-                                          vertical: 16,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        elevation: 4,
-                                      ),
-                                    ),
-                                  ],
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.error_outline,
+                                    size: 50,
+                                    color: Colors.red[400],
+                                  ),
                                 ),
-                              )
-                            : _buildEmptyState(),
+                                const SizedBox(height: 24),
+                                Text(
+                                  'حدث خطأ!',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'حدث خطأ أثناء تحميل البيانات',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    setState(() {
+                                      // Trigger a rebuild to retry loading
+                                    });
+                                  },
+                                  icon: const Icon(
+                                    Icons.refresh,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text(
+                                    'إعادة المحاولة',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: teal500,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 32,
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : _buildEmptyState(),
                   ),
                 ),
+                floatingActionButton: userTypeEnum == UserType.child
+                    ? FloatingActionButton(
+                        backgroundColor: teal500,
+                        onPressed: () async {
+                          final attendanceKey = await showModalBottomSheet<String>(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            isScrollControlled: true,
+                            builder: (context) {
+                              return Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [teal500, teal100],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  ),
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(30),
+                                    topRight: Radius.circular(30),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: teal500.withValues(alpha: 0.2),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, -5),
+                                    ),
+                                  ],
+                                ),
+                                child: SafeArea(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Handle bar
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 12, bottom: 8),
+                                        width: 40,
+                                        height: 4,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade300,
+                                          borderRadius: BorderRadius.circular(2),
+                                        ),
+                                      ),
+                                      // Title
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(10),
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [teal500, teal300],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: const Icon(Icons.event_note, color: Colors.white, size: 24),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                'اختر نوع الخدمة',
+                                                style: TextStyle(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: teal900,
+                                                  fontFamily: 'Alexandria',
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Divider(height: 1),
+                                      const SizedBox(height: 8),
+                                      // Options
+                                      _buildServiceOption(
+                                        context,
+                                        icon: Icons.church,
+                                        title: holyMass,
+                                        color: Colors.purple,
+                                        onTap: () => Navigator.pop(context, 'holy_mass'),
+                                      ),
+                                      _buildServiceOption(
+                                        context,
+                                        icon: Icons.school,
+                                        title: sunday,
+                                        color: Colors.blue,
+                                        onTap: () => Navigator.pop(context, 'sunday_school'),
+                                      ),
+                                      _buildServiceOption(
+                                        context,
+                                        icon: Icons.music_note,
+                                        title: hymns,
+                                        color: Colors.orange,
+                                        onTap: () => Navigator.pop(context, 'hymns'),
+                                      ),
+                                      _buildServiceOption(
+                                        context,
+                                        icon: Icons.menu_book,
+                                        title: bibleClass,
+                                        color: Colors.green,
+                                        onTap: () => Navigator.pop(context, 'bible'),
+                                      ),
+                                      const SizedBox(height: 16),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+
+                          if (attendanceKey == null) return;
+
+                          final selectedDate = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime(DateTime.now().year - 1),
+                            lastDate: DateTime.now(),
+                          );
+
+                          if (selectedDate == null) return;
+
+                          await cubit.submitAttendanceRequest(
+                            attendanceKey: attendanceKey,
+                            date: selectedDate,
+                          );
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                  'تم إرسال الطلب وسيظهر في السجل كـ قيد المراجعة',
+                                  style: TextStyle(fontFamily: 'Alexandria'),
+                                ),
+                                backgroundColor: teal500,
+                              ),
+                            );
+                          }
+                        },
+                        child: const Icon(Icons.add, color: Colors.white),
+                      )
+                    : null,
               );
             },
           );
@@ -717,10 +1029,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         padding: const EdgeInsets.all(32.0),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Colors.white,
-              teal100.withValues(alpha: 0.3),
-            ],
+            colors: [Colors.white, teal100.withValues(alpha: 0.3)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -743,16 +1052,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
               decoration: BoxDecoration(
                 color: teal100,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: teal300,
-                  width: 3,
-                ),
+                border: Border.all(color: teal300, width: 3),
               ),
-              child: Icon(
-                Icons.history_edu_outlined,
-                size: 50,
-                color: teal700,
-              ),
+              child: Icon(Icons.history_edu_outlined, size: 50, color: teal700),
             ),
             const SizedBox(height: 24),
             Text(
@@ -782,10 +1084,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         padding: const EdgeInsets.all(32.0),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Colors.white,
-              teal100.withValues(alpha: 0.3),
-            ],
+            colors: [Colors.white, teal100.withValues(alpha: 0.3)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -808,16 +1107,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
               decoration: BoxDecoration(
                 color: teal100,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: teal300,
-                  width: 3,
-                ),
+                border: Border.all(color: teal300, width: 3),
               ),
-              child: Icon(
-                Icons.people_outline,
-                size: 50,
-                color: teal700,
-              ),
+              child: Icon(Icons.people_outline, size: 50, color: teal700),
             ),
             const SizedBox(height: 24),
             Text(
@@ -830,7 +1122,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              'لم يتم العثور على أي مستخدمين\nفي هذه الفئة',
+              'لم يتم العثور على أي ��ستخدمين\nفي هذه الفئة',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -842,5 +1134,67 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         ),
       );
     }
+  }
+
+  Widget _buildServiceOption(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [Colors.white, color.withValues(alpha: 0.05)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: teal900,
+                      fontFamily: 'Alexandria',
+                    ),
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios, color: color, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
