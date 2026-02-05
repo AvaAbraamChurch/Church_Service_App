@@ -183,13 +183,43 @@ class _SuperServantViewState extends State<SuperServantView> {
       return;
     }
 
+    // Show date picker first
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(DateTime.now().year - 1),
+      lastDate: DateTime.now(),
+      helpText: 'اختر تاريخ الحضور',
+      cancelText: 'إلغاء',
+      confirmText: 'تأكيد',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: teal500,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: teal900,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    // If user cancelled date selection, return
+    if (selectedDate == null) {
+      debugPrint('⚠️ [SuperServantView] Date selection cancelled');
+      return;
+    }
+
     setState(() {
       isSubmitting = true;
     });
 
     try {
       final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
+      final attendanceDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
 
       final attendanceList = attendanceMap.entries.map((entry) {
         final user = _loadedUsers.firstWhere((u) => u.id == entry.key);
@@ -199,7 +229,7 @@ class _SuperServantViewState extends State<SuperServantView> {
           userId: user.id,
           userName: user.fullName,
           userType: user.userType,
-          date: today,
+          date: attendanceDate,
           attendanceType: _getAttendanceTypeFromIndex(widget.pageIndex),
           status: entry.value,
           checkInTime: entry.value == AttendanceStatus.present
