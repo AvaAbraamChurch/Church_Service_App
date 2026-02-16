@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق إدارة الكنيسة</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .logo-section {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .logo-section h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .logo-section p {
+            color: #7f8c8d;
+            font-size: 1.2em;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        .hero h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .hero p {
+            font-size: 1.3em;
+            margin-bottom: 30px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .features {
+            background: white;
+            padding: 60px 20px;
+        }
+
+        .features h2 {
+            text-align: center;
+            color: #2c3e50;
+            font-size: 2.2em;
+            margin-bottom: 50px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .feature-card {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+
+        .feature-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .feature-card h3 {
+            color: #34495e;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .feature-card p {
+            color: #555;
+            line-height: 1.7;
+        }
+
+        .links-section {
+            background: #2c3e50;
+            padding: 50px 20px;
+            text-align: center;
+        }
+
+        .links-section h2 {
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .links-grid {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .link-card {
+            background: white;
+            padding: 30px 50px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: #2c3e50;
+            font-size: 1.3em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        }
+
+        .link-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            background: #3498db;
+            color: white;
+        }
+
+        .footer {
+            background: #1a252f;
+            color: white;
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        .footer p {
+            margin: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            .hero h2 {
+                font-size: 1.8em;
+            }
+
+            .hero p {
+                font-size: 1.1em;
+            }
+
+            .features h2 {
+                font-size: 1.8em;
+            }
+
+            .logo-section h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="logo-section">
+                <h1>⛪ تطبيق إدارة الكنيسة</h1>
+                <p>Church Management App</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="hero">
+        <div class="container">
+            <h2>حل متكامل لإدارة الكنيسة</h2>
+            <p>منصة شاملة لتسهيل التواصل والمتابعة بين الخدام والمخدومين</p>
+        </div>
+    </div>
+
+    <div class="features">
+        <div class="container">
+            <h2>✨ الميزات الرئيسية</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📋</div>
+                    <h3>تسجيل الحضور</h3>
+                    <p>نظام متقدم لتسجيل حضور القداس، مدارس الأحد، الألحان، درس الكتاب، والافتقاد مع إمكانية اختيار التاريخ</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>النقاط والمكافآت</h3>
+                    <p>نظام تحفيزي متكامل لتجميع النقاط واستبدالها بكوبونات ومنتجات من المتجر الإلكتروني</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🏆</div>
+                    <h3>المسابقات الروحية</h3>
+                    <p>مسابقات تفاعلية متعددة الأسئلة مع تقييم تلقائي وحساب النقاط</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">💬</div>
+                    <h3>التواصل الفعال</h3>
+                    <p>محادثات فردية وجماعية مع إمكانية مشاركة الصور والملفات</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔔</div>
+                    <h3>إشعارات ذكية</h3>
+                    <p>تنبيهات فورية لأعياد الميلاد، الحضور، والمسابقات</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">👥</div>
+                    <h3>إدارة متكاملة</h3>
+                    <p>صلاحيات متدرجة لإدارة المستخدمين، الأسر، والفصول مع تقارير شاملة</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="links-section">
+        <div class="container">
+            <h2>📄 المستندات القانونية</h2>
+            <div class="links-grid">
+                <a href="privacy_policy.html" class="link-card">
+                    🔒 سياسة الخصوصية
+                </a>
+                <a href="terms_of_service.html" class="link-card">
+                    📋 شروط الخدمة
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="container">
+            <p>© 2026 أبناء الملك - جميع الحقوق محفوظة</p>
+            <p>Church Management App - All Rights Reserved</p>
+            <p style="margin-top: 20px; color: #7f8c8d;">
+                للدعم والمساعدة، يرجى استخدام قسم "الدعم" داخل التطبيق
+            </p>
+        </div>
+    </div>
+</body>
+</html>
