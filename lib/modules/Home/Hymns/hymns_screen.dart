@@ -108,6 +108,7 @@ class _HymnsScreenState extends State<HymnsScreen> {
         backgroundColor: Colors.transparent,
       ),
       floatingActionButton: _canManageHymns ? _buildFabMenu() : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
       body: Stack(
         children: [
           // Main content
