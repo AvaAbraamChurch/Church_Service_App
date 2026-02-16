@@ -1,9 +1,11 @@
-import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/blocs/competitions/competitions_cubit.dart';
 import 'package:church/core/models/competitions/competition_model.dart';
 import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/classes_mapping.dart';
 import 'package:flutter/material.dart';
+
+import '../../core/models/class_mapping/class_mapping_model.dart';
 
 class TakeCompetitionScreen extends StatefulWidget {
   final CompetitionModel competition;
@@ -26,6 +28,96 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
   bool _isSubmitted = false;
   double _totalScore = 0.0;
   List<bool> _correctness = [];
+  String? _userClassCode;
+  bool _isLoadingClassCode = true;
+  bool _hasAccess = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserClassCodeAndCheckAccess();
+  }
+
+  /// Load user's classCode from ClassMapping and check access
+  Future<void> _loadUserClassCodeAndCheckAccess() async {
+    if (widget.user == null) {
+      setState(() {
+        _isLoadingClassCode = false;
+        _hasAccess = true; // No user info, allow access
+      });
+      return;
+    }
+
+    try {
+      final userClassName = widget.user!.userClass;
+      if (userClassName.isEmpty) {
+        setState(() {
+          _isLoadingClassCode = false;
+          _hasAccess = true; // No class, allow access
+        });
+        return;
+      }
+
+      // Try to get the ClassMapping for this user's class
+      final classMappings =
+          await ClassMappingService.getActiveClassMappings().first;
+
+      // Find the mapping that matches the user's className
+      final userMapping = classMappings.firstWhere(
+        (mapping) => mapping.className == userClassName,
+        orElse: () => ClassMapping(
+          id: '',
+          classCode: userClassName, // Fallback: treat className as code
+          className: userClassName,
+        ),
+      );
+
+      final classCode = userMapping.classCode;
+      final targetAudience = widget.competition.targetAudience ?? 'all';
+
+      // Check access using classCode
+      final canAccess =
+          targetAudience == 'all' ||
+          targetAudience.isEmpty ||
+          CompetitionClassMapping.canAccessCompetition(
+            classCode,
+            targetAudience,
+          );
+
+      if (mounted) {
+        setState(() {
+          _userClassCode = classCode;
+          _hasAccess = canAccess;
+          _isLoadingClassCode = false;
+        });
+
+        // Show error and navigate back if no access
+        if (!canAccess) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('عذراً، هذه المسابقة غير متاحة لصفك الدراسي'),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+              Navigator.pop(context);
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading user class code: $e');
+      if (mounted) {
+        setState(() {
+          _userClassCode = widget.user!.userClass;
+          _hasAccess = true; // Fallback: allow access on error
+          _isLoadingClassCode = false;
+        });
+      }
+    }
+  }
 
   void _selectAnswer(int questionIndex, String answerId, bool isMultiple) {
     setState(() {
@@ -101,97 +193,55 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Validate user has access to this competition
-    if (widget.user != null) {
-      final targetAudience = widget.competition.targetAudience ?? 'all';
-      final canAccess = CompetitionClassMapping.canAccessCompetition(
-        widget.user!.userClass,
-        targetAudience,
-      );
-
-      if (!canAccess) {
-        // User doesn't have access - show error and navigate back
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('عذراً، هذه المسابقة غير متاحة لصفك الدراسي'),
-                backgroundColor: Colors.red,
-                duration: Duration(seconds: 3),
+    // Show loading state while checking access
+    if (_isLoadingClassCode) {
+      return ThemedScaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(70),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.green[400]!, Colors.green[700]!],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-            );
-            Navigator.pop(context);
-          }
-        });
-
-        return ThemedScaffold(
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(70),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.red[400]!, Colors.red[700]!],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        tooltip: 'رجوع',
-                      ),
-                      const Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'غير مسموح',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Alexandria',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.block,
+            ),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    ),
+                    const Expanded(
+                      child: Text(
+                        'جاري التحميل...',
+                        style: TextStyle(
                           color: Colors.white,
-                          size: 28,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Alexandria',
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          body: const Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
-      }
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: Colors.green),
+        ),
+      );
+    }
+
+    // Access check is now done in _loadUserClassCodeAndCheckAccess
+    // If no access, user is already navigated back
+    if (!_hasAccess) {
+      return const SizedBox.shrink();
     }
 
     return ThemedScaffold(
@@ -300,7 +350,11 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
                             color: Colors.white.withValues(alpha: 0.2),
-                            child: const Icon(Icons.sports_score, size: 50, color: Colors.white),
+                            child: const Icon(
+                              Icons.sports_score,
+                              size: 50,
+                              color: Colors.white,
+                            ),
                           );
                         },
                       ),
@@ -342,8 +396,8 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
               itemBuilder: (context, index) {
                 final question = widget.competition.questions[index];
                 final isCorrect = _isSubmitted && _correctness.isNotEmpty
-                                  ? _correctness[index]
-                                  : null;
+                    ? _correctness[index]
+                    : null;
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 16),
@@ -419,7 +473,8 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                         const SizedBox(height: 16),
 
                         // Question Image (if exists)
-                        if (question.imageUrl != null && question.imageUrl!.isNotEmpty)
+                        if (question.imageUrl != null &&
+                            question.imageUrl!.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 16),
                             child: ClipRRect(
@@ -428,25 +483,35 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                                 question.imageUrl!,
                                 fit: BoxFit.cover,
                                 width: double.infinity,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Container(
-                                    height: 200,
-                                    alignment: Alignment.center,
-                                    child: CircularProgressIndicator(
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded /
-                                              loadingProgress.expectedTotalBytes!
-                                          : null,
-                                    ),
-                                  );
-                                },
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Container(
+                                        height: 200,
+                                        alignment: Alignment.center,
+                                        child: CircularProgressIndicator(
+                                          value:
+                                              loadingProgress
+                                                      .expectedTotalBytes !=
+                                                  null
+                                              ? loadingProgress
+                                                        .cumulativeBytesLoaded /
+                                                    loadingProgress
+                                                        .expectedTotalBytes!
+                                              : null,
+                                        ),
+                                      );
+                                    },
                                 errorBuilder: (context, error, stackTrace) {
                                   return Container(
                                     height: 200,
                                     alignment: Alignment.center,
                                     color: Colors.grey[200],
-                                    child: const Icon(Icons.error, size: 48, color: Colors.grey),
+                                    child: const Icon(
+                                      Icons.error,
+                                      size: 48,
+                                      color: Colors.grey,
+                                    ),
                                   );
                                 },
                               ),
@@ -456,16 +521,20 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                         // Answer Options
                         ...question.answerOptions.asMap().entries.map((entry) {
                           final option = entry.value;
-                          final isSelected = _userAnswers[index]?.contains(option.id) ?? false;
-                          final isMultiple = question.type == QuestionType.multipleChoice;
+                          final isSelected =
+                              _userAnswers[index]?.contains(option.id) ?? false;
+                          final isMultiple =
+                              question.type == QuestionType.multipleChoice;
 
                           // Show correct answer after submission
                           bool? isThisCorrect;
                           if (_isSubmitted) {
                             if (question.type == QuestionType.multipleChoice) {
-                              isThisCorrect = question.correctAnswerIds?.contains(option.id);
+                              isThisCorrect = question.correctAnswerIds
+                                  ?.contains(option.id);
                             } else {
-                              isThisCorrect = question.correctAnswerId == option.id;
+                              isThisCorrect =
+                                  question.correctAnswerId == option.id;
                             }
                           }
 
@@ -474,28 +543,40 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                             child: InkWell(
                               onTap: _isSubmitted
                                   ? null
-                                  : () => _selectAnswer(index, option.id, isMultiple),
+                                  : () => _selectAnswer(
+                                      index,
+                                      option.id,
+                                      isMultiple,
+                                    ),
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: _isSubmitted
                                       ? (isThisCorrect == true
-                                          ? Colors.green.withValues(alpha: 0.1)
-                                          : (isSelected
-                                              ? Colors.red.withValues(alpha: 0.1)
-                                              : Colors.transparent))
+                                            ? Colors.green.withValues(
+                                                alpha: 0.1,
+                                              )
+                                            : (isSelected
+                                                  ? Colors.red.withValues(
+                                                      alpha: 0.1,
+                                                    )
+                                                  : Colors.transparent))
                                       : (isSelected
-                                          ? const Color(0xFF43A047).withValues(alpha: 0.1)
-                                          : Colors.transparent),
+                                            ? const Color(
+                                                0xFF43A047,
+                                              ).withValues(alpha: 0.1)
+                                            : Colors.transparent),
                                   border: Border.all(
                                     color: _isSubmitted
                                         ? (isThisCorrect == true
-                                            ? Colors.green
-                                            : (isSelected ? Colors.red : Colors.grey[300]!))
+                                              ? Colors.green
+                                              : (isSelected
+                                                    ? Colors.red
+                                                    : Colors.grey[300]!))
                                         : (isSelected
-                                            ? const Color(0xFF43A047)
-                                            : Colors.grey[300]!),
+                                              ? const Color(0xFF43A047)
+                                              : Colors.grey[300]!),
                                     width: 2,
                                   ),
                                   borderRadius: BorderRadius.circular(12),
@@ -509,11 +590,13 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                                             : Icons.check_box_outline_blank,
                                         color: _isSubmitted
                                             ? (isThisCorrect == true
-                                                ? Colors.green
-                                                : (isSelected ? Colors.red : Colors.grey))
+                                                  ? Colors.green
+                                                  : (isSelected
+                                                        ? Colors.red
+                                                        : Colors.grey))
                                             : (isSelected
-                                                ? const Color(0xFF43A047)
-                                                : Colors.grey),
+                                                  ? const Color(0xFF43A047)
+                                                  : Colors.grey),
                                       )
                                     else
                                       Icon(
@@ -522,16 +605,19 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                                             : Icons.radio_button_unchecked,
                                         color: _isSubmitted
                                             ? (isThisCorrect == true
-                                                ? Colors.green
-                                                : (isSelected ? Colors.red : Colors.grey))
+                                                  ? Colors.green
+                                                  : (isSelected
+                                                        ? Colors.red
+                                                        : Colors.grey))
                                             : (isSelected
-                                                ? const Color(0xFF43A047)
-                                                : Colors.grey),
+                                                  ? const Color(0xFF43A047)
+                                                  : Colors.grey),
                                       ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             option.answerText,
@@ -542,36 +628,58 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                                             ),
                                           ),
                                           // Answer Image (if exists)
-                                          if (option.imageUrl != null && option.imageUrl!.isNotEmpty)
+                                          if (option.imageUrl != null &&
+                                              option.imageUrl!.isNotEmpty)
                                             Padding(
-                                              padding: const EdgeInsets.only(top: 8),
+                                              padding: const EdgeInsets.only(
+                                                top: 8,
+                                              ),
                                               child: ClipRRect(
-                                                borderRadius: BorderRadius.circular(8),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                                 child: Image.network(
                                                   option.imageUrl!,
                                                   height: 100,
                                                   fit: BoxFit.cover,
                                                   loadingBuilder: (context, child, loadingProgress) {
-                                                    if (loadingProgress == null) return child;
+                                                    if (loadingProgress == null)
+                                                      return child;
                                                     return Container(
                                                       height: 100,
-                                                      alignment: Alignment.center,
+                                                      alignment:
+                                                          Alignment.center,
                                                       child: CircularProgressIndicator(
-                                                        value: loadingProgress.expectedTotalBytes != null
-                                                            ? loadingProgress.cumulativeBytesLoaded /
-                                                                loadingProgress.expectedTotalBytes!
+                                                        value:
+                                                            loadingProgress
+                                                                    .expectedTotalBytes !=
+                                                                null
+                                                            ? loadingProgress
+                                                                      .cumulativeBytesLoaded /
+                                                                  loadingProgress
+                                                                      .expectedTotalBytes!
                                                             : null,
                                                       ),
                                                     );
                                                   },
-                                                  errorBuilder: (context, error, stackTrace) {
-                                                    return Container(
-                                                      height: 100,
-                                                      alignment: Alignment.center,
-                                                      color: Colors.grey[200],
-                                                      child: const Icon(Icons.error, size: 24, color: Colors.grey),
-                                                    );
-                                                  },
+                                                  errorBuilder:
+                                                      (
+                                                        context,
+                                                        error,
+                                                        stackTrace,
+                                                      ) {
+                                                        return Container(
+                                                          height: 100,
+                                                          alignment:
+                                                              Alignment.center,
+                                                          color:
+                                                              Colors.grey[200],
+                                                          child: const Icon(
+                                                            Icons.error,
+                                                            size: 24,
+                                                            color: Colors.grey,
+                                                          ),
+                                                        );
+                                                      },
                                                 ),
                                               ),
                                             ),
@@ -579,9 +687,17 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                                       ),
                                     ),
                                     if (_isSubmitted && isThisCorrect == true)
-                                      const Icon(Icons.check, color: Colors.green),
-                                    if (_isSubmitted && isSelected && isThisCorrect != true)
-                                      const Icon(Icons.close, color: Colors.red),
+                                      const Icon(
+                                        Icons.check,
+                                        color: Colors.green,
+                                      ),
+                                    if (_isSubmitted &&
+                                        isSelected &&
+                                        isThisCorrect != true)
+                                      const Icon(
+                                        Icons.close,
+                                        color: Colors.red,
+                                      ),
                                   ],
                                 ),
                               ),
@@ -616,7 +732,10 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [const Color(0xFF43A047), const Color(0xFF66BB6A)],
+                            colors: [
+                              const Color(0xFF43A047),
+                              const Color(0xFF66BB6A),
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -757,5 +876,3 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
     );
   }
 }
-
-

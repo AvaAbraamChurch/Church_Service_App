@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/competitions/competition_model.dart';
 
 /// Repository for managing competitions with Firestore integration.
@@ -9,8 +10,8 @@ class CompetitionsRepository {
   CompetitionsRepository({
     FirebaseFirestore? firestore,
     String collectionPath = 'competitions',
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _collectionPath = collectionPath;
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _collectionPath = collectionPath;
 
   CollectionReference get _competitionsCollection =>
       _firestore.collection(_collectionPath);
@@ -22,11 +23,16 @@ class CompetitionsRepository {
     return _competitionsCollection
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => CompetitionModel.fromJson(
-                  {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-                ))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => CompetitionModel.fromJson({
+                  ...doc.data() as Map<String, dynamic>,
+                  'id': doc.id,
+                }),
+              )
+              .toList(),
+        );
   }
 
   /// Stream active competitions only
@@ -35,11 +41,16 @@ class CompetitionsRepository {
         .where('isActive', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => CompetitionModel.fromJson(
-                  {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-                ))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => CompetitionModel.fromJson({
+                  ...doc.data() as Map<String, dynamic>,
+                  'id': doc.id,
+                }),
+              )
+              .toList(),
+        );
   }
 
   /// Stream competitions by target audience
@@ -49,11 +60,16 @@ class CompetitionsRepository {
         .where('isActive', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => CompetitionModel.fromJson(
-                  {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-                ))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => CompetitionModel.fromJson({
+                  ...doc.data() as Map<String, dynamic>,
+                  'id': doc.id,
+                }),
+              )
+              .toList(),
+        );
   }
 
   /// Stream competitions by creator
@@ -62,20 +78,26 @@ class CompetitionsRepository {
         .where('createdBy', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => CompetitionModel.fromJson(
-                  {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-                ))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => CompetitionModel.fromJson({
+                  ...doc.data() as Map<String, dynamic>,
+                  'id': doc.id,
+                }),
+              )
+              .toList(),
+        );
   }
 
   /// Stream a single competition
   Stream<CompetitionModel?> watchCompetition(String competitionId) {
     return _competitionsCollection.doc(competitionId).snapshots().map((doc) {
       if (!doc.exists) return null;
-      return CompetitionModel.fromJson(
-        {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-      );
+      return CompetitionModel.fromJson({
+        ...doc.data() as Map<String, dynamic>,
+        'id': doc.id,
+      });
     });
   }
 
@@ -87,18 +109,31 @@ class CompetitionsRepository {
     Query query = _competitionsCollection;
 
     if (startDate != null) {
-      query = query.where('startDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+      query = query.where(
+        'startDate',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+      );
     }
     if (endDate != null) {
-      query = query.where('endDate', isLessThanOrEqualTo: Timestamp.fromDate(endDate));
+      query = query.where(
+        'endDate',
+        isLessThanOrEqualTo: Timestamp.fromDate(endDate),
+      );
     }
 
-    return query.orderBy('createdAt', descending: true).snapshots().map((snapshot) =>
-        snapshot.docs
-            .map((doc) => CompetitionModel.fromJson(
-                  {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-                ))
-            .toList());
+    return query
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => CompetitionModel.fromJson({
+                  ...doc.data() as Map<String, dynamic>,
+                  'id': doc.id,
+                }),
+              )
+              .toList(),
+        );
   }
 
   // ==================== FUTURE METHODS ====================
@@ -111,9 +146,12 @@ class CompetitionsRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => CompetitionModel.fromJson(
-                {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-              ))
+          .map(
+            (doc) => CompetitionModel.fromJson({
+              ...doc.data() as Map<String, dynamic>,
+              'id': doc.id,
+            }),
+          )
           .toList();
     } catch (e) {
       throw Exception('Error fetching competitions: $e');
@@ -129,9 +167,12 @@ class CompetitionsRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => CompetitionModel.fromJson(
-                {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-              ))
+          .map(
+            (doc) => CompetitionModel.fromJson({
+              ...doc.data() as Map<String, dynamic>,
+              'id': doc.id,
+            }),
+          )
           .toList();
     } catch (e) {
       throw Exception('Error fetching active competitions: $e');
@@ -145,27 +186,33 @@ class CompetitionsRepository {
 
       if (!doc.exists) return null;
 
-      return CompetitionModel.fromJson(
-        {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-      );
+      return CompetitionModel.fromJson({
+        ...doc.data() as Map<String, dynamic>,
+        'id': doc.id,
+      });
     } catch (e) {
       throw Exception('Error fetching competition: $e');
     }
   }
 
   /// Get competitions by target audience
-  Future<List<CompetitionModel>> getCompetitionsByAudience(String audience) async {
+  Future<List<CompetitionModel>> getCompetitionsByAudience(
+    String audience,
+  ) async {
     try {
-      final snapshot = await _competitionsCollection
-          .where('targetAudience', isEqualTo: audience)
-          .where('isActive', isEqualTo: true)
+      // Query for competitions where targetAudience is either the specific audience or 'all'
+      var snapshot = await _competitionsCollection
+          .where('targetAudience', whereIn: [audience, 'all'])
           .orderBy('createdAt', descending: true)
           .get();
 
       return snapshot.docs
-          .map((doc) => CompetitionModel.fromJson(
-                {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-              ))
+          .map(
+            (doc) => CompetitionModel.fromJson({
+              ...doc.data() as Map<String, dynamic>,
+              'id': doc.id,
+            }),
+          )
           .toList();
     } catch (e) {
       throw Exception('Error fetching competitions by audience: $e');
@@ -194,7 +241,10 @@ class CompetitionsRepository {
   }
 
   /// Update an existing competition
-  Future<void> updateCompetition(String competitionId, Map<String, dynamic> data) async {
+  Future<void> updateCompetition(
+    String competitionId,
+    Map<String, dynamic> data,
+  ) async {
     try {
       await _competitionsCollection.doc(competitionId).update(data);
     } catch (e) {
@@ -203,7 +253,10 @@ class CompetitionsRepository {
   }
 
   /// Update competition status (active/inactive)
-  Future<void> updateCompetitionStatus(String competitionId, bool isActive) async {
+  Future<void> updateCompetitionStatus(
+    String competitionId,
+    bool isActive,
+  ) async {
     try {
       await _competitionsCollection.doc(competitionId).update({
         'isActive': isActive,
@@ -227,7 +280,10 @@ class CompetitionsRepository {
   /// Check if competition name already exists
   Future<bool> competitionNameExists(String name, {String? excludeId}) async {
     try {
-      Query query = _competitionsCollection.where('competitionName', isEqualTo: name);
+      Query query = _competitionsCollection.where(
+        'competitionName',
+        isEqualTo: name,
+      );
 
       final snapshot = await query.get();
 
@@ -264,7 +320,9 @@ class CompetitionsRepository {
   }
 
   /// Search competitions by name
-  Future<List<CompetitionModel>> searchCompetitionsByName(String searchQuery) async {
+  Future<List<CompetitionModel>> searchCompetitionsByName(
+    String searchQuery,
+  ) async {
     try {
       final snapshot = await _competitionsCollection
           .orderBy('competitionName')
@@ -273,9 +331,12 @@ class CompetitionsRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => CompetitionModel.fromJson(
-                {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-              ))
+          .map(
+            (doc) => CompetitionModel.fromJson({
+              ...doc.data() as Map<String, dynamic>,
+              'id': doc.id,
+            }),
+          )
           .toList();
     } catch (e) {
       throw Exception('Error searching competitions: $e');
@@ -295,9 +356,12 @@ class CompetitionsRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => CompetitionModel.fromJson(
-                {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-              ))
+          .map(
+            (doc) => CompetitionModel.fromJson({
+              ...doc.data() as Map<String, dynamic>,
+              'id': doc.id,
+            }),
+          )
           .toList();
     } catch (e) {
       throw Exception('Error fetching ongoing competitions: $e');
@@ -315,9 +379,12 @@ class CompetitionsRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => CompetitionModel.fromJson(
-                {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-              ))
+          .map(
+            (doc) => CompetitionModel.fromJson({
+              ...doc.data() as Map<String, dynamic>,
+              'id': doc.id,
+            }),
+          )
           .toList();
     } catch (e) {
       throw Exception('Error fetching upcoming competitions: $e');
@@ -334,9 +401,12 @@ class CompetitionsRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => CompetitionModel.fromJson(
-                {...doc.data() as Map<String, dynamic>, 'id': doc.id},
-              ))
+          .map(
+            (doc) => CompetitionModel.fromJson({
+              ...doc.data() as Map<String, dynamic>,
+              'id': doc.id,
+            }),
+          )
           .toList();
     } catch (e) {
       throw Exception('Error fetching past competitions: $e');
@@ -346,7 +416,9 @@ class CompetitionsRepository {
   // ==================== BATCH OPERATIONS ====================
 
   /// Batch update multiple competitions
-  Future<void> batchUpdateCompetitions(Map<String, Map<String, dynamic>> updates) async {
+  Future<void> batchUpdateCompetitions(
+    Map<String, Map<String, dynamic>> updates,
+  ) async {
     try {
       final batch = _firestore.batch();
 
@@ -458,7 +530,9 @@ class CompetitionsRepository {
   }
 
   /// Get user's competition results
-  Future<List<Map<String, dynamic>>> getUserCompetitionResults(String userId) async {
+  Future<List<Map<String, dynamic>>> getUserCompetitionResults(
+    String userId,
+  ) async {
     try {
       final snapshot = await _firestore
           .collection('competitionResults')
@@ -466,9 +540,7 @@ class CompetitionsRepository {
           .orderBy('completedAt', descending: true)
           .get();
 
-      return snapshot.docs
-          .map((doc) => {...doc.data(), 'id': doc.id})
-          .toList();
+      return snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
     } catch (e) {
       throw Exception('Error fetching user competition results: $e');
     }
@@ -487,16 +559,17 @@ class CompetitionsRepository {
           .limit(limit)
           .get();
 
-      return snapshot.docs
-          .map((doc) => {...doc.data(), 'id': doc.id})
-          .toList();
+      return snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
     } catch (e) {
       throw Exception('Error fetching competition leaderboard: $e');
     }
   }
 
   /// Check if user has completed a competition
-  Future<bool> hasUserCompletedCompetition(String userId, String competitionId) async {
+  Future<bool> hasUserCompletedCompetition(
+    String userId,
+    String competitionId,
+  ) async {
     try {
       final snapshot = await _firestore
           .collection('competitionResults')
@@ -512,7 +585,10 @@ class CompetitionsRepository {
   }
 
   /// Get user's result for a specific competition
-  Future<Map<String, dynamic>?> getUserCompetitionResult(String userId, String competitionId) async {
+  Future<Map<String, dynamic>?> getUserCompetitionResult(
+    String userId,
+    String competitionId,
+  ) async {
     try {
       final snapshot = await _firestore
           .collection('competitionResults')
@@ -529,4 +605,3 @@ class CompetitionsRepository {
     }
   }
 }
-

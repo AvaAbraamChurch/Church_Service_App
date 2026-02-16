@@ -1,8 +1,9 @@
 import 'dart:io';
-import 'package:church/core/styles/themeScaffold.dart';
+
 import 'package:church/core/blocs/competitions/competitions_cubit.dart';
 import 'package:church/core/blocs/competitions/competitions_states.dart';
 import 'package:church/core/models/competitions/competition_model.dart';
+import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/classes_mapping.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -51,8 +52,12 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.competition.competitionName);
-    _descriptionController = TextEditingController(text: widget.competition.description ?? '');
+    _nameController = TextEditingController(
+      text: widget.competition.competitionName,
+    );
+    _descriptionController = TextEditingController(
+      text: widget.competition.description ?? '',
+    );
     _pointsPerQuestionController = TextEditingController(
       text: widget.competition.pointsPerQuestion?.toString() ?? '10',
     );
@@ -83,8 +88,7 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
   }
 
   bool get canDelete =>
-      widget.userType.code == UserType.priest.code ||
-      widget.isAdmin == true;
+      widget.userType.code == UserType.priest.code || widget.isAdmin == true;
 
   Future<void> _pickImage() async {
     final choice = await showDialog<String>(
@@ -324,9 +328,11 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
       }
     }
 
-    final pointsPerQuestion = double.tryParse(_pointsPerQuestionController.text) ?? 10.0;
+    final pointsPerQuestion =
+        double.tryParse(_pointsPerQuestionController.text) ?? 10.0;
     final totalPoints = _scoringMode == 'total'
-        ? (double.tryParse(_totalPointsController.text) ?? (_questions.length * 10.0))
+        ? (double.tryParse(_totalPointsController.text) ??
+              (_questions.length * 10.0))
         : (pointsPerQuestion * _questions.length);
 
     // Distribute points to each question if using total points mode
@@ -349,7 +355,9 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
       'isActive': _isActive,
       'targetAudience': _targetAudience,
       'targetGender': _targetGender,
-      'pointsPerQuestion': _scoringMode == 'perQuestion' ? pointsPerQuestion : null,
+      'pointsPerQuestion': _scoringMode == 'perQuestion'
+          ? pointsPerQuestion
+          : null,
       'totalPoints': totalPoints,
     };
 
@@ -386,7 +394,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('تأكيد الحذف', style: TextStyle(fontFamily: 'Alexandria')),
+        title: const Text(
+          'تأكيد الحذف',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
         content: const Text(
           'هل أنت متأكد من حذف هذه المسابقة؟ لا يمكن التراجع عن هذا الإجراء.',
           style: TextStyle(fontFamily: 'Alexandria', color: Colors.black),
@@ -435,7 +446,8 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
         }
       },
       builder: (context, state) {
-        final isLoading = state is UpdateCompetitionLoading || state is UploadImageLoading;
+        final isLoading =
+            state is UpdateCompetitionLoading || state is UploadImageLoading;
 
         return ThemedScaffold(
           appBar: PreferredSize(
@@ -457,7 +469,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
               ),
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       IconButton(
@@ -539,7 +554,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFE8F5E9),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFA5D6A7), width: 2),
+                            border: Border.all(
+                              color: const Color(0xFFA5D6A7),
+                              width: 2,
+                            ),
                           ),
                           child: _imageFile != null
                               ? ClipRRect(
@@ -550,81 +568,100 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                   ),
                                 )
                               : _imageUrl != null
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(14),
-                                      child: Image.network(
-                                        _imageUrl!,
-                                        fit: BoxFit.cover,
-                                        loadingBuilder: (context, child, loadingProgress) {
-                                          if (loadingProgress == null) return child;
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.network(
+                                    _imageUrl!,
+                                    fit: BoxFit.cover,
+                                    loadingBuilder:
+                                        (context, child, loadingProgress) {
+                                          if (loadingProgress == null)
+                                            return child;
                                           return Center(
                                             child: CircularProgressIndicator(
-                                              value: loadingProgress.expectedTotalBytes != null
-                                                  ? loadingProgress.cumulativeBytesLoaded /
-                                                      loadingProgress.expectedTotalBytes!
+                                              value:
+                                                  loadingProgress
+                                                          .expectedTotalBytes !=
+                                                      null
+                                                  ? loadingProgress
+                                                            .cumulativeBytesLoaded /
+                                                        loadingProgress
+                                                            .expectedTotalBytes!
                                                   : null,
                                             ),
                                           );
                                         },
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Icon(Icons.error, size: 40, color: Colors.red[300]),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                'فشل تحميل الصورة',
-                                                style: TextStyle(
-                                                  color: Colors.red[700],
-                                                  fontSize: 12,
-                                                  fontFamily: 'Alexandria',
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      ),
-                                    )
-                                  : widget.competition.imageUrl != null
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(14),
-                                          child: Image.network(
-                                            widget.competition.imageUrl!,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(Icons.add_photo_alternate,
-                                                      size: 50, color: const Color(0xFFA5D6A7)),
-                                                  const SizedBox(height: 8),
-                                                  Text(
-                                                    'تغيير الصورة',
-                                                    style: TextStyle(
-                                                      color: const Color(0xFF388E3C),
-                                                      fontFamily: 'Alexandria',
-                                                    ),
-                                                  ),
-                                                ],
-                                              );
-                                            },
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.error,
+                                            size: 40,
+                                            color: Colors.red[300],
                                           ),
-                                    )
-                                  : Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.add_photo_alternate,
-                                            size: 50, color: const Color(0xFFA5D6A7)),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'إضافة صورة',
-                                          style: TextStyle(
-                                            color: const Color(0xFF388E3C),
-                                            fontFamily: 'Alexandria',
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'فشل تحميل الصورة',
+                                            style: TextStyle(
+                                              color: Colors.red[700],
+                                              fontSize: 12,
+                                              fontFamily: 'Alexandria',
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                )
+                              : widget.competition.imageUrl != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.network(
+                                    widget.competition.imageUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.add_photo_alternate,
+                                            size: 50,
+                                            color: const Color(0xFFA5D6A7),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'تغيير الصورة',
+                                            style: TextStyle(
+                                              color: const Color(0xFF388E3C),
+                                              fontFamily: 'Alexandria',
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.add_photo_alternate,
+                                      size: 50,
+                                      color: const Color(0xFFA5D6A7),
                                     ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'إضافة صورة',
+                                      style: TextStyle(
+                                        color: const Color(0xFF388E3C),
+                                        fontFamily: 'Alexandria',
+                                      ),
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
                     ),
@@ -637,7 +674,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                       decoration: InputDecoration(
                         labelText: 'اسم المسابقة',
                         labelStyle: const TextStyle(color: Colors.white),
-                        prefixIcon: const Icon(Icons.sports_score, color: Colors.white),
+                        prefixIcon: const Icon(
+                          Icons.sports_score,
+                          color: Colors.white,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -658,7 +698,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                       decoration: InputDecoration(
                         labelText: 'الوصف',
                         labelStyle: const TextStyle(color: Colors.white),
-                        prefixIcon: const Icon(Icons.description, color: Colors.white),
+                        prefixIcon: const Icon(
+                          Icons.description,
+                          color: Colors.white,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -680,7 +723,11 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.star, color: Colors.white, size: 20),
+                              const Icon(
+                                Icons.star,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               const Text(
                                 'نظام النقاط',
@@ -704,7 +751,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                     });
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                      horizontal: 8,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: _scoringMode == 'perQuestion'
                                           ? Colors.green[600]
@@ -735,7 +785,8 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                                 ? Colors.white
                                                 : Colors.white70,
                                             fontSize: 12,
-                                            fontWeight: _scoringMode == 'perQuestion'
+                                            fontWeight:
+                                                _scoringMode == 'perQuestion'
                                                 ? FontWeight.bold
                                                 : FontWeight.normal,
                                             fontFamily: 'Alexandria',
@@ -755,7 +806,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                     });
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                      horizontal: 8,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: _scoringMode == 'total'
                                           ? Colors.green[600]
@@ -806,17 +860,27 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                               style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
                                 labelText: 'النقاط لكل سؤال',
-                                labelStyle: const TextStyle(color: Colors.white),
+                                labelStyle: const TextStyle(
+                                  color: Colors.white,
+                                ),
                                 hintText: 'مثال: 10',
-                                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-                                prefixIcon: const Icon(Icons.card_giftcard, color: Colors.white),
+                                hintStyle: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.card_giftcard,
+                                  color: Colors.white,
+                                ),
                                 filled: true,
                                 fillColor: Colors.white.withValues(alpha: 0.1),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                               validator: (value) {
                                 if (value != null && value.isNotEmpty) {
                                   final points = double.tryParse(value);
@@ -836,17 +900,31 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                   style: const TextStyle(color: Colors.white),
                                   decoration: InputDecoration(
                                     labelText: 'إجمالي نقاط المسابقة',
-                                    labelStyle: const TextStyle(color: Colors.white),
+                                    labelStyle: const TextStyle(
+                                      color: Colors.white,
+                                    ),
                                     hintText: 'مثال: 100',
-                                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-                                    prefixIcon: const Icon(Icons.emoji_events, color: Colors.white),
+                                    hintStyle: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                    ),
+                                    prefixIcon: const Icon(
+                                      Icons.emoji_events,
+                                      color: Colors.white,
+                                    ),
                                     filled: true,
-                                    fillColor: Colors.white.withValues(alpha: 0.1),
+                                    fillColor: Colors.white.withValues(
+                                      alpha: 0.1,
+                                    ),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   validator: (value) {
                                     if (value != null && value.isNotEmpty) {
                                       final points = double.tryParse(value);
@@ -864,19 +942,26 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                 const SizedBox(height: 8),
                                 Builder(
                                   builder: (context) {
-                                    if (_questions.isEmpty || _totalPointsController.text.isEmpty) {
+                                    if (_questions.isEmpty ||
+                                        _totalPointsController.text.isEmpty) {
                                       return Text(
                                         'سيتم توزيع النقاط على جميع الأسئلة',
                                         style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.7),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.7,
+                                          ),
                                           fontSize: 12,
                                           fontFamily: 'Alexandria',
                                         ),
                                       );
                                     }
-                                    final totalPoints = double.tryParse(_totalPointsController.text);
-                                    if (totalPoints != null && totalPoints > 0) {
-                                      final pointsPerQuestion = totalPoints / _questions.length;
+                                    final totalPoints = double.tryParse(
+                                      _totalPointsController.text,
+                                    );
+                                    if (totalPoints != null &&
+                                        totalPoints > 0) {
+                                      final pointsPerQuestion =
+                                          totalPoints / _questions.length;
                                       return Text(
                                         'سيتم توزيع النقاط: ${pointsPerQuestion.toStringAsFixed(3)} نقطة لكل سؤال (${_questions.length} سؤال)',
                                         style: TextStyle(
@@ -890,7 +975,9 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                     return Text(
                                       'سيتم توزيع النقاط على جميع الأسئلة',
                                       style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.7),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.7,
+                                        ),
                                         fontSize: 12,
                                         fontFamily: 'Alexandria',
                                       ),
@@ -907,11 +994,17 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                     // Target Audience
                     DropdownButtonFormField<String>(
                       value: _targetAudience,
-                      style: const TextStyle(color: Colors.black, fontFamily: 'Alexandria'),
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontFamily: 'Alexandria',
+                      ),
                       decoration: InputDecoration(
                         labelText: 'الفئة المستهدفة / الصف',
                         labelStyle: const TextStyle(color: Colors.white),
-                        prefixIcon: const Icon(Icons.group, color: Colors.white),
+                        prefixIcon: const Icon(
+                          Icons.group,
+                          color: Colors.white,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -930,7 +1023,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                     // Target Gender
                     DropdownButtonFormField<String>(
                       value: _targetGender,
-                      style: const TextStyle(color: Colors.black, fontFamily: 'Alexandria'),
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontFamily: 'Alexandria',
+                      ),
                       decoration: InputDecoration(
                         labelText: 'النوع المستهدف',
                         labelStyle: const TextStyle(color: Colors.white),
@@ -940,18 +1036,9 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                         ),
                       ),
                       items: const [
-                        DropdownMenuItem(
-                          value: 'all',
-                          child: Text('الكل'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'M',
-                          child: Text('ذكور فقط'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'F',
-                          child: Text('إناث فقط'),
-                        ),
+                        DropdownMenuItem(value: 'all', child: Text('الكل')),
+                        DropdownMenuItem(value: 'M', child: Text('ذكور فقط')),
+                        DropdownMenuItem(value: 'F', child: Text('إناث فقط')),
                       ],
                       onChanged: (value) {
                         if (value != null) {
@@ -970,7 +1057,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                         decoration: InputDecoration(
                           labelText: 'تاريخ البدء',
                           labelStyle: const TextStyle(color: Colors.white),
-                          prefixIcon: const Icon(Icons.calendar_today, color: Colors.white),
+                          prefixIcon: const Icon(
+                            Icons.calendar_today,
+                            color: Colors.white,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -980,7 +1070,9 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                               ? '${_startDate!.year}-${_startDate!.month}-${_startDate!.day}'
                               : 'اختر تاريخ البدء',
                           style: TextStyle(
-                            color: _startDate != null ? Colors.white : const Color(0xFFE0E0E0),
+                            color: _startDate != null
+                                ? Colors.white
+                                : const Color(0xFFE0E0E0),
                           ),
                         ),
                       ),
@@ -994,7 +1086,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                         decoration: InputDecoration(
                           labelText: 'تاريخ الانتهاء',
                           labelStyle: const TextStyle(color: Colors.white),
-                          prefixIcon: const Icon(Icons.event, color: Colors.white),
+                          prefixIcon: const Icon(
+                            Icons.event,
+                            color: Colors.white,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -1004,7 +1099,9 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                               ? '${_endDate!.year}-${_endDate!.month}-${_endDate!.day}'
                               : 'اختر تاريخ الانتهاء',
                           style: TextStyle(
-                            color: _endDate != null ? Colors.white : const Color(0xFFE0E0E0),
+                            color: _endDate != null
+                                ? Colors.white
+                                : const Color(0xFFE0E0E0),
                           ),
                         ),
                       ),
@@ -1013,8 +1110,14 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
 
                     // Active Status
                     SwitchListTile(
-                      title: const Text('المسابقة نشطة', style: TextStyle(color: Colors.white),),
-                      subtitle: const Text('السماح للمستخدمين بالمشاركة', style: TextStyle(color: Colors.white30),),
+                      title: const Text(
+                        'المسابقة نشطة',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      subtitle: const Text(
+                        'السماح للمستخدمين بالمشاركة',
+                        style: TextStyle(color: Colors.white30),
+                      ),
                       value: _isActive,
                       activeColor: const Color(0xFF43A047),
                       onChanged: (value) {
@@ -1078,7 +1181,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.edit, color: Colors.blue),
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Colors.blue,
+                                  ),
                                   onPressed: () {
                                     showDialog(
                                       context: context,
@@ -1095,7 +1201,10 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                                   },
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                  ),
                                   onPressed: () {
                                     setState(() {
                                       _questions.removeAt(index);
@@ -1152,9 +1261,7 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                 Container(
                   color: const Color(0xFF000000).withValues(alpha: 0.3),
                   child: const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF43A047),
-                    ),
+                    child: CircularProgressIndicator(color: Color(0xFF43A047)),
                   ),
                 ),
             ],
@@ -1208,18 +1315,27 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('اختر مصدر الصورة', style: TextStyle(fontFamily: 'Alexandria')),
+        title: const Text(
+          'اختر مصدر الصورة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('من المعرض', style: TextStyle(fontFamily: 'Alexandria')),
+              title: const Text(
+                'من المعرض',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
               onTap: () => Navigator.pop(context, 'gallery'),
             ),
             ListTile(
               leading: const Icon(Icons.link),
-              title: const Text('من رابط URL', style: TextStyle(fontFamily: 'Alexandria')),
+              title: const Text(
+                'من رابط URL',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
               onTap: () => Navigator.pop(context, 'url'),
             ),
           ],
@@ -1252,7 +1368,10 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل اختيار صورة السؤال: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('فشل اختيار صورة السؤال: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -1263,17 +1382,27 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
     final url = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('أدخل رابط صورة السؤال', style: TextStyle(fontFamily: 'Alexandria')),
+        title: const Text(
+          'أدخل رابط صورة السؤال',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
         content: TextField(
           controller: urlController,
-          decoration: const InputDecoration(labelText: 'URL', hintText: 'https://example.com/image.jpg'),
+          decoration: const InputDecoration(
+            labelText: 'URL',
+            hintText: 'https://example.com/image.jpg',
+          ),
           keyboardType: TextInputType.url,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
           ElevatedButton(
             onPressed: () {
-              if (urlController.text.trim().isNotEmpty) Navigator.pop(context, urlController.text.trim());
+              if (urlController.text.trim().isNotEmpty)
+                Navigator.pop(context, urlController.text.trim());
             },
             child: const Text('تأكيد'),
           ),
@@ -1293,18 +1422,27 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('اختر مصدر الصورة', style: TextStyle(fontFamily: 'Alexandria')),
+        title: const Text(
+          'اختر مصدر الصورة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('من المعرض', style: TextStyle(fontFamily: 'Alexandria')),
+              title: const Text(
+                'من المعرض',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
               onTap: () => Navigator.pop(context, 'gallery'),
             ),
             ListTile(
               leading: const Icon(Icons.link),
-              title: const Text('من رابط URL', style: TextStyle(fontFamily: 'Alexandria')),
+              title: const Text(
+                'من رابط URL',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
               onTap: () => Navigator.pop(context, 'url'),
             ),
           ],
@@ -1337,7 +1475,10 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل اختيار صورة الإجابة: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('فشل اختيار صورة الإجابة: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -1348,17 +1489,27 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
     final url = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('أدخل رابط صورة الإجابة', style: TextStyle(fontFamily: 'Alexandria')),
+        title: const Text(
+          'أدخل رابط صورة الإجابة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
         content: TextField(
           controller: urlController,
-          decoration: const InputDecoration(labelText: 'URL', hintText: 'https://example.com/image.jpg'),
+          decoration: const InputDecoration(
+            labelText: 'URL',
+            hintText: 'https://example.com/image.jpg',
+          ),
           keyboardType: TextInputType.url,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
           ElevatedButton(
             onPressed: () {
-              if (urlController.text.trim().isNotEmpty) Navigator.pop(context, urlController.text.trim());
+              if (urlController.text.trim().isNotEmpty)
+                Navigator.pop(context, urlController.text.trim());
             },
             child: const Text('تأكيد'),
           ),
@@ -1414,7 +1565,8 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
       return;
     }
 
-    if (_questionType == QuestionType.multipleChoice && _correctAnswerIndices.isEmpty) {
+    if (_questionType == QuestionType.multipleChoice &&
+        _correctAnswerIndices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('يرجى اختيار إجابة صحيحة واحدة على الأقل'),
@@ -1429,9 +1581,7 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -1452,11 +1602,13 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
           answerImageUrl = await _uploadImage(answer.imageFile!, 'answers');
         }
 
-        answerOptions.add(AnswerOptionModel(
-          id: _uuid.v4(),
-          answerText: answer.controller.text.trim(),
-          imageUrl: answerImageUrl,
-        ));
+        answerOptions.add(
+          AnswerOptionModel(
+            id: _uuid.v4(),
+            answerText: answer.controller.text.trim(),
+            imageUrl: answerImageUrl,
+          ),
+        );
       }
 
       String? correctAnswerId;
@@ -1466,7 +1618,8 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
           _questionType == QuestionType.trueFalse ||
           _questionType == QuestionType.images) {
         // For images type, check if using multiple choice mode
-        if (_questionType == QuestionType.images && _correctAnswerIndices.length > 1) {
+        if (_questionType == QuestionType.images &&
+            _correctAnswerIndices.length > 1) {
           correctAnswerIds = _correctAnswerIndices
               .map((index) => answerOptions[index].id)
               .toList();
@@ -1512,7 +1665,9 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final random = _uuid.v4().substring(0, 8);
       final storage = FirebaseStorage.instance;
-      final ref = storage.ref().child('competitions/$folder/${timestamp}_$random.jpg');
+      final ref = storage.ref().child(
+        'competitions/$folder/${timestamp}_$random.jpg',
+      );
 
       final uploadTask = ref.putFile(imageFile);
       final snapshot = await uploadTask;
@@ -1567,354 +1722,424 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-
-              // Question Type
-              DropdownButtonFormField<QuestionType>(
-                value: _questionType,
-                style: const TextStyle(color: Colors.black, fontFamily: 'Alexandria'),
-                decoration: InputDecoration(
-                  labelText: 'نوع السؤال',
-                  labelStyle: const TextStyle(color: Colors.black),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                items: QuestionType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type.label),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _questionType = value!;
-                    if (_questionType == QuestionType.trueFalse) {
-                      _answers.clear();
-                      _answers.add(AnswerController()..controller.text = 'صح');
-                      _answers.add(AnswerController()..controller.text = 'خطأ');
-                      _correctAnswerIndex = 0;
-                      _correctAnswerIndices.clear();
-                    } else if (_questionType == QuestionType.multipleChoice) {
-                      _correctAnswerIndices.clear();
-                      _correctAnswerIndices.add(0);
-                    }
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Question Text
-              TextFormField(
-                controller: _questionController,
-                style: const TextStyle(color: Colors.black),
-                decoration: InputDecoration(
-                  labelText: 'نص السؤال',
-                  labelStyle: const TextStyle(color: Colors.black),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                maxLines: 2,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'يرجى إدخال نص السؤال';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Question Image (for images type or optional for other types)
-              if (_questionType == QuestionType.images || _questionImageFile != null)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'صورة السؤال',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Alexandria',
-                            ),
+                      // Question Type
+                      DropdownButtonFormField<QuestionType>(
+                        value: _questionType,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontFamily: 'Alexandria',
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'نوع السؤال',
+                          labelStyle: const TextStyle(color: Colors.black),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          if (_questionImageFile != null)
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                              onPressed: () {
-                                setState(() {
-                                  _questionImageFile = null;
-                                  _questionImageUrl = null;
-                                });
-                              },
-                            ),
-                        ],
+                        ),
+                        items: QuestionType.values.map((type) {
+                          return DropdownMenuItem(
+                            value: type,
+                            child: Text(type.label),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _questionType = value!;
+                            if (_questionType == QuestionType.trueFalse) {
+                              _answers.clear();
+                              _answers.add(
+                                AnswerController()..controller.text = 'صح',
+                              );
+                              _answers.add(
+                                AnswerController()..controller.text = 'خطأ',
+                              );
+                              _correctAnswerIndex = 0;
+                              _correctAnswerIndices.clear();
+                            } else if (_questionType ==
+                                QuestionType.multipleChoice) {
+                              _correctAnswerIndices.clear();
+                              _correctAnswerIndices.add(0);
+                            }
+                          });
+                        },
                       ),
-                      const SizedBox(height: 8),
-                      if (_questionImageFile != null)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            _questionImageFile!,
-                            height: 150,
-                            fit: BoxFit.cover,
+                      const SizedBox(height: 16),
+
+                      // Question Text
+                      TextFormField(
+                        controller: _questionController,
+                        style: const TextStyle(color: Colors.black),
+                        decoration: InputDecoration(
+                          labelText: 'نص السؤال',
+                          labelStyle: const TextStyle(color: Colors.black),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        maxLines: 2,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'يرجى إدخال نص السؤال';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Question Image (for images type or optional for other types)
+                      if (_questionType == QuestionType.images ||
+                          _questionImageFile != null)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'صورة السؤال',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'Alexandria',
+                                    ),
+                                  ),
+                                  if (_questionImageFile != null)
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _questionImageFile = null;
+                                          _questionImageUrl = null;
+                                        });
+                                      },
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              if (_questionImageFile != null)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.file(
+                                    _questionImageFile!,
+                                    height: 150,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              else
+                                OutlinedButton.icon(
+                                  onPressed: _pickQuestionImage,
+                                  icon: const Icon(Icons.add_photo_alternate),
+                                  label: const Text('اختر صورة السؤال'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.green[600],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        )
+                      else if (_questionImageUrl != null)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'صورة السؤال',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'Alexandria',
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _questionImageFile = null;
+                                        _questionImageUrl = null;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  _questionImageUrl!,
+                                  height: 150,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      height: 150,
+                                      color: Colors.grey[200],
+                                      child: const Icon(Icons.error),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
                         )
                       else
-                        OutlinedButton.icon(
-                          onPressed: _pickQuestionImage,
-                          icon: const Icon(Icons.add_photo_alternate),
-                          label: const Text('اختر صورة السؤال'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.green[600],
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        ),
-                    ],
-                  ),
-                )
-              else if (_questionImageUrl != null)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'صورة السؤال',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Alexandria',
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                            onPressed: () {
-                              setState(() {
-                                _questionImageFile = null;
-                                _questionImageUrl = null;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          _questionImageUrl!,
-                          height: 150,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 150,
-                              color: Colors.grey[200],
-                              child: const Icon(Icons.error),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'صورة السؤال',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Alexandria',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: _pickQuestionImage,
-                        icon: const Icon(Icons.add_photo_alternate),
-                        label: const Text('اختر صورة السؤال'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.green[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              if (_questionType == QuestionType.images || _questionImageFile != null)
-                const SizedBox(height: 16),
-
-              // Answers
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _answers.length,
-                itemBuilder: (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                if (_questionType == QuestionType.singleChoice || _questionType == QuestionType.trueFalse)
-                                  Radio<int>(
-                                    value: index,
-                                    groupValue: _correctAnswerIndex,
-                                    onChanged: (value) {
-                                      if (value != null) {
-                                        setState(() {
-                                          _correctAnswerIndex = value;
-                                        });
-                                      }
-                                    },
-                                    activeColor: const Color(0xFF43A047),
-                                  )
-                                else
-                                  Checkbox(
-                                    value: _correctAnswerIndices.contains(index),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        if (value == true) {
-                                          _correctAnswerIndices.add(index);
-                                        } else {
-                                          _correctAnswerIndices.remove(index);
-                                        }
-                                      });
-                                    },
-                                    activeColor: const Color(0xFF43A047),
-                                  ),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _answers[index].controller,
-                                    style: const TextStyle(color: Colors.black),
-                                    decoration: InputDecoration(
-                                      labelText: 'إجابة ${index + 1}',
-                                      labelStyle: const TextStyle(color: Colors.black),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'صورة السؤال',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'Alexandria',
                                     ),
-                                    enabled: _questionType != QuestionType.trueFalse,
-                                    validator: (value) {
-                                      if (value == null || value.trim().isEmpty) {
-                                        return 'يرجى إدخال الإجابة';
-                                      }
-                                      return null;
-                                    },
                                   ),
-                                ),
-                                if (_answers.length > 2 && _questionType != QuestionType.trueFalse)
-                                  IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () => _removeAnswer(index),
-                                  ),
-                              ],
-                            ),
-                            // Answer image (for images type or optional)
-                            if (_questionType == QuestionType.images || _answers[index].imageFile != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8, right: 48),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    if (_answers[index].imageFile != null)
-                                      Stack(
-                                        children: [
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: Image.file(
-                                              _answers[index].imageFile!,
-                                              height: 100,
-                                              fit: BoxFit.cover,
-                                            ),
-                                          ),
-                                          Positioned(
-                                            top: 4,
-                                            right: 4,
-                                            child: IconButton(
-                                              icon: const Icon(Icons.delete, color: Colors.red),
-                                              style: IconButton.styleFrom(
-                                                backgroundColor: Colors.white,
-                                                padding: const EdgeInsets.all(4),
-                                              ),
-                                              onPressed: () {
-                                                setState(() {
-                                                  _answers[index].imageFile = null;
-                                                  _answers[index].imageUrl = null;
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    else
-                                      OutlinedButton.icon(
-                                        onPressed: () => _pickAnswerImage(index),
-                                        icon: const Icon(Icons.add_photo_alternate, size: 16),
-                                        label: const Text(
-                                          'إضافة صورة',
-                                          style: TextStyle(fontSize: 12),
-                                        ),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: const Color(0xFF43A047),
-                                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                                        ),
-                                      ),
-                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: _pickQuestionImage,
+                                icon: const Icon(Icons.add_photo_alternate),
+                                label: const Text('اختر صورة السؤال'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.green[600],
                                 ),
                               ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      if (_questionType == QuestionType.images ||
+                          _questionImageFile != null)
+                        const SizedBox(height: 16),
 
-              // Add Answer Button
-              if (_questionType != QuestionType.trueFalse)
-                TextButton.icon(
-                  onPressed: _addAnswer,
-                  icon: const Icon(Icons.add),
-                  label: const Text('إضافة إجابة'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF43A047),
-                  ),
-                ),
+                      // Answers
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _answers.length,
+                        itemBuilder: (context, index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      if (_questionType ==
+                                              QuestionType.singleChoice ||
+                                          _questionType ==
+                                              QuestionType.trueFalse)
+                                        Radio<int>(
+                                          value: index,
+                                          groupValue: _correctAnswerIndex,
+                                          onChanged: (value) {
+                                            if (value != null) {
+                                              setState(() {
+                                                _correctAnswerIndex = value;
+                                              });
+                                            }
+                                          },
+                                          activeColor: const Color(0xFF43A047),
+                                        )
+                                      else
+                                        Checkbox(
+                                          value: _correctAnswerIndices.contains(
+                                            index,
+                                          ),
+                                          onChanged: (value) {
+                                            setState(() {
+                                              if (value == true) {
+                                                _correctAnswerIndices.add(
+                                                  index,
+                                                );
+                                              } else {
+                                                _correctAnswerIndices.remove(
+                                                  index,
+                                                );
+                                              }
+                                            });
+                                          },
+                                          activeColor: const Color(0xFF43A047),
+                                        ),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller:
+                                              _answers[index].controller,
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                          ),
+                                          decoration: InputDecoration(
+                                            labelText: 'إجابة ${index + 1}',
+                                            labelStyle: const TextStyle(
+                                              color: Colors.black,
+                                            ),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          enabled:
+                                              _questionType !=
+                                              QuestionType.trueFalse,
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.trim().isEmpty) {
+                                              return 'يرجى إدخال الإجابة';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                      ),
+                                      if (_answers.length > 2 &&
+                                          _questionType !=
+                                              QuestionType.trueFalse)
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete,
+                                            color: Colors.red,
+                                          ),
+                                          onPressed: () => _removeAnswer(index),
+                                        ),
+                                    ],
+                                  ),
+                                  // Answer image (for images type or optional)
+                                  if (_questionType == QuestionType.images ||
+                                      _answers[index].imageFile != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        top: 8,
+                                        right: 48,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          if (_answers[index].imageFile != null)
+                                            Stack(
+                                              children: [
+                                                ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  child: Image.file(
+                                                    _answers[index].imageFile!,
+                                                    height: 100,
+                                                    fit: BoxFit.cover,
+                                                  ),
+                                                ),
+                                                Positioned(
+                                                  top: 4,
+                                                  right: 4,
+                                                  child: IconButton(
+                                                    icon: const Icon(
+                                                      Icons.delete,
+                                                      color: Colors.red,
+                                                    ),
+                                                    style: IconButton.styleFrom(
+                                                      backgroundColor:
+                                                          Colors.white,
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            4,
+                                                          ),
+                                                    ),
+                                                    onPressed: () {
+                                                      setState(() {
+                                                        _answers[index]
+                                                                .imageFile =
+                                                            null;
+                                                        _answers[index]
+                                                                .imageUrl =
+                                                            null;
+                                                      });
+                                                    },
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          else
+                                            OutlinedButton.icon(
+                                              onPressed: () =>
+                                                  _pickAnswerImage(index),
+                                              icon: const Icon(
+                                                Icons.add_photo_alternate,
+                                                size: 16,
+                                              ),
+                                              label: const Text(
+                                                'إضافة صورة',
+                                                style: TextStyle(fontSize: 12),
+                                              ),
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: const Color(
+                                                  0xFF43A047,
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 8,
+                                                      horizontal: 12,
+                                                    ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+
+                      // Add Answer Button
+                      if (_questionType != QuestionType.trueFalse)
+                        TextButton.icon(
+                          onPressed: _addAnswer,
+                          icon: const Icon(Icons.add),
+                          label: const Text('إضافة إجابة'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF43A047),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1996,7 +2221,9 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
     super.initState();
 
     // Initialize with existing question data
-    _questionController = TextEditingController(text: widget.question.questionText);
+    _questionController = TextEditingController(
+      text: widget.question.questionText,
+    );
     _questionType = widget.question.type;
     _questionImageUrl = widget.question.imageUrl;
 
@@ -2013,16 +2240,20 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
     if (widget.question.correctAnswerIds != null) {
       // Multiple choice
       for (var correctId in widget.question.correctAnswerIds!) {
-        final index = widget.question.answerOptions.indexWhere((a) => a.id == correctId);
+        final index = widget.question.answerOptions.indexWhere(
+          (a) => a.id == correctId,
+        );
         if (index != -1) {
           _correctAnswerIndices.add(index);
         }
       }
-      _correctAnswerIndex = _correctAnswerIndices.isNotEmpty ? _correctAnswerIndices.first : 0;
+      _correctAnswerIndex = _correctAnswerIndices.isNotEmpty
+          ? _correctAnswerIndices.first
+          : 0;
     } else if (widget.question.correctAnswerId != null) {
       // Single choice
       final index = widget.question.answerOptions.indexWhere(
-        (a) => a.id == widget.question.correctAnswerId
+        (a) => a.id == widget.question.correctAnswerId,
       );
       _correctAnswerIndex = index != -1 ? index : 0;
       _correctAnswerIndices.add(_correctAnswerIndex);
@@ -2045,18 +2276,27 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('اختر مصدر الصورة', style: TextStyle(fontFamily: 'Alexandria')),
+        title: const Text(
+          'اختر مصدر الصورة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('من المعرض', style: TextStyle(fontFamily: 'Alexandria')),
+              title: const Text(
+                'من المعرض',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
               onTap: () => Navigator.pop(context, 'gallery'),
             ),
             ListTile(
               leading: const Icon(Icons.link),
-              title: const Text('من رابط URL', style: TextStyle(fontFamily: 'Alexandria')),
+              title: const Text(
+                'من رابط URL',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
               onTap: () => Navigator.pop(context, 'url'),
             ),
           ],
@@ -2089,7 +2329,10 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل اختيار صورة السؤال: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('فشل اختيار صورة السؤال: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -2100,17 +2343,27 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
     final url = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('أدخل رابط صورة السؤال', style: TextStyle(fontFamily: 'Alexandria')),
+        title: const Text(
+          'أدخل رابط صورة السؤال',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
         content: TextField(
           controller: urlController,
-          decoration: const InputDecoration(labelText: 'URL', hintText: 'https://example.com/image.jpg'),
+          decoration: const InputDecoration(
+            labelText: 'URL',
+            hintText: 'https://example.com/image.jpg',
+          ),
           keyboardType: TextInputType.url,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
           ElevatedButton(
             onPressed: () {
-              if (urlController.text.trim().isNotEmpty) Navigator.pop(context, urlController.text.trim());
+              if (urlController.text.trim().isNotEmpty)
+                Navigator.pop(context, urlController.text.trim());
             },
             child: const Text('تأكيد'),
           ),
@@ -2130,18 +2383,27 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('اختر مصدر الصورة', style: TextStyle(fontFamily: 'Alexandria')),
+        title: const Text(
+          'اختر مصدر الصورة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('من المعرض', style: TextStyle(fontFamily: 'Alexandria')),
+              title: const Text(
+                'من المعرض',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
               onTap: () => Navigator.pop(context, 'gallery'),
             ),
             ListTile(
               leading: const Icon(Icons.link),
-              title: const Text('من رابط URL', style: TextStyle(fontFamily: 'Alexandria')),
+              title: const Text(
+                'من رابط URL',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
               onTap: () => Navigator.pop(context, 'url'),
             ),
           ],
@@ -2174,7 +2436,10 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل اختيار صورة الإجابة: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('فشل اختيار صورة الإجابة: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -2185,17 +2450,27 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
     final url = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('أدخل رابط صورة الإجابة', style: TextStyle(fontFamily: 'Alexandria')),
+        title: const Text(
+          'أدخل رابط صورة الإجابة',
+          style: TextStyle(fontFamily: 'Alexandria'),
+        ),
         content: TextField(
           controller: urlController,
-          decoration: const InputDecoration(labelText: 'URL', hintText: 'https://example.com/image.jpg'),
+          decoration: const InputDecoration(
+            labelText: 'URL',
+            hintText: 'https://example.com/image.jpg',
+          ),
           keyboardType: TextInputType.url,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
           ElevatedButton(
             onPressed: () {
-              if (urlController.text.trim().isNotEmpty) Navigator.pop(context, urlController.text.trim());
+              if (urlController.text.trim().isNotEmpty)
+                Navigator.pop(context, urlController.text.trim());
             },
             child: const Text('تأكيد'),
           ),
@@ -2254,7 +2529,8 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
     }
 
     // Validate at least one correct answer for multiple choice
-    if (_questionType == QuestionType.multipleChoice && _correctAnswerIndices.isEmpty) {
+    if (_questionType == QuestionType.multipleChoice &&
+        _correctAnswerIndices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('يرجى اختيار إجابة صحيحة واحدة على الأقل'),
@@ -2269,9 +2545,7 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -2301,11 +2575,13 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
           answerId = _uuid.v4();
         }
 
-        answerOptions.add(AnswerOptionModel(
-          id: answerId,
-          answerText: answer.controller.text.trim(),
-          imageUrl: answerImageUrl,
-        ));
+        answerOptions.add(
+          AnswerOptionModel(
+            id: answerId,
+            answerText: answer.controller.text.trim(),
+            imageUrl: answerImageUrl,
+          ),
+        );
       }
 
       String? correctAnswerId;
@@ -2315,7 +2591,8 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
           _questionType == QuestionType.trueFalse ||
           _questionType == QuestionType.images) {
         // For images type, check if using multiple choice mode
-        if (_questionType == QuestionType.images && _correctAnswerIndices.length > 1) {
+        if (_questionType == QuestionType.images &&
+            _correctAnswerIndices.length > 1) {
           correctAnswerIds = _correctAnswerIndices
               .map((index) => answerOptions[index].id)
               .toList();
@@ -2361,7 +2638,9 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final random = _uuid.v4().substring(0, 8);
       final storage = FirebaseStorage.instance;
-      final ref = storage.ref().child('competitions/$folder/${timestamp}_$random.jpg');
+      final ref = storage.ref().child(
+        'competitions/$folder/${timestamp}_$random.jpg',
+      );
 
       final uploadTask = ref.putFile(imageFile);
       final snapshot = await uploadTask;
@@ -2419,7 +2698,10 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                       // Question Type
                       DropdownButtonFormField<QuestionType>(
                         value: _questionType,
-                        style: const TextStyle(color: Colors.black, fontFamily: 'Alexandria'),
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontFamily: 'Alexandria',
+                        ),
                         decoration: InputDecoration(
                           labelText: 'نوع السؤال',
                           labelStyle: const TextStyle(color: Colors.black),
@@ -2440,11 +2722,16 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                               if (_questionType == QuestionType.trueFalse) {
                                 // Set true/false answers
                                 _answers.clear();
-                                _answers.add(AnswerController()..controller.text = 'صح');
-                                _answers.add(AnswerController()..controller.text = 'خطأ');
+                                _answers.add(
+                                  AnswerController()..controller.text = 'صح',
+                                );
+                                _answers.add(
+                                  AnswerController()..controller.text = 'خطأ',
+                                );
                                 _correctAnswerIndex = 0;
                                 _correctAnswerIndices.clear();
-                              } else if (_questionType == QuestionType.multipleChoice) {
+                              } else if (_questionType ==
+                                  QuestionType.multipleChoice) {
                                 _correctAnswerIndices.clear();
                                 _correctAnswerIndices.add(0);
                               }
@@ -2476,7 +2763,9 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                       const SizedBox(height: 16),
 
                       // Question Image
-                      if (_questionType == QuestionType.images || _questionImageFile != null || _questionImageUrl != null)
+                      if (_questionType == QuestionType.images ||
+                          _questionImageFile != null ||
+                          _questionImageUrl != null)
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -2487,7 +2776,8 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
                                     'صورة السؤال',
@@ -2498,9 +2788,14 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                                       fontFamily: 'Alexandria',
                                     ),
                                   ),
-                                  if (_questionImageFile != null || _questionImageUrl != null)
+                                  if (_questionImageFile != null ||
+                                      _questionImageUrl != null)
                                     IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
                                       onPressed: () {
                                         setState(() {
                                           _questionImageFile = null;
@@ -2545,7 +2840,8 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                                     foregroundColor: Colors.green[600],
                                   ),
                                 ),
-                              if (_questionImageFile == null && _questionImageUrl != null)
+                              if (_questionImageFile == null &&
+                                  _questionImageUrl != null)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 8),
                                   child: OutlinedButton.icon(
@@ -2560,7 +2856,8 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                             ],
                           ),
                         ),
-                      if (_questionType == QuestionType.images || _questionImageFile != null)
+                      if (_questionType == QuestionType.images ||
+                          _questionImageFile != null)
                         const SizedBox(height: 16),
 
                       // Answers
@@ -2582,7 +2879,10 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                                 children: [
                                   Row(
                                     children: [
-                                      if (_questionType == QuestionType.singleChoice || _questionType == QuestionType.trueFalse)
+                                      if (_questionType ==
+                                              QuestionType.singleChoice ||
+                                          _questionType ==
+                                              QuestionType.trueFalse)
                                         Radio<int>(
                                           value: index,
                                           groupValue: _correctAnswerIndex,
@@ -2597,13 +2897,19 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                                         )
                                       else
                                         Checkbox(
-                                          value: _correctAnswerIndices.contains(index),
+                                          value: _correctAnswerIndices.contains(
+                                            index,
+                                          ),
                                           onChanged: (value) {
                                             setState(() {
                                               if (value == true) {
-                                                _correctAnswerIndices.add(index);
+                                                _correctAnswerIndices.add(
+                                                  index,
+                                                );
                                               } else {
-                                                _correctAnswerIndices.remove(index);
+                                                _correctAnswerIndices.remove(
+                                                  index,
+                                                );
                                               }
                                             });
                                           },
@@ -2611,43 +2917,63 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                                         ),
                                       Expanded(
                                         child: TextFormField(
-                                          controller: _answers[index].controller,
-                                          style: const TextStyle(color: Colors.black),
+                                          controller:
+                                              _answers[index].controller,
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                          ),
                                           decoration: InputDecoration(
                                             labelText: 'إجابة ${index + 1}',
-                                            labelStyle: const TextStyle(color: Colors.black),
+                                            labelStyle: const TextStyle(
+                                              color: Colors.black,
+                                            ),
                                             border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                           ),
-                                          enabled: _questionType != QuestionType.trueFalse,
+                                          enabled:
+                                              _questionType !=
+                                              QuestionType.trueFalse,
                                           validator: (value) {
-                                            if (value == null || value.trim().isEmpty) {
+                                            if (value == null ||
+                                                value.trim().isEmpty) {
                                               return 'يرجى إدخال الإجابة';
                                             }
                                             return null;
                                           },
                                         ),
                                       ),
-                                      if (_answers.length > 2 && _questionType != QuestionType.trueFalse)
+                                      if (_answers.length > 2 &&
+                                          _questionType !=
+                                              QuestionType.trueFalse)
                                         IconButton(
-                                          icon: const Icon(Icons.delete, color: Colors.red),
+                                          icon: const Icon(
+                                            Icons.delete,
+                                            color: Colors.red,
+                                          ),
                                           onPressed: () => _removeAnswer(index),
                                         ),
                                     ],
                                   ),
                                   // Answer image (for images type or optional)
-                                  if (_questionType == QuestionType.images || _answers[index].imageFile != null)
+                                  if (_questionType == QuestionType.images ||
+                                      _answers[index].imageFile != null)
                                     Padding(
-                                      padding: const EdgeInsets.only(top: 8, right: 48),
+                                      padding: const EdgeInsets.only(
+                                        top: 8,
+                                        right: 48,
+                                      ),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
                                         children: [
                                           if (_answers[index].imageFile != null)
                                             Stack(
                                               children: [
                                                 ClipRRect(
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
                                                   child: Image.file(
                                                     _answers[index].imageFile!,
                                                     height: 100,
@@ -2658,51 +2984,81 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                                                   top: 4,
                                                   right: 4,
                                                   child: IconButton(
-                                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                                    icon: const Icon(
+                                                      Icons.delete,
+                                                      color: Colors.red,
+                                                    ),
                                                     style: IconButton.styleFrom(
-                                                      backgroundColor: Colors.white,
-                                                      padding: const EdgeInsets.all(4),
+                                                      backgroundColor:
+                                                          Colors.white,
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            4,
+                                                          ),
                                                     ),
                                                     onPressed: () {
                                                       setState(() {
-                                                        _answers[index].imageFile = null;
-                                                        _answers[index].imageUrl = null;
+                                                        _answers[index]
+                                                                .imageFile =
+                                                            null;
+                                                        _answers[index]
+                                                                .imageUrl =
+                                                            null;
                                                       });
                                                     },
                                                   ),
                                                 ),
                                               ],
                                             )
-                                          else if (_answers[index].imageUrl != null)
+                                          else if (_answers[index].imageUrl !=
+                                              null)
                                             Stack(
                                               children: [
                                                 ClipRRect(
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
                                                   child: Image.network(
                                                     _answers[index].imageUrl!,
                                                     height: 100,
                                                     fit: BoxFit.cover,
-                                                    errorBuilder: (context, error, stackTrace) {
-                                                      return Container(
-                                                        height: 100,
-                                                        color: Colors.grey[200],
-                                                        child: const Icon(Icons.error),
-                                                      );
-                                                    },
+                                                    errorBuilder:
+                                                        (
+                                                          context,
+                                                          error,
+                                                          stackTrace,
+                                                        ) {
+                                                          return Container(
+                                                            height: 100,
+                                                            color: Colors
+                                                                .grey[200],
+                                                            child: const Icon(
+                                                              Icons.error,
+                                                            ),
+                                                          );
+                                                        },
                                                   ),
                                                 ),
                                                 Positioned(
                                                   top: 4,
                                                   right: 4,
                                                   child: IconButton(
-                                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                                    icon: const Icon(
+                                                      Icons.delete,
+                                                      color: Colors.red,
+                                                    ),
                                                     style: IconButton.styleFrom(
-                                                      backgroundColor: Colors.white,
-                                                      padding: const EdgeInsets.all(4),
+                                                      backgroundColor:
+                                                          Colors.white,
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            4,
+                                                          ),
                                                     ),
                                                     onPressed: () {
                                                       setState(() {
-                                                        _answers[index].imageUrl = null;
+                                                        _answers[index]
+                                                                .imageUrl =
+                                                            null;
                                                       });
                                                     },
                                                   ),
@@ -2711,30 +3067,55 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                                             )
                                           else
                                             OutlinedButton.icon(
-                                              onPressed: () => _pickAnswerImage(index),
-                                              icon: const Icon(Icons.add_photo_alternate, size: 16),
+                                              onPressed: () =>
+                                                  _pickAnswerImage(index),
+                                              icon: const Icon(
+                                                Icons.add_photo_alternate,
+                                                size: 16,
+                                              ),
                                               label: const Text(
                                                 'إضافة صورة',
                                                 style: TextStyle(fontSize: 12),
                                               ),
                                               style: OutlinedButton.styleFrom(
-                                                foregroundColor: const Color(0xFF43A047),
-                                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                                                foregroundColor: const Color(
+                                                  0xFF43A047,
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 8,
+                                                      horizontal: 12,
+                                                    ),
                                               ),
                                             ),
-                                          if (_answers[index].imageFile == null && _answers[index].imageUrl != null)
+                                          if (_answers[index].imageFile ==
+                                                  null &&
+                                              _answers[index].imageUrl != null)
                                             Padding(
-                                              padding: const EdgeInsets.only(top: 4),
+                                              padding: const EdgeInsets.only(
+                                                top: 4,
+                                              ),
                                               child: OutlinedButton.icon(
-                                                onPressed: () => _pickAnswerImage(index),
-                                                icon: const Icon(Icons.edit, size: 16),
+                                                onPressed: () =>
+                                                    _pickAnswerImage(index),
+                                                icon: const Icon(
+                                                  Icons.edit,
+                                                  size: 16,
+                                                ),
                                                 label: const Text(
                                                   'تغيير الصورة',
-                                                  style: TextStyle(fontSize: 12),
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                  ),
                                                 ),
                                                 style: OutlinedButton.styleFrom(
-                                                  foregroundColor: Colors.blue[600],
-                                                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                                                  foregroundColor:
+                                                      Colors.blue[600],
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 8,
+                                                        horizontal: 12,
+                                                      ),
                                                 ),
                                               ),
                                             ),
@@ -2794,4 +3175,3 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
     );
   }
 }
-

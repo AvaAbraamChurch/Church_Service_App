@@ -1,11 +1,13 @@
 import 'dart:io';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
+import 'package:church/core/models/competitions/competition_model.dart';
 import 'package:church/core/repositories/competitions_repository.dart';
 import 'package:church/core/repositories/questions_repository.dart';
-import 'package:church/core/models/competitions/competition_model.dart';
 import 'package:church/core/services/coupon_points_service.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'competitions_states.dart';
 
 class CompetitionsCubit extends Cubit<CompetitionsState> {
@@ -32,9 +34,10 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   CompetitionsCubit({
     CompetitionsRepository? competitionsRepository,
     QuestionsRepository? questionsRepository,
-  })  : competitionsRepository = competitionsRepository ?? CompetitionsRepository(),
-        questionsRepository = questionsRepository ?? QuestionsRepository(),
-        super(CompetitionsInitial());
+  }) : competitionsRepository =
+           competitionsRepository ?? CompetitionsRepository(),
+       questionsRepository = questionsRepository ?? QuestionsRepository(),
+       super(CompetitionsInitial());
 
   static CompetitionsCubit get(context) => BlocProvider.of(context);
 
@@ -73,7 +76,8 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     try {
       emit(LoadCompetitionsLoading());
 
-      activeCompetitions = await competitionsRepository.getOngoingCompetitions();
+      activeCompetitions = await competitionsRepository
+          .getOngoingCompetitions();
 
       emit(LoadCompetitionsSuccess());
     } catch (e) {
@@ -87,7 +91,8 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     try {
       emit(LoadCompetitionsLoading());
 
-      activeCompetitions = await competitionsRepository.getUpcomingCompetitions();
+      activeCompetitions = await competitionsRepository
+          .getUpcomingCompetitions();
 
       emit(LoadCompetitionsSuccess());
     } catch (e) {
@@ -115,7 +120,9 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     try {
       emit(LoadCompetitionLoading());
 
-      currentCompetition = await competitionsRepository.getCompetitionById(competitionId);
+      currentCompetition = await competitionsRepository.getCompetitionById(
+        competitionId,
+      );
 
       if (currentCompetition != null) {
         emit(LoadCompetitionSuccess());
@@ -131,15 +138,16 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   /// Load competitions by target audience
   Future<void> loadCompetitionsByAudience(String audience) async {
     try {
-      emit(FilterCompetitionsLoading());
+      emit(LoadCompetitionsLoading());
 
       currentAudienceFilter = audience;
-      filteredCompetitions = await competitionsRepository.getCompetitionsByAudience(audience);
+      filteredCompetitions = await competitionsRepository
+          .getCompetitionsByAudience(audience);
 
-      emit(FilterCompetitionsSuccess());
+      emit(LoadCompetitionsSuccess());
     } catch (e) {
-      debugPrint('Error filtering competitions by audience: $e');
-      emit(FilterCompetitionsError(e.toString()));
+      debugPrint('Error loading competitions by audience: $e');
+      emit(LoadCompetitionsError(e.toString()));
     }
   }
 
@@ -189,7 +197,9 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
         createdAt: DateTime.now(),
       );
 
-      final competitionId = await competitionsRepository.addCompetition(competitionWithImage);
+      final competitionId = await competitionsRepository.addCompetition(
+        competitionWithImage,
+      );
 
       // Refresh competitions list
       await loadActiveCompetitions();
@@ -227,7 +237,10 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   // ==================== Update Competition ====================
 
   /// Update competition
-  Future<void> updateCompetition(String competitionId, Map<String, dynamic> data) async {
+  Future<void> updateCompetition(
+    String competitionId,
+    Map<String, dynamic> data,
+  ) async {
     try {
       emit(UpdateCompetitionLoading());
 
@@ -280,11 +293,17 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   }
 
   /// Toggle competition active status
-  Future<void> toggleCompetitionStatus(String competitionId, bool isActive) async {
+  Future<void> toggleCompetitionStatus(
+    String competitionId,
+    bool isActive,
+  ) async {
     try {
       emit(ToggleCompetitionStatusLoading());
 
-      await competitionsRepository.updateCompetitionStatus(competitionId, isActive);
+      await competitionsRepository.updateCompetitionStatus(
+        competitionId,
+        isActive,
+      );
 
       // Refresh current competition if it's the one being updated
       if (currentCompetition?.id == competitionId) {
@@ -309,7 +328,9 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
       emit(DeleteCompetitionLoading());
 
       // Delete associated image if exists
-      final competition = await competitionsRepository.getCompetitionById(competitionId);
+      final competition = await competitionsRepository.getCompetitionById(
+        competitionId,
+      );
       if (competition?.imageUrl != null) {
         await _deleteCompetitionImage(competition!.imageUrl!);
       }
@@ -371,7 +392,8 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
       if (query.isEmpty) {
         filteredCompetitions = activeCompetitions;
       } else {
-        filteredCompetitions = await competitionsRepository.searchCompetitionsByName(query);
+        filteredCompetitions = await competitionsRepository
+            .searchCompetitionsByName(query);
       }
 
       emit(SearchCompetitionsSuccess());
@@ -394,7 +416,10 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   /// Check if competition name already exists
   Future<bool> competitionNameExists(String name, {String? excludeId}) async {
     try {
-      return await competitionsRepository.competitionNameExists(name, excludeId: excludeId);
+      return await competitionsRepository.competitionNameExists(
+        name,
+        excludeId: excludeId,
+      );
     } catch (e) {
       debugPrint('Error checking competition name: $e');
       return false;
@@ -433,7 +458,9 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     try {
       emit(SubmitAnswersLoading());
 
-      final competition = await competitionsRepository.getCompetitionById(competitionId);
+      final competition = await competitionsRepository.getCompetitionById(
+        competitionId,
+      );
 
       if (competition == null) {
         emit(SubmitAnswersError('Competition not found'));
@@ -506,7 +533,10 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   }
 
   /// Get random questions by type
-  Future<List<QuestionModel>> getRandomQuestionsByType(QuestionType type, int count) async {
+  Future<List<QuestionModel>> getRandomQuestionsByType(
+    QuestionType type,
+    int count,
+  ) async {
     try {
       return await questionsRepository.getRandomQuestionsByType(type, count);
     } catch (e) {
@@ -558,9 +588,15 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   // ==================== Utility Methods ====================
 
   /// Get user's result for a specific competition
-  Future<Map<String, dynamic>?> getUserCompetitionResult(String userId, String competitionId) async {
+  Future<Map<String, dynamic>?> getUserCompetitionResult(
+    String userId,
+    String competitionId,
+  ) async {
     try {
-      return await competitionsRepository.getUserCompetitionResult(userId, competitionId);
+      return await competitionsRepository.getUserCompetitionResult(
+        userId,
+        competitionId,
+      );
     } catch (e) {
       debugPrint('Error getting user competition result: $e');
       return null;
@@ -568,9 +604,15 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   }
 
   /// Check if user has completed a competition
-  Future<bool> hasUserCompletedCompetition(String userId, String competitionId) async {
+  Future<bool> hasUserCompletedCompetition(
+    String userId,
+    String competitionId,
+  ) async {
     try {
-      return await competitionsRepository.hasUserCompletedCompetition(userId, competitionId);
+      return await competitionsRepository.hasUserCompletedCompetition(
+        userId,
+        competitionId,
+      );
     } catch (e) {
       debugPrint('Error checking competition completion: $e');
       return false;
@@ -602,4 +644,3 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     return activeCompetitions ?? allCompetitions;
   }
 }
-
