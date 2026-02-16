@@ -3,16 +3,18 @@ import 'package:church/core/blocs/home/home_states.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/utils/service_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/modules/Home/Hymns/hymns_screen.dart';
+import 'package:church/shared/widgets.dart';
 import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
 import '../../core/repositories/auth_repository.dart';
 import '../../core/styles/colors.dart';
 import '../../core/utils/session_checker.dart';
-import 'endrawer.dart';
 import '../../shared/avatar_display_widget.dart';
-import '../../shared/coming_soon_popup.dart';
+import 'endrawer.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userId; // Replace with actual user ID
@@ -36,10 +38,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
-          colors: [
-            color,
-            color.withValues(alpha: 0.8),
-          ],
+          colors: [color, color.withValues(alpha: 0.8)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -130,11 +129,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                           fit: BoxFit.contain,
                         )
-                      : Icon(
-                          icon ?? Icons.star,
-                          color: Colors.white,
-                          size: 32,
-                        ),
+                      : Icon(icon ?? Icons.star, color: Colors.white, size: 32),
                 ),
               ],
             ),
@@ -147,11 +142,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final AuthRepository _authRepository = AuthRepository();
   late SessionChecker _sessionChecker;
 
-
   late final HomeCubit cubit;
   late final UserModel currentUser;
   late final Stream userStream;
-
 
   /// Called when app resumes from background
   @override
@@ -201,185 +194,211 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         builder: (BuildContext context, state) {
           final cubit = HomeCubit.get(context);
           return StreamBuilder(
-              stream: userStream,
-              builder: (context, snapshot) {
-                return Scaffold(
-                  endDrawer: cubit.currentUser != null ? drawer(context, cubit.currentUser!) : null,
-                  backgroundColor: Colors.transparent,
-                  body: ConditionalBuilder(
-                      condition: cubit.currentUser != null,
-                      builder: (BuildContext context) {
-                        return SizedBox(
-                          width: MediaQuery.of(context).size.width,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SizedBox(height: MediaQuery.of(context).padding.top,),
-                              Padding(
-                                padding: const EdgeInsets.all(20.0),
-                                child: Row(
-                                  children: [
-                                    Text(cubit.currentUser!.serviceType.displayName, style: TextStyle(color: brown300, fontSize: 20),),
-                                    Spacer(),
-                                    AvatarDisplayWidget(
-                                      user: cubit.currentUser,
-                                      imageUrl: cubit.currentUser!.profileImageUrl,
-                                      name: cubit.currentUser!.fullName,
-                                      size: 60,
-                                      showBorder: true,
-                                      borderColor: brown300,
-                                    ),
-                                    SizedBox(width: 10.0,),
-                                    IconButton(onPressed: (){
-                                      Scaffold.of(context).openEndDrawer();
-                                    }, icon: Icon(Icons.menu, color: Colors.white,)),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(height: 10,),
-                              ListTile(
-                                title: Text('مرحبا بك...\n${cubit.currentUser!.username}', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),),
-                                subtitle: Text('${cubit.currentUser!.userType.label}: ${cubit.currentUser!.userClass}', style: TextStyle(color: brown300, fontSize: 16),),
-                              ),
-                              SizedBox(height: 20,),
-                              Expanded(
-                                child: Container(
-                                  height: MediaQuery.of(context).size.height,
-                                  width: MediaQuery.of(context).size.width,
-                                  decoration: const BoxDecoration(
-                                    color: teal300, // The main color of the button/search area
-                                    borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(20.0),
-                                    child: SingleChildScrollView(
-                                      child: Column(
-                                        children: [
-                                          SizedBox(height: 30.0,),
-                                          // Activity Buttons
-                                          _buildActivityButton(
-                                            title: 'درس الكتاب',
-                                            subtitle: 'الخميس - الساعة ٦م',
-                                            svgAsset: 'assets/svg/book.svg',
-                                            color: brown300,
-                                            onTap: (){
-                                              showComingSoonPopup(
-                                                context,
-                                                title: 'درس الكتاب',
-                                                icon: Icons.menu_book_rounded,
-                                              );
-                                            },
-                                          ),
-                                          _buildActivityButton(
-                                            title: 'مدارس الأحد',
-                                            subtitle: 'الجمعة - الساعة ١٠:٣٠ص',
-                                            svgAsset: 'assets/svg/sunday school.svg',
-                                            color: sage900,
-                                            onTap: (){
-                                              showComingSoonPopup(
-                                                context,
-                                                title: 'مدارس الأحد',
-                                                icon: Icons.school_rounded,
-                                              );
-                                            },
-                                          ),
-                                          _buildActivityButton(
-                                            title: 'القداس',
-                                            subtitle: 'الجمعة - الساعة ٧:٣٠ص',
-                                            svgAsset: 'assets/svg/church.svg',
-                                            color: sage500,
-                                            onTap: (){
-                                              showComingSoonPopup(
-                                                context,
-                                                title: 'القداس الإلهي',
-                                                icon: Icons.church_rounded,
-                                              );
-                                            },
-                                          ),
-                                          _buildActivityButton(
-                                            title: 'مدرسة الالحان',
-                                            subtitle: 'الخميس - الساعة ٧:٠٠م',
-                                            svgAsset: 'assets/svg/4mamsa.svg', // Replace with your SVG asset path
-                                            color: tawny,
-                                            onTap: (){
-                                              showComingSoonPopup(
-                                                context,
-                                                title: 'مدرسة الالحان',
-                                                icon: Icons.groups_rounded,
-                                              );
-                                            },
-                                          ),
-                                          // Add some padding at the bottom for scroll
-                                          const SizedBox(height: 20),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              )
-
-                            ],
-                          ),
-                        );
-                      },
-                    fallback: (BuildContext context) => Center(
+            stream: userStream,
+            builder: (context, snapshot) {
+              return Scaffold(
+                endDrawer: cubit.currentUser != null
+                    ? drawer(context, cubit.currentUser!)
+                    : null,
+                backgroundColor: Colors.transparent,
+                body: ConditionalBuilder(
+                  condition: cubit.currentUser != null,
+                  builder: (BuildContext context) {
+                    return SizedBox(
+                      width: MediaQuery.of(context).size.width,
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: teal100,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: teal300.withValues(alpha: 0.3),
-                                  blurRadius: 20,
-                                  spreadRadius: 5,
+                          SizedBox(height: MediaQuery.of(context).padding.top),
+                          Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Row(
+                              children: [
+                                Text(
+                                  cubit.currentUser!.serviceType.displayName,
+                                  style: TextStyle(
+                                    color: brown300,
+                                    fontSize: 20,
+                                  ),
+                                ),
+                                Spacer(),
+                                AvatarDisplayWidget(
+                                  user: cubit.currentUser,
+                                  imageUrl: cubit.currentUser!.profileImageUrl,
+                                  name: cubit.currentUser!.fullName,
+                                  size: 60,
+                                  showBorder: true,
+                                  borderColor: brown300,
+                                ),
+                                SizedBox(width: 10.0),
+                                IconButton(
+                                  onPressed: () {
+                                    Scaffold.of(context).openEndDrawer();
+                                  },
+                                  icon: Icon(Icons.menu, color: Colors.white),
                                 ),
                               ],
                             ),
-                            child: Center(
-                              child: SizedBox(
-                                width: 50,
-                                height: 50,
-                                child: CircularProgressIndicator(
-                                  color: teal500,
-                                  strokeWidth: 4,
-                                ),
+                          ),
+                          SizedBox(height: 10),
+                          ListTile(
+                            title: Text(
+                              'مرحبا بك...\n${cubit.currentUser!.username}',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 32),
-                          Text(
-                            'جاري التحميل...',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: teal900,
-                              fontFamily: 'Alexandria',
+                            subtitle: Text(
+                              '${cubit.currentUser!.userType.label}: ${cubit.currentUser!.userClass}',
+                              style: TextStyle(color: brown300, fontSize: 16),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'يرجى الانتظار',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              fontFamily: 'Alexandria',
+                          SizedBox(height: 20),
+                          Expanded(
+                            child: Container(
+                              height: MediaQuery.of(context).size.height,
+                              width: MediaQuery.of(context).size.width,
+                              decoration: const BoxDecoration(
+                                color:
+                                    teal300, // The main color of the button/search area
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(30),
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(20.0),
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    children: [
+                                      SizedBox(height: 30.0),
+                                      // Activity Buttons
+                                      _buildActivityButton(
+                                        title: 'درس الكتاب',
+                                        subtitle: 'الخميس - الساعة ٦م',
+                                        svgAsset: 'assets/svg/book.svg',
+                                        color: brown300,
+                                        onTap: () {
+                                          showComingSoonPopup(
+                                            context,
+                                            title: 'درس الكتاب',
+                                            icon: Icons.menu_book_rounded,
+                                          );
+                                        },
+                                      ),
+                                      _buildActivityButton(
+                                        title: 'مدارس الأحد',
+                                        subtitle: 'الجمعة - الساعة ١٠:٣٠ص',
+                                        svgAsset:
+                                            'assets/svg/sunday school.svg',
+                                        color: sage900,
+                                        onTap: () {
+                                          showComingSoonPopup(
+                                            context,
+                                            title: 'مدارس الأحد',
+                                            icon: Icons.school_rounded,
+                                          );
+                                        },
+                                      ),
+                                      _buildActivityButton(
+                                        title: 'القداس',
+                                        subtitle: 'الجمعة - الساعة ٧:٣٠ص',
+                                        svgAsset: 'assets/svg/church.svg',
+                                        color: sage500,
+                                        onTap: () {
+                                          showComingSoonPopup(
+                                            context,
+                                            title: 'القداس الإلهي',
+                                            icon: Icons.church_rounded,
+                                          );
+                                        },
+                                      ),
+                                      _buildActivityButton(
+                                        title: 'مدرسة الالحان',
+                                        subtitle: 'الخميس - الساعة ٧:٠٠م',
+                                        svgAsset:
+                                            'assets/svg/4mamsa.svg', // Replace with your SVG asset path
+                                        color: tawny,
+                                        onTap: () {
+                                          navigateTo(context, HymnsScreen());
+                                          // showComingSoonPopup(
+                                          //   context,
+                                          //   title: 'مدرسة الالحان',
+                                          //   icon: Icons.groups_rounded,
+                                          // );
+                                        },
+                                      ),
+                                      // Add some padding at the bottom for scroll
+                                      const SizedBox(height: 20),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
+                    );
+                  },
+                  fallback: (BuildContext context) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: teal100,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: teal300.withValues(alpha: 0.3),
+                                blurRadius: 20,
+                                spreadRadius: 5,
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: SizedBox(
+                              width: 50,
+                              height: 50,
+                              child: CircularProgressIndicator(
+                                color: teal500,
+                                strokeWidth: 4,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        Text(
+                          'جاري التحميل...',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: teal900,
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'يرجى الانتظار',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              }
+                ),
+              );
+            },
           );
         },
-        listener: (BuildContext context, state) {  },
+        listener: (BuildContext context, state) {},
       ),
     );
   }
