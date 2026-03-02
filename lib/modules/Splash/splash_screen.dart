@@ -1,16 +1,17 @@
-import 'package:church/core/styles/colors.dart';
-import 'package:church/core/styles/themeScaffold.dart';
-import 'package:church/layout/home_layout.dart';
-import 'package:church/modules/Auth/login/login_screen.dart';
+import 'dart:async';
+import 'dart:math';
+
 import 'package:church/core/repositories/auth_repository.dart';
 import 'package:church/core/services/connectivity_service.dart';
-import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/core/styles/colors.dart';
+import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/gender_enum.dart';
+import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/layout/home_layout.dart';
+import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'dart:math';
-import 'dart:async';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -66,80 +67,99 @@ class _SplashScreenState extends State<SplashScreen>
       bool isTokenValid = false;
 
       if (isConnected) {
-        // Online: Validate token with server (with timeout protection)
+        // Online: Validate token. On timeout, fall back to local session check
+        // so users are never logged out due to a slow network.
         try {
           isTokenValid = await _authRepository.validateToken().timeout(
             const Duration(seconds: 10),
             onTimeout: () {
-              debugPrint('⚠️ Token validation timed out - treating as invalid');
-              return false;
+              debugPrint(
+                '⚠️ Token validation timed out – falling back to local session check',
+              );
+              return !_authRepository.isSessionExpired();
             },
           );
         } catch (e) {
-          debugPrint('❌ Token validation error: $e');
-          isTokenValid = false;
+          debugPrint(
+            '❌ Token validation error – falling back to local session: $e',
+          );
+          // Fall back to local session validity rather than kicking user out
+          isTokenValid = !_authRepository.isSessionExpired();
         }
       } else {
         // Offline: Check if session hasn't expired locally
         isTokenValid = !_authRepository.isSessionExpired();
-        debugPrint('🔌 Offline mode: Using cached credentials. Session valid: $isTokenValid');
+        debugPrint(
+          '🔌 Offline mode: Using cached credentials. Session valid: $isTokenValid',
+        );
       }
 
       if (isTokenValid) {
         // Get user data
         try {
-          final currentUser = await _authRepository.getCurrentUserData().timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw TimeoutException('Getting user data timed out');
-            },
-          );
+          final currentUser = await _authRepository
+              .getCurrentUserData()
+              .timeout(
+                const Duration(seconds: 10),
+                onTimeout: () {
+                  throw TimeoutException('Getting user data timed out');
+                },
+              );
 
           // Cache user profile for offline access
           await _authRepository.saveUserProfileToCache(currentUser);
 
           if (!mounted) return;
-          navigateAndFinish(context, HomeLayout(
-            userId: currentUser.id,
-            userType: currentUser.userType,
-            userClass: currentUser.userClass,
-            gender: currentUser.gender
-          ));
+          navigateAndFinish(
+            context,
+            HomeLayout(
+              userId: currentUser.id,
+              userType: currentUser.userType,
+              userClass: currentUser.userClass,
+              gender: currentUser.gender,
+            ),
+          );
         } catch (e) {
-          // If we can't get user data (likely offline), use cached profile data
-          debugPrint('⚠️ Could not fetch user data (likely offline): $e');
+          // If we can't get user data, try cached profile first before giving up
+          debugPrint('⚠️ Could not fetch user data: $e');
 
-          if (isConnected) {
-            // If we're online but still failed, something is wrong - go to login
-            debugPrint('❌ Failed to get user data while online, logging out');
-            await _authRepository.clearUserData();
+          final cachedProfile = _authRepository.getCachedUserProfile();
+
+          if (cachedProfile != null) {
+            debugPrint('✅ Using cached profile for userId: $userId');
             if (!mounted) return;
-            navigateAndFinish(context, LoginScreen());
-          } else {
-            // We're offline, try to use cached profile data
-            final cachedProfile = _authRepository.getCachedUserProfile();
-
-            if (cachedProfile != null) {
-              // Use cached profile data
-              debugPrint('🔌 Offline: Using cached profile for userId: $userId');
-              if (!mounted) return;
-              navigateAndFinish(context, HomeLayout(
+            navigateAndFinish(
+              context,
+              HomeLayout(
                 userId: userId,
                 userType: cachedProfile['userType'] as UserType,
                 userClass: cachedProfile['userClass'] as String,
                 gender: cachedProfile['gender'] as Gender,
-              ));
-            } else {
-              // No cached profile, use safe defaults
-              debugPrint('🔌 Offline: No cached profile, using defaults for userId: $userId');
-              if (!mounted) return;
-              navigateAndFinish(context, HomeLayout(
+              ),
+            );
+          } else if (isConnected) {
+            // Online but no cached profile – something is genuinely wrong
+            debugPrint(
+              '❌ Online, no cached profile, and Firestore fetch failed. Logging out.',
+            );
+            await _authRepository.clearUserData();
+            if (!mounted) return;
+            navigateAndFinish(context, LoginScreen());
+          } else {
+            // Offline with no cached profile – use safe defaults
+            debugPrint(
+              '🔌 Offline: No cached profile, using defaults for userId: $userId',
+            );
+            if (!mounted) return;
+            navigateAndFinish(
+              context,
+              HomeLayout(
                 userId: userId,
-                userType: UserType.child, // Default to most restrictive type
+                userType: UserType.child,
                 userClass: '',
-                gender: Gender.male, // Default gender
-              ));
-            }
+                gender: Gender.male,
+              ),
+            );
           }
         }
       } else {
@@ -171,7 +191,7 @@ class _SplashScreenState extends State<SplashScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(height: MediaQuery.of(context).size.height * 0.1,),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.1),
             // App Logo/Title
             Expanded(
               child: const Text(
@@ -232,15 +252,14 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
             SizedBox(height: MediaQuery.of(context).size.height * 0.1),
-            // Footer SVG
 
+            // Footer SVG
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: SvgPicture.asset('assets/svg/footer.svg'),
               ),
-            )
-
+            ),
           ],
         ),
       ),
@@ -260,7 +279,8 @@ class _SplashScreenState extends State<SplashScreen>
     final center = 120.0;
 
     for (int i = 0; i < svgAssets.length; i++) {
-      final angle = (2 * pi * i / svgAssets.length) + (_controller.value * 2 * pi);
+      final angle =
+          (2 * pi * i / svgAssets.length) + (_controller.value * 2 * pi);
       final x = center + radius * cos(angle);
       final y = center + radius * sin(angle);
 

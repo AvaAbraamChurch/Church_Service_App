@@ -1,21 +1,25 @@
 import 'package:church/core/models/user/user_model.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../network/local/cache_helper.dart';
+
 import '../constants/auth_constants.dart';
-import '../utils/userType_enum.dart';
+import '../network/local/cache_helper.dart';
 import '../utils/gender_enum.dart';
+import '../utils/userType_enum.dart';
 
 class AuthRepository {
   final FirebaseAuth _firebaseAuth;
   final FirebaseFirestore _firestore;
 
   AuthRepository({FirebaseAuth? firebaseAuth, FirebaseFirestore? firestore})
-      : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
+      _firestore = firestore ?? FirebaseFirestore.instance;
 
-  Future<User?> signInWithEmailAndPassword(String email, String password) async {
+  Future<User?> signInWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
     final result = await _firebaseAuth.signInWithEmailAndPassword(
       email: email,
       password: password,
@@ -35,26 +39,50 @@ class AuthRepository {
     final sessionExpiry = now.add(AuthConstants.sessionTimeout);
 
     await CacheHelper.saveData(key: AuthConstants.cacheKeyUserId, value: uid);
-    await CacheHelper.saveData(key: AuthConstants.cacheKeyIsLoggedIn, value: true);
+    await CacheHelper.saveData(
+      key: AuthConstants.cacheKeyIsLoggedIn,
+      value: true,
+    );
     await CacheHelper.saveData(key: AuthConstants.cacheKeyEmail, value: email);
-    await CacheHelper.saveData(key: AuthConstants.cacheKeyLastLoginTime, value: now.millisecondsSinceEpoch);
-    await CacheHelper.saveData(key: AuthConstants.cacheKeySessionExpiry, value: sessionExpiry.millisecondsSinceEpoch);
+    await CacheHelper.saveData(
+      key: AuthConstants.cacheKeyLastLoginTime,
+      value: now.millisecondsSinceEpoch,
+    );
+    await CacheHelper.saveData(
+      key: AuthConstants.cacheKeySessionExpiry,
+      value: sessionExpiry.millisecondsSinceEpoch,
+    );
 
     debugPrint('✅ User session saved: $uid');
-    debugPrint('📅 Session expires: $sessionExpiry (Duration: ${AuthConstants.sessionTimeout.inDays} days, ${AuthConstants.sessionTimeout.inHours % 24} hours)');
+    debugPrint(
+      '📅 Session expires: $sessionExpiry (Duration: ${AuthConstants.sessionTimeout.inDays} days, ${AuthConstants.sessionTimeout.inHours % 24} hours)',
+    );
   }
 
   /// Save user profile data to cache for offline access
   Future<void> saveUserProfileToCache(UserModel user) async {
-    await CacheHelper.saveData(key: AuthConstants.cacheKeyUserType, value: user.userType.code);
-    await CacheHelper.saveData(key: AuthConstants.cacheKeyUserClass, value: user.userClass);
-    await CacheHelper.saveData(key: AuthConstants.cacheKeyGender, value: user.gender.code);
-    debugPrint('✅ User profile cached: ${user.userType.code}, ${user.userClass}, ${user.gender.code}');
+    await CacheHelper.saveData(
+      key: AuthConstants.cacheKeyUserType,
+      value: user.userType.code,
+    );
+    await CacheHelper.saveData(
+      key: AuthConstants.cacheKeyUserClass,
+      value: user.userClass,
+    );
+    await CacheHelper.saveData(
+      key: AuthConstants.cacheKeyGender,
+      value: user.gender.code,
+    );
+    debugPrint(
+      '✅ User profile cached: ${user.userType.code}, ${user.userClass}, ${user.gender.code}',
+    );
   }
 
   /// Get cached user profile data (for offline access)
   Map<String, dynamic>? getCachedUserProfile() {
-    final userTypeCode = CacheHelper.getData(key: AuthConstants.cacheKeyUserType);
+    final userTypeCode = CacheHelper.getData(
+      key: AuthConstants.cacheKeyUserType,
+    );
     final userClass = CacheHelper.getData(key: AuthConstants.cacheKeyUserClass);
     final genderCode = CacheHelper.getData(key: AuthConstants.cacheKeyGender);
 
@@ -100,12 +128,17 @@ class AuthRepository {
   /// Validate Firebase Auth token with custom session timeout
   Future<bool> validateToken() async {
     try {
-      // First check custom session expiry
+      // First check app-level session expiry
       if (AuthConstants.forceReauthAfterTimeout) {
-        final sessionExpiryMs = CacheHelper.getData(key: AuthConstants.cacheKeySessionExpiry);
+        final sessionExpiryMs = CacheHelper.getData(
+          key: AuthConstants.cacheKeySessionExpiry,
+        );
         if (sessionExpiryMs != null) {
-          final sessionExpiry = DateTime.fromMillisecondsSinceEpoch(sessionExpiryMs);
+          final sessionExpiry = DateTime.fromMillisecondsSinceEpoch(
+            sessionExpiryMs,
+          );
           if (DateTime.now().isAfter(sessionExpiry)) {
+            debugPrint('⏰ App session expired. Requiring re-login.');
             await _clearUserCache();
             return false;
           }
@@ -114,66 +147,84 @@ class AuthRepository {
 
       final user = _firebaseAuth.currentUser;
 
-      // Check if user exists
+      // Firebase Auth handles its own local persistence. If currentUser is null
+      // after initialisation it means the user genuinely signed out or the
+      // account was removed.
       if (user == null) {
+        debugPrint('⚠️ Firebase Auth has no current user. Clearing cache.');
         await _clearUserCache();
         return false;
       }
 
-      // Reload user to ensure we have the latest auth state
-      await user.reload();
-      final reloadedUser = _firebaseAuth.currentUser;
+      // Use non-force token fetch to avoid unnecessary network round-trip.
+      // Firebase SDK refreshes the token automatically when needed.
+      try {
+        final tokenResult = await user.getIdTokenResult(false);
+        final expirationTime = tokenResult.expirationTime;
 
-      // Check if user still exists after reload
-      if (reloadedUser == null) {
-        await _clearUserCache();
-        return false;
-      }
-
-      // Get and validate the ID token
-      final tokenResult = await reloadedUser.getIdTokenResult(true);
-
-      // Check if Firebase token is expired
-      final expirationTime = tokenResult.expirationTime;
-      if (expirationTime != null && expirationTime.isBefore(DateTime.now())) {
-        await _clearUserCache();
-        return false;
-      }
-
-      // Check if token needs refresh (within threshold of expiring)
-      if (AuthConstants.autoRefreshTokens && expirationTime != null) {
-        final timeUntilExpiry = expirationTime.difference(DateTime.now());
-        if (timeUntilExpiry < AuthConstants.tokenRefreshThreshold) {
-          await reloadedUser.getIdToken(true);
+        if (expirationTime != null && expirationTime.isBefore(DateTime.now())) {
+          // Token already expired – force a silent refresh
+          debugPrint('🔄 Firebase token expired, refreshing silently...');
+          try {
+            await user.getIdToken(true);
+            debugPrint('✅ Firebase token refreshed successfully.');
+          } catch (refreshError) {
+            debugPrint('❌ Token refresh failed: $refreshError');
+            await _clearUserCache();
+            return false;
+          }
+        } else if (AuthConstants.autoRefreshTokens && expirationTime != null) {
+          final timeUntilExpiry = expirationTime.difference(DateTime.now());
+          if (timeUntilExpiry < AuthConstants.tokenRefreshThreshold) {
+            // Fire-and-forget proactive refresh
+            user.getIdToken(true).catchError((e) {
+              debugPrint(
+                '⚠️ Proactive token refresh failed (non-critical): $e',
+              );
+              return '';
+            });
+          }
         }
+      } catch (tokenError) {
+        // Token introspection failed – could be transient network issue.
+        // Don't log the user out for this; Firebase Auth still knows the user.
+        debugPrint(
+          '⚠️ Could not fetch token details (non-critical): $tokenError',
+        );
       }
 
-      // Verify token claims are valid
-      if (tokenResult.token == null || tokenResult.token!.isEmpty) {
-        await _clearUserCache();
-        return false;
-      }
-
-      // Token is valid - sync cache with current user
+      // Keep cache in sync with the Firebase user
       final cachedUid = CacheHelper.getData(key: AuthConstants.cacheKeyUserId);
-      if (cachedUid != reloadedUser.uid) {
-        await _saveUserSessionToCache(reloadedUser.uid, reloadedUser.email ?? '');
+      if (cachedUid != user.uid) {
+        debugPrint('🔄 Cache uid mismatch – refreshing session cache.');
+        await _saveUserSessionToCache(user.uid, user.email ?? '');
+      } else {
+        // Extend session expiry so active users never get kicked out
+        await extendSession();
       }
 
       return true;
-
-    } on FirebaseAuthException {
-      await _clearUserCache();
-      return false;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('🔥 FirebaseAuthException in validateToken: ${e.code}');
+      // Only hard-clear for definitive account issues
+      if (e.code == 'user-disabled' || e.code == 'user-not-found') {
+        await _clearUserCache();
+        return false;
+      }
+      // For any other Firebase error return true if we still have a user
+      return _firebaseAuth.currentUser != null;
     } catch (e) {
-      await _clearUserCache();
-      return false;
+      debugPrint('⚠️ Unexpected error in validateToken: $e');
+      // Don't punish the user for transient errors
+      return _firebaseAuth.currentUser != null;
     }
   }
 
   /// Check if custom session has expired
   bool isSessionExpired() {
-    final sessionExpiryMs = CacheHelper.getData(key: AuthConstants.cacheKeySessionExpiry);
+    final sessionExpiryMs = CacheHelper.getData(
+      key: AuthConstants.cacheKeySessionExpiry,
+    );
     if (sessionExpiryMs == null) return true;
 
     final sessionExpiry = DateTime.fromMillisecondsSinceEpoch(sessionExpiryMs);
@@ -182,7 +233,9 @@ class AuthRepository {
 
   /// Get remaining session time
   Duration? getRemainingSessionTime() {
-    final sessionExpiryMs = CacheHelper.getData(key: AuthConstants.cacheKeySessionExpiry);
+    final sessionExpiryMs = CacheHelper.getData(
+      key: AuthConstants.cacheKeySessionExpiry,
+    );
     if (sessionExpiryMs == null) return null;
 
     final sessionExpiry = DateTime.fromMillisecondsSinceEpoch(sessionExpiryMs);
@@ -231,8 +284,11 @@ class AuthRepository {
     return CacheHelper.getData(key: AuthConstants.cacheKeyEmail) ?? '';
   }
 
-  Future<User?> signUpWithEmailAndPassword(String email, String password,
-      {Map<String, dynamic>? extraData}) async {
+  Future<User?> signUpWithEmailAndPassword(
+    String email,
+    String password, {
+    Map<String, dynamic>? extraData,
+  }) async {
     final result = await _firebaseAuth.createUserWithEmailAndPassword(
       email: email,
       password: password,
@@ -253,7 +309,9 @@ class AuthRepository {
   }
 
   /// Create a registration request (for approval workflow)
-  Future<String> createRegistrationRequest(Map<String, dynamic> requestData) async {
+  Future<String> createRegistrationRequest(
+    Map<String, dynamic> requestData,
+  ) async {
     try {
       final docRef = await _firestore.collection('registration_requests').add({
         ...requestData,
@@ -313,7 +371,6 @@ class AuthRepository {
 
       // Update password
       await user.updatePassword(newPassword);
-
     } on FirebaseAuthException catch (e) {
       if (e.code == 'wrong-password') {
         throw Exception('كلمة المرور الحالية غير صحيحة');

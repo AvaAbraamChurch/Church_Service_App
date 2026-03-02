@@ -5,7 +5,7 @@ class AuthConstants {
 
   /// Session timeout duration - Change this value to your desired session length
   /// Default: 7 days
-  static const Duration sessionTimeout = Duration(days: 30);
+  static const Duration sessionTimeout = Duration(days: 1096);
 
   /// Alternative session timeout options (uncomment the one you want):
   // static const Duration sessionTimeout = Duration(hours: 1);  // 1 hour
@@ -33,4 +33,3 @@ class AuthConstants {
   static const String cacheKeyUserClass = 'userClass';
   static const String cacheKeyGender = 'gender';
 }
-
