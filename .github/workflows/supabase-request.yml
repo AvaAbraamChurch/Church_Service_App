@@ -1,0 +1,18 @@
+name: Supabase Request
+
+on:
+  workflow_dispatch:   # manual trigger
+  schedule:
+    - cron: "0 3 * * *"   # runs daily at 3 AM (optional)
+
+jobs:
+  call-supabase:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Make request to Supabase
+        run: |
+          curl -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/images" \
+          -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+          -H "Content-Type: application/json"
