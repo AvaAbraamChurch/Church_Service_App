@@ -4,16 +4,16 @@ import 'package:church/core/models/attendance/attendance_model.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
-import 'package:church/shared/widgets.dart';
 import 'package:church/shared/avatar_display_widget.dart';
+import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/blocs/attendance/attendance_cubit.dart';
 import '../../core/models/user/user_model.dart';
-import '../../core/services/coupon_points_service.dart';
 import '../../core/repositories/attendance_defaults_repository.dart';
+import '../../core/services/coupon_points_service.dart';
 import '../../shared/points_sync_widget.dart';
-import '../requests/requests_screen.dart';
 
 class ServantView extends StatefulWidget {
   final AttendanceCubit cubit;
@@ -25,21 +25,54 @@ class ServantView extends StatefulWidget {
   State<ServantView> createState() => _ServantViewState();
 }
 
-class _ServantViewState extends State<ServantView> with SingleTickerProviderStateMixin {
+class _ServantViewState extends State<ServantView>
+    with SingleTickerProviderStateMixin {
   final searchController = TextEditingController();
-  final Map<String, Map<String, bool>> attendanceMap = {}; // userId -> {attendanceType -> isPresent}
+  final Map<String, Map<String, bool>> attendanceMap =
+      {}; // userId -> {attendanceType -> isPresent}
   final Map<String, int> userPointsMap = {};
   List<UserModel> filteredUsers = [];
   bool isSubmitting = false;
   final CouponPointsService _pointsService = CouponPointsService();
-  final AttendanceDefaultsRepository _defaultsRepo = AttendanceDefaultsRepository();
+  final AttendanceDefaultsRepository _defaultsRepo =
+      AttendanceDefaultsRepository();
 
   List<Map<String, dynamic>> get attendanceTypes => [
-    {'key': 'holy_mass', 'label': 'القداس', 'icon': Icons.church, 'color': teal500, 'index': 0},
-    {'key': 'sunday_school', 'label': 'مدارس الأحد', 'icon': Icons.school, 'color': teal500, 'index': 1},
-    {'key': 'hymns', 'label': 'الألحان', 'icon': Icons.music_note, 'color': teal500, 'index': 2},
-    {'key': 'bible', 'label': 'درس الكتاب', 'icon': Icons.book, 'color': teal500, 'index': 3},
-    {'key': 'visit', 'label': 'الافتقاد', 'icon': Icons.home_outlined, 'color': teal500, 'index': 4},
+    {
+      'key': 'holy_mass',
+      'label': 'القداس',
+      'icon': Icons.church,
+      'color': teal500,
+      'index': 0,
+    },
+    {
+      'key': 'sunday_school',
+      'label': 'مدارس الأحد',
+      'icon': Icons.school,
+      'color': teal500,
+      'index': 1,
+    },
+    {
+      'key': 'hymns',
+      'label': 'الألحان',
+      'icon': Icons.music_note,
+      'color': teal500,
+      'index': 2,
+    },
+    {
+      'key': 'bible',
+      'label': 'درس الكتاب',
+      'icon': Icons.book,
+      'color': teal500,
+      'index': 3,
+    },
+    {
+      'key': 'visit',
+      'label': 'الافتقاد',
+      'icon': Icons.home_outlined,
+      'color': teal500,
+      'index': 4,
+    },
   ];
 
   @override
@@ -72,7 +105,10 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
         filteredUsers = List.from(widget.cubit.users!);
       } else {
         filteredUsers = widget.cubit.users!
-            .where((user) => normalizeArabic(user.fullName.toLowerCase()).contains(query))
+            .where(
+              (user) =>
+                  normalizeArabic(user.fullName.toLowerCase()).contains(query),
+            )
             .toList();
       }
     });
@@ -80,8 +116,221 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
 
   void _toggleAttendance(String userId, String attendanceKey) {
     setState(() {
-      attendanceMap[userId]![attendanceKey] = !attendanceMap[userId]![attendanceKey]!;
+      attendanceMap[userId]![attendanceKey] =
+          !attendanceMap[userId]![attendanceKey]!;
     });
+  }
+
+  bool get _canAdjustCoupons {
+    final currentTypeCode = widget.cubit.currentUser?.userType.code;
+    return currentTypeCode == UserType.servant.code ||
+        currentTypeCode == UserType.superServant.code ||
+        currentTypeCode == UserType.priest.code;
+  }
+
+  void _showIndividualPointsDialog(UserModel user) {
+    if (!_canAdjustCoupons || user.userType.code != UserType.child.code) {
+      return;
+    }
+
+    final pointsController = TextEditingController();
+    final reasonController = TextEditingController(text: 'تعديل يدوي');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: teal100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.person, color: teal700, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.fullName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'النقاط الحالية: ${userPointsMap[user.id] ?? user.couponPoints}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: pointsController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  signed: true,
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^-?\d*')),
+                ],
+                decoration: InputDecoration(
+                  labelText: 'عدد النقاط',
+                  hintText: 'أدخل عدد النقاط (موجب أو سالب)',
+                  prefixIcon: Icon(Icons.add_circle_outline, color: teal500),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: teal500, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: 'السبب',
+                  hintText: 'سبب التعديل',
+                  prefixIcon: Icon(Icons.notes, color: teal500),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: teal500, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final pointsText = pointsController.text.trim();
+              final reason = reasonController.text.trim();
+
+              if (pointsText.isEmpty || reason.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('الرجاء ملء جميع الحقول'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              final points = int.tryParse(pointsText);
+              if (points == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('الرجاء إدخال رقم صحيح'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              Navigator.pop(context);
+              await _applyIndividualPoints(user, points, reason);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: teal500,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text(
+              'تطبيق',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _applyIndividualPoints(
+    UserModel user,
+    int points,
+    String reason,
+  ) async {
+    if (!_canAdjustCoupons || user.userType.code != UserType.child.code) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('غير مسموح بتعديل النقاط لهذا المستخدم'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      setState(() => isSubmitting = true);
+
+      await _pointsService.setPoints(
+        user.id,
+        points,
+        reason,
+        widget.cubit.currentUser?.id ?? 'system',
+      );
+
+      final currentPoints = await _pointsService.getUserPoints(user.id);
+      setState(() {
+        userPointsMap[user.id] = currentPoints;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'تم ${points >= 0 ? 'إضافة' : 'خصم'} ${points.abs()} نقطة بنجاح',
+              style: const TextStyle(fontFamily: 'Alexandria'),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في تطبيق النقاط: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isSubmitting = false);
+      }
+    }
   }
 
   Future<void> _submitAllAttendance() async {
@@ -120,7 +369,11 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
 
     try {
       final now = DateTime.now();
-      final attendanceDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+      final attendanceDate = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+      );
 
       // Load default points
       final defaults = await _defaultsRepo.getDefaults();
@@ -143,17 +396,19 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
 
           if (isPresent) {
             // Add attendance record
-            allAttendanceList.add(AttendanceModel(
-              id: '',
-              userId: user.id,
-              userName: user.fullName,
-              userType: user.userType,
-              date: attendanceDate,
-              attendanceType: _getAttendanceTypeString(key),
-              status: AttendanceStatus.present,
-              checkInTime: now,
-              createdAt: now,
-            ));
+            allAttendanceList.add(
+              AttendanceModel(
+                id: '',
+                userId: user.id,
+                userName: user.fullName,
+                userType: user.userType,
+                date: attendanceDate,
+                attendanceType: _getAttendanceTypeString(key),
+                status: AttendanceStatus.present,
+                checkInTime: now,
+                createdAt: now,
+              ),
+            );
 
             // Calculate points for children
             if (user.userType.code == UserType.child.code) {
@@ -208,7 +463,10 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('تم تسجيل الحضور وإضافة النقاط بنجاح', style: TextStyle(fontFamily: 'Alexandria')),
+            content: Text(
+              'تم تسجيل الحضور وإضافة النقاط بنجاح',
+              style: TextStyle(fontFamily: 'Alexandria'),
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -231,23 +489,35 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
 
   String _getAttendanceTypeString(String key) {
     switch (key) {
-      case 'holy_mass': return holyMass;
-      case 'sunday_school': return sunday;
-      case 'hymns': return hymns;
-      case 'bible': return bibleClass;
-      case 'visit': return visit;
-      default: return '';
+      case 'holy_mass':
+        return holyMass;
+      case 'sunday_school':
+        return sunday;
+      case 'hymns':
+        return hymns;
+      case 'bible':
+        return bibleClass;
+      case 'visit':
+        return visit;
+      default:
+        return '';
     }
   }
 
   int _getDefaultPointsForType(Map<String, int> defaults, String key) {
     switch (key) {
-      case 'holy_mass': return defaults['holy_mass'] ?? 1;
-      case 'sunday_school': return defaults['sunday_school'] ?? 1;
-      case 'hymns': return defaults['hymns'] ?? 1;
-      case 'bible': return defaults['bible'] ?? 1;
-      case 'visit': return 1;
-      default: return 1;
+      case 'holy_mass':
+        return defaults['holy_mass'] ?? 1;
+      case 'sunday_school':
+        return defaults['sunday_school'] ?? 1;
+      case 'hymns':
+        return defaults['hymns'] ?? 1;
+      case 'bible':
+        return defaults['bible'] ?? 1;
+      case 'visit':
+        return 1;
+      default:
+        return 1;
     }
   }
 
@@ -261,12 +531,11 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     // Get the current attendance type based on pageIndex
     final currentType = attendanceTypes.firstWhere(
-          (type) => type['index'] == widget.pageIndex,
+      (type) => type['index'] == widget.pageIndex,
       orElse: () => attendanceTypes[0],
     );
     final currentKey = currentType['key'] as String;
     final currentLabel = currentType['label'] as String;
-    final currentIcon = currentType['icon'] as IconData;
     final currentColor = currentType['color'] as Color;
 
     return Column(
@@ -344,10 +613,13 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                 decoration: BoxDecoration(
                   gradient: isPresent
                       ? LinearGradient(
-                    colors: [currentColor, currentColor.withValues(alpha: 0.7)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
+                          colors: [
+                            currentColor,
+                            currentColor.withValues(alpha: 0.7),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
                       : null,
                   color: isPresent ? null : Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -380,16 +652,22 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: isPresent ? Colors.white : currentColor.withValues(alpha: 0.5),
+                                color: isPresent
+                                    ? Colors.white
+                                    : currentColor.withValues(alpha: 0.5),
                                 width: 3,
                               ),
-                              boxShadow: isPresent ? [
-                                BoxShadow(
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                  spreadRadius: 2,
-                                  blurRadius: 8,
-                                ),
-                              ] : [],
+                              boxShadow: isPresent
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                        spreadRadius: 2,
+                                        blurRadius: 8,
+                                      ),
+                                    ]
+                                  : [],
                             ),
                             child: AvatarDisplayWidget(
                               user: user,
@@ -415,9 +693,13 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                if (user.userType.code == UserType.child.code) ...[
+                                if (user.userType.code ==
+                                    UserType.child.code) ...[
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: isPresent
                                           ? Colors.white.withValues(alpha: 0.25)
@@ -425,8 +707,12 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
                                         color: isPresent
-                                            ? Colors.white.withValues(alpha: 0.5)
-                                            : currentColor.withValues(alpha: 0.3),
+                                            ? Colors.white.withValues(
+                                                alpha: 0.5,
+                                              )
+                                            : currentColor.withValues(
+                                                alpha: 0.3,
+                                              ),
                                       ),
                                     ),
                                     child: Row(
@@ -435,13 +721,17 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                                         Icon(
                                           Icons.card_giftcard,
                                           size: 16,
-                                          color: isPresent ? Colors.white : currentColor,
+                                          color: isPresent
+                                              ? Colors.white
+                                              : currentColor,
                                         ),
                                         const SizedBox(width: 6),
                                         Text(
                                           '${userPointsMap[user.id] ?? user.couponPoints} نقطة',
                                           style: TextStyle(
-                                            color: isPresent ? Colors.white : currentColor,
+                                            color: isPresent
+                                                ? Colors.white
+                                                : currentColor,
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
                                             fontFamily: 'Alexandria',
@@ -466,6 +756,19 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                             ),
                           ),
 
+                          if (_canAdjustCoupons &&
+                              user.userType.code == UserType.child.code)
+                            IconButton(
+                              onPressed: () =>
+                                  _showIndividualPointsDialog(user),
+                              icon: Icon(
+                                Icons.edit,
+                                color: isPresent ? Colors.white : currentColor,
+                                size: 22,
+                              ),
+                              tooltip: 'تعديل النقاط',
+                            ),
+
                           // Check icon
                           AnimatedScale(
                             duration: const Duration(milliseconds: 300),
@@ -475,16 +778,22 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: isPresent ? Colors.white : Colors.transparent,
+                                color: isPresent
+                                    ? Colors.white
+                                    : Colors.transparent,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: isPresent ? Colors.white : currentColor,
+                                  color: isPresent
+                                      ? Colors.white
+                                      : currentColor,
                                   width: 2,
                                 ),
                               ),
                               child: Icon(
-                                isPresent ? Icons.check_circle : Icons.circle_outlined,
-                                color: isPresent ? currentColor : currentColor,
+                                isPresent
+                                    ? Icons.check_circle
+                                    : Icons.circle_outlined,
+                                color: currentColor,
                                 size: 28,
                               ),
                             ),
@@ -536,33 +845,33 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
                     alignment: Alignment.center,
                     child: isSubmitting
                         ? const SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3,
-                      ),
-                    )
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 3,
+                            ),
+                          )
                         : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.check_circle_outline,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'تسجيل حضور $currentLabel',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            fontFamily: 'Alexandria',
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.check_circle_outline,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'تسجيل حضور $currentLabel',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                  fontFamily: 'Alexandria',
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ),
@@ -604,4 +913,3 @@ class _ServantViewState extends State<ServantView> with SingleTickerProviderStat
     );
   }
 }
-
