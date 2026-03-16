@@ -1,29 +1,29 @@
 import 'package:church/core/blocs/admin_user/admin_user_cubit.dart';
 import 'package:church/modules/Splash/splash_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
-import 'shared/bloc_observer.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:provider/provider.dart';
+import 'package:workmanager/workmanager.dart';
+
+import 'core/blocs/auth/auth_cubit.dart';
 import 'core/network/local/cache_helper.dart';
 import 'core/providers/cart_provider.dart';
 import 'core/providers/theme_provider.dart';
-import 'core/blocs/auth/auth_cubit.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'core/repositories/local_attendance_repository.dart';
 import 'core/repositories/local_points_repository.dart';
 import 'core/services/points_sync_service.dart';
-import 'package:workmanager/workmanager.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 import 'core/utils/notification_service.dart';
+import 'firebase_options.dart';
+import 'shared/bloc_observer.dart';
 
 // Create a FlutterLocalNotificationsPlugin instance to show local notifications in background isolate
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -44,17 +44,29 @@ Future<void> showLocalNotification(RemoteMessage message) async {
   final data = message.data;
 
   // Debug log: print incoming message payload
-  debugPrint('showLocalNotification() called. notification=${notification?.toString()}, data=$data');
+  debugPrint(
+    'showLocalNotification() called. notification=${notification?.toString()}, data=$data',
+  );
 
   final title = notification?.title ?? data['title'];
   // fallback to other common keys or default text
-  final body = notification?.body ?? data['body'] ?? data['message'] ?? data['body_text'] ?? 'You have a new message';
+  final body =
+      notification?.body ??
+      data['body'] ??
+      data['message'] ??
+      data['body_text'] ??
+      'You have a new message';
 
   final payload = data['click_action'] ?? data['payload'];
 
   // Delegate to NotificationService to display a consistent local notification
   try {
-    await NotificationService().showNotification(id: message.hashCode, title: title ?? '', body: body, payload: payload?.toString());
+    await NotificationService().showNotification(
+      id: message.hashCode,
+      title: title ?? '',
+      body: body,
+      payload: payload?.toString(),
+    );
   } catch (e) {
     debugPrint('Failed to show notification via NotificationService: $e');
     // Fallback to direct platform call if needed
@@ -89,14 +101,16 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Initialize the local notifications plugin in the background isolate
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
-  final InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
+  final InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+  );
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
   // Create the channel on the background isolate as well
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(channel);
 
   // Save notification to Firestore
@@ -104,9 +118,13 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (userId != null) {
     try {
       await FirebaseFirestore.instance.collection('notifications').add({
-        'title': message.notification?.title ?? message.data['title'] ?? 'إشعار جديد',
+        'title':
+            message.notification?.title ??
+            message.data['title'] ??
+            'إشعار جديد',
         'body': message.notification?.body ?? message.data['body'] ?? '',
-        'imageUrl': message.notification?.android?.imageUrl ?? message.data['imageUrl'],
+        'imageUrl':
+            message.notification?.android?.imageUrl ?? message.data['imageUrl'],
         'data': message.data,
         'timestamp': FieldValue.serverTimestamp(),
         'isRead': false,
@@ -114,7 +132,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         'type': message.data['type'] ?? 'message',
         'actionUrl': message.data['actionUrl'],
       });
-      debugPrint('Background: Notification saved to Firestore for user $userId');
+      debugPrint(
+        'Background: Notification saved to Firestore for user $userId',
+      );
     } catch (e) {
       debugPrint('Background: Failed to save notification to Firestore: $e');
     }
@@ -122,9 +142,13 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   // Debug: log the message and attempt to show a local notification
   try {
-    debugPrint('Background handler received message: id=${message.messageId}, data=${message.data}, notification=${message.notification}');
+    debugPrint(
+      'Background handler received message: id=${message.messageId}, data=${message.data}, notification=${message.notification}',
+    );
     await showLocalNotification(message);
-    debugPrint('Background handler displayed local notification for messageId=${message.messageId}');
+    debugPrint(
+      'Background handler displayed local notification for messageId=${message.messageId}',
+    );
   } catch (e, st) {
     debugPrint('Background handler failed to display notification: $e\n$st');
   }
@@ -149,7 +173,9 @@ void callbackDispatcher() {
         final pointsSync = PointsSyncService();
         final result = await pointsSync.syncPendingTransactions();
 
-        debugPrint('✅ Background points sync completed: ${result['synced']} synced, ${result['failed']} failed');
+        debugPrint(
+          '✅ Background points sync completed: ${result['synced']} synced, ${result['failed']} failed',
+        );
       }
 
       return Future.value(true);
@@ -163,9 +189,7 @@ void callbackDispatcher() {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Web startup should be as light as possible.
   // Many plugins used below are mobile-only and can cause web runtime errors / long stalls.
@@ -179,16 +203,20 @@ void main() async {
 
       // Optional: Clean up old pending items (older than 30 days)
       final attendanceRepo = LocalAttendanceRepository();
-      final attendanceDeletedCount =
-          await attendanceRepo.deleteOldPending(olderThanDays: 30);
+      final attendanceDeletedCount = await attendanceRepo.deleteOldPending(
+        olderThanDays: 30,
+      );
       if (attendanceDeletedCount > 0) {
         // ignore: avoid_print
-        print('🗑️ Deleted $attendanceDeletedCount old pending attendance items');
+        print(
+          '🗑️ Deleted $attendanceDeletedCount old pending attendance items',
+        );
       }
 
       final pointsRepo = LocalPointsRepository();
-      final pointsDeletedCount =
-          await pointsRepo.deleteOldPending(olderThanDays: 30);
+      final pointsDeletedCount = await pointsRepo.deleteOldPending(
+        olderThanDays: 30,
+      );
       if (pointsDeletedCount > 0) {
         // ignore: avoid_print
         print('🗑️ Deleted $pointsDeletedCount old pending points items');
@@ -213,10 +241,7 @@ void main() async {
   // IMPORTANT: Workmanager is not supported on Flutter Web, so skip it there.
   if (!kIsWeb) {
     try {
-      await Workmanager().initialize(
-        callbackDispatcher,
-        isInDebugMode: false,
-      );
+      await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
 
       // Register a periodic task to sync pending attendance every 15 minutes (Android minimum)
       await Workmanager().registerPeriodicTask(
@@ -227,8 +252,12 @@ void main() async {
       debugPrint('Workmanager initialized successfully for background sync');
     } catch (e) {
       // Workmanager failed - app will still work with foreground sync via connectivity listener
-      debugPrint('Workmanager initialization failed (background sync disabled): $e');
-      debugPrint('Offline attendance will still work - sync will happen when app is open');
+      debugPrint(
+        'Workmanager initialization failed (background sync disabled): $e',
+      );
+      debugPrint(
+        'Offline attendance will still work - sync will happen when app is open',
+      );
     }
   } else {
     debugPrint('Web build: skipping Workmanager initialization');
@@ -239,8 +268,9 @@ void main() async {
     if (token == null || token.isEmpty) return;
     final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
     try {
-      await userRef.set({'fcmTokens': FieldValue.arrayUnion([token])},
-          SetOptions(merge: true));
+      await userRef.set({
+        'fcmTokens': FieldValue.arrayUnion([token]),
+      }, SetOptions(merge: true));
       debugPrint('Saved FCM token for user $uid');
     } catch (e) {
       debugPrint('Failed saving FCM token: $e');
@@ -278,26 +308,28 @@ void main() async {
     // On iOS, show notifications when app is in foreground
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+          alert: true,
+          badge: true,
+          sound: true,
+        );
 
     // Initialize the flutter_local_notifications plugin and create channel
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     final InitializationSettings initializationSettings =
         InitializationSettings(android: initializationSettingsAndroid);
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings,
-        onDidReceiveNotificationResponse:
-            (NotificationResponse response) {
-      // Handle notification tap when app is in foreground/background
-    });
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // Handle notification tap when app is in foreground/background
+      },
+    );
 
     // Create Android notification channel for heads-up notifications
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(channel);
 
     // Register background handler once, before runApp
@@ -310,11 +342,13 @@ void main() async {
 
       try {
         await FirebaseFirestore.instance.collection('notifications').add({
-          'title': message.notification?.title ??
+          'title':
+              message.notification?.title ??
               message.data['title'] ??
               'إشعار جديد',
           'body': message.notification?.body ?? message.data['body'] ?? '',
-          'imageUrl': message.notification?.android?.imageUrl ??
+          'imageUrl':
+              message.notification?.android?.imageUrl ??
               message.data['imageUrl'],
           'data': message.data,
           'timestamp': FieldValue.serverTimestamp(),
@@ -332,7 +366,8 @@ void main() async {
     // Listen for messages when the app is in the foreground
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       debugPrint(
-          'onMessage (foreground) received: id=${message.messageId}, data=${message.data}, notification=${message.notification}');
+        'onMessage (foreground) received: id=${message.messageId}, data=${message.data}, notification=${message.notification}',
+      );
       try {
         await showLocalNotification(message);
         await saveNotificationToFirestore(message);
@@ -347,16 +382,20 @@ void main() async {
       saveNotificationToFirestore(message);
     });
   } else {
-    debugPrint('Web build: skipping Firebase Messaging & local notifications init');
+    debugPrint(
+      'Web build: skipping Firebase Messaging & local notifications init',
+    );
   }
 
   if (!kIsWeb) {
     final remoteConfig = FirebaseRemoteConfig.instance;
     try {
-      await remoteConfig.setConfigSettings(RemoteConfigSettings(
-        fetchTimeout: const Duration(seconds: 5),
-        minimumFetchInterval: const Duration(seconds: 5),
-      ));
+      await remoteConfig.setConfigSettings(
+        RemoteConfigSettings(
+          fetchTimeout: const Duration(seconds: 5),
+          minimumFetchInterval: const Duration(seconds: 5),
+        ),
+      );
 
       // Add timeout protection to prevent hanging
       await remoteConfig.fetchAndActivate().timeout(
@@ -374,15 +413,12 @@ void main() async {
     debugPrint('Web build: skipping Firebase Remote Config init');
   }
 
-
   // Initialize cache helper
   await CacheHelper.init();
 
   Bloc.observer = MyBlocObserver();
 
-  runApp(const MyApp(
-    startWidget: SplashScreen(),
-  ));
+  runApp(const MyApp(startWidget: SplashScreen()));
 }
 
 class MyApp extends StatefulWidget {
@@ -410,8 +446,11 @@ class _MyAppState extends State<MyApp> {
 
   void _setupConnectivityListener() {
     // Listen to connectivity changes and auto-sync when online
-    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) async {
-      final isOnline = results.contains(ConnectivityResult.mobile) ||
+    Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) async {
+      final isOnline =
+          results.contains(ConnectivityResult.mobile) ||
           results.contains(ConnectivityResult.wifi) ||
           results.contains(ConnectivityResult.ethernet);
 
@@ -422,11 +461,15 @@ class _MyAppState extends State<MyApp> {
         // Check if there are pending items to sync
         final pendingCount = LocalPointsRepository().getPendingCount();
         if (pendingCount > 0) {
-          debugPrint('🔄 Connection restored. Syncing $pendingCount pending points...');
+          debugPrint(
+            '🔄 Connection restored. Syncing $pendingCount pending points...',
+          );
 
           final result = await _syncService.syncPendingTransactions();
 
-          debugPrint('✅ Auto-sync completed: ${result['synced']} synced, ${result['failed']} failed');
+          debugPrint(
+            '✅ Auto-sync completed: ${result['synced']} synced, ${result['failed']} failed',
+          );
 
           // Show notification only once per app session if sync was successful
           if (mounted && result['synced'] > 0 && !_hasShownSyncNotification) {
@@ -443,14 +486,9 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (context) => AuthCubit(),
-        ),
+        BlocProvider(create: (context) => AuthCubit()),
 
-        BlocProvider(
-          create: (context) => AdminUserCubit(),
-        ),
-
+        BlocProvider(create: (context) => AdminUserCubit()),
       ],
       child: MultiProvider(
         providers: [
@@ -466,9 +504,7 @@ class _MyAppState extends State<MyApp> {
                 GlobalWidgetsLocalizations.delegate,
                 GlobalCupertinoLocalizations.delegate,
               ],
-              supportedLocales: [
-                Locale('ar'),
-              ],
+              supportedLocales: [Locale('ar')],
               debugShowCheckedModeBanner: false,
               theme: themeProvider.currentTheme,
               home: widget.startWidget,
@@ -479,6 +515,7 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
+
 //
 // Future<void> clearOldCache() async {
 //   try {

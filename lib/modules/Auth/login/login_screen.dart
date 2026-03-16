@@ -4,6 +4,7 @@ import 'package:church/modules/ProfileCompletion/profile_completion_screen.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../core/constants/strings.dart';
 import '../../../core/styles/colors.dart';
 import '../../../core/styles/themeScaffold.dart';
@@ -18,7 +19,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -26,7 +28,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   bool _isPasswordVisible = false;
-
 
   @override
   void initState() {
@@ -43,15 +44,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       ),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic),
-      ),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic),
+          ),
+        );
 
     _animationController.forward();
   }
@@ -99,11 +98,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               position: _slideAnimation,
                               child: Center(
                                 child: Container(
-                                  width: 100,
-                                  height: 100,
+                                  width: 120,
+                                  height: 120,
                                   decoration: BoxDecoration(
                                     color: teal100.withValues(alpha: 0.2),
-                                    shape: BoxShape.circle,
+                                    shape: BoxShape.rectangle,
+                                    borderRadius: BorderRadius.circular(10),
                                     boxShadow: [
                                       BoxShadow(
                                         color: teal300.withValues(alpha: 0.3),
@@ -112,10 +112,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                       ),
                                     ],
                                   ),
-                                  child: Icon(
-                                    Icons.church_rounded,
-                                    size: 50,
-                                    color: teal100,
+                                  child: Image.asset(
+                                    'assets/images/appIcon.png',
                                   ),
                                 ),
                               ),
@@ -134,19 +132,24 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   Text(
                                     welcomeMessage,
                                     textAlign: TextAlign.center,
-                                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 28,
-                                      letterSpacing: 0.5,
-                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineMedium
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 28,
+                                          letterSpacing: 0.5,
+                                        ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     signInToContinue,
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.7),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.7,
+                                      ),
                                       fontSize: 16,
                                     ),
                                   ),
@@ -225,7 +228,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   // TODO: Implement forgot password
                                 },
                                 style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
                                 ),
                                 child: Text(
                                   forgotPassword,
@@ -308,11 +314,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   ),
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
                                   child: Text(
                                     or,
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.6),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.6,
+                                      ),
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -331,35 +341,37 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           const SizedBox(height: 30),
 
                           // Register prompt with modern styling
-                          FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    registerPrompt,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.9),
-                                      fontSize: 15,
-                                    ),
+                          InkWell(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              navigateTo(context, RegisterScreen());
+                            },
+                            child: FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    width: 1,
                                   ),
-                                  const SizedBox(width: 4),
-                                  InkWell(
-                                    onTap: () {
-                                      HapticFeedback.lightImpact();
-                                      navigateTo(context, RegisterScreen());
-                                    },
-                                    child: Text(
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      registerPrompt,
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.9,
+                                        ),
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
                                       registerNow,
                                       style: TextStyle(
                                         color: teal100,
@@ -367,8 +379,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -464,21 +476,28 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           } else if (state is AuthSuccess) {
             Navigator.of(context, rootNavigator: true).pop();
             if (state.isFirstLogin == true) {
-              navigateAndFinish(context, ProfileCompletionScreen(user: state.user));
+              navigateAndFinish(
+                context,
+                ProfileCompletionScreen(user: state.user),
+              );
             } else {
-              navigateAndFinish(context, HomeLayout(
-                userId: state.uId,
-                userType: state.userType,
-                userClass: state.userClass,
-                gender: state.gender,
-              ));
+              navigateAndFinish(
+                context,
+                HomeLayout(
+                  userId: state.uId,
+                  userType: state.userType,
+                  userClass: state.userClass,
+                  gender: state.gender,
+                ),
+              );
             }
           } else if (state is AuthFailure) {
             Navigator.of(context, rootNavigator: true).pop();
 
             // Determine icon based on error type
             IconData errorIcon = Icons.error_outline;
-            if (state.error.contains('اتصال') || state.error.contains('الإنترنت')) {
+            if (state.error.contains('اتصال') ||
+                state.error.contains('الإنترنت')) {
               errorIcon = Icons.wifi_off_rounded;
             } else if (state.error.contains('كلمة المرور')) {
               errorIcon = Icons.lock_outline;
@@ -496,11 +515,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(
-                        errorIcon,
-                        color: Colors.white,
-                        size: 24,
-                      ),
+                      child: Icon(errorIcon, color: Colors.white, size: 24),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -535,7 +550,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   borderRadius: BorderRadius.circular(16),
                 ),
                 margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 duration: const Duration(seconds: 4),
                 action: SnackBarAction(
                   label: 'حسناً',
@@ -563,88 +581,74 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TextFormField(
-        controller: controller,
-        obscureText: isPassword && !isPasswordVisible,
-        keyboardType: keyboardType,
-        validator: validator,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: fillColor,
-          labelText: label,
-          labelStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.8),
-            fontSize: 15,
-          ),
-          prefixIcon: Icon(
-            prefixIcon,
-            color: teal100,
-            size: 22,
-          ),
-          suffixIcon: isPassword
-              ? IconButton(
-                  icon: Icon(
-                    isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                    color: teal100.withValues(alpha: 0.8),
-                    size: 22,
-                  ),
-                  onPressed: onTogglePasswordVisibility,
-                )
-              : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.1),
-              width: 1,
+        child: TextFormField(
+          controller: controller,
+          obscureText: isPassword && !isPasswordVisible,
+          keyboardType: keyboardType,
+          validator: validator,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: fillColor,
+            labelText: label,
+            labelStyle: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 15,
             ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
-              color: teal300,
-              width: 2,
+            prefixIcon: Icon(prefixIcon, color: teal100, size: 22),
+            suffixIcon: isPassword
+                ? IconButton(
+                    icon: Icon(
+                      isPasswordVisible
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: teal100.withValues(alpha: 0.8),
+                      size: 22,
+                    ),
+                    onPressed: onTogglePasswordVisibility,
+                  )
+                : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
             ),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
-              color: red500,
-              width: 1,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.1),
+                width: 1,
+              ),
             ),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
-              color: red500,
-              width: 2,
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: teal300, width: 2),
             ),
-          ),
-          errorStyle: TextStyle(
-            color: red300,
-            fontSize: 12,
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 18,
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: red500, width: 1),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: red500, width: 2),
+            ),
+            errorStyle: TextStyle(color: red300, fontSize: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 18,
+            ),
           ),
         ),
       ),
