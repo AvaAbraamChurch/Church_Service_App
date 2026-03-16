@@ -108,7 +108,7 @@ class _HymnsScreenState extends State<HymnsScreen> {
         backgroundColor: Colors.transparent,
       ),
       floatingActionButton: _canManageHymns ? _buildFabMenu() : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       body: Stack(
         children: [
           // Main content
@@ -419,7 +419,7 @@ class _HymnsScreenState extends State<HymnsScreen> {
                       if (hasEnglish)
                         Expanded(
                           child: _buildLyricsColumn(
-                            title: 'English',
+                            title: 'قبطي معرب',
                             lyrics: _selectedHymn!.copticArlyrics!,
                             isRightBorder: true,
                             hasLeftBorder: true,
@@ -447,11 +447,11 @@ class _HymnsScreenState extends State<HymnsScreen> {
                           lyrics: _selectedHymn!.copticLyrics!,
                         ),
 
-                      // English Lyrics
+                      // قبطي معرب
                       if (_selectedHymn!.copticArlyrics != null &&
                           _selectedHymn!.copticArlyrics!.isNotEmpty)
                         _buildLyricsSection(
-                          title: 'Lyrics in English',
+                          title: 'قبطي معرب',
                           lyrics: _selectedHymn!.copticArlyrics!,
                         ),
                     ],

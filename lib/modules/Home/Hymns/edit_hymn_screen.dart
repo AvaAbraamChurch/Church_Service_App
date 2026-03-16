@@ -542,11 +542,11 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
                           const SizedBox(height: 16),
                           _buildTextField(
                             controller: _titleController,
-                            label: 'العنوان بالإنجليزية',
-                            hint: 'Enter title in English',
+                            label: 'العنوان - قبطي معرب',
+                            hint: 'أدخل العنوان بالقبطي المعرب',
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'English title is required';
+                                return 'العنوان بالقبطي المعرب مطلوب';
                               }
                               return null;
                             },
@@ -572,8 +572,8 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
                           const SizedBox(height: 16),
                           _buildTextField(
                             controller: _copticArlyricsController,
-                            label: 'الكلمات بالإنجليزية',
-                            hint: 'Enter lyrics in English',
+                            label: 'الكلمات - قبطي معرب',
+                            hint: 'أدخل الكلمات بالقبطي المعرب',
                             maxLines: 8,
                           ),
 
