@@ -1,10 +1,12 @@
 import 'package:church/core/constants/strings.dart';
 import 'package:church/core/styles/themeScaffold.dart';
-import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../core/styles/colors.dart';
+import 'package:flutter/material.dart';
+
 import '../../core/models/store/order_model.dart';
 import '../../core/repositories/order_repository.dart';
+import '../../core/styles/colors.dart';
 
 class OrderTrackingScreen extends StatelessWidget {
   const OrderTrackingScreen({super.key});
@@ -87,18 +89,12 @@ class OrderTrackingScreen extends StatelessWidget {
                         SizedBox(height: 16),
                         Text(
                           'لا توجد طلبات',
-                          style: TextStyle(
-                            color: teal100,
-                            fontSize: 18,
-                          ),
+                          style: TextStyle(color: teal100, fontSize: 18),
                         ),
                         SizedBox(height: 8),
                         Text(
                           'لم تقم بإنشاء أي طلبات بعد',
-                          style: TextStyle(
-                            color: teal300,
-                            fontSize: 14,
-                          ),
+                          style: TextStyle(color: teal300, fontSize: 14),
                         ),
                       ],
                     ),
@@ -127,10 +123,7 @@ class OrderTrackingScreen extends StatelessWidget {
           SizedBox(height: 16),
           Text(
             'يرجى تسجيل الدخول أولاً',
-            style: TextStyle(
-              color: teal100,
-              fontSize: 18,
-            ),
+            style: TextStyle(color: teal100, fontSize: 18),
           ),
         ],
       ),
@@ -230,57 +223,76 @@ class OrderTrackingScreen extends StatelessWidget {
             ),
           ),
           SizedBox(height: 8),
-          ...order.items.map((item) => Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    if (item.productImageUrl != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          item.productImageUrl!,
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: 40,
-                              height: 40,
-                              color: teal500.withValues(alpha: 0.2),
-                              child: Icon(Icons.image, color: teal300, size: 20),
-                            );
-                          },
+          ...order.items.map(
+            (item) => Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  if (item.productImageUrl != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: CachedNetworkImage(
+                        imageUrl: item.productImageUrl!,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) {
+                          return Container(
+                            width: 40,
+                            height: 40,
+                            color: teal500.withValues(alpha: 0.2),
+                            child: Center(
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: teal100,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        errorWidget: (context, url, error) {
+                          return Container(
+                            width: 40,
+                            height: 40,
+                            color: teal500.withValues(alpha: 0.2),
+                            child: Icon(Icons.image, color: teal300, size: 20),
+                          );
+                        },
+                      ),
+                    ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.productTitle,
+                          style: TextStyle(color: teal100, fontSize: 14),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.productTitle,
-                            style: TextStyle(color: teal100, fontSize: 14),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            'الكمية: ${item.quantity}',
-                            style: TextStyle(color: teal300, fontSize: 12),
-                          ),
-                        ],
-                      ),
+                        Text(
+                          'الكمية: ${item.quantity}',
+                          style: TextStyle(color: teal300, fontSize: 12),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '\$${item.totalPrice.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        color: teal100,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                  ),
+                  Text(
+                    '\$${item.totalPrice.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: teal100,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
                     ),
-                  ],
-                ),
-              )),
+                  ),
+                ],
+              ),
+            ),
+          ),
 
           Divider(color: teal300.withValues(alpha: 0.3)),
 
@@ -323,7 +335,10 @@ class OrderTrackingScreen extends StatelessWidget {
 
           // Order Summary
           SizedBox(height: 16),
-          _buildOrderDetailRow('المجموع الفرعي:', '\$${order.subtotal.toStringAsFixed(2)}'),
+          _buildOrderDetailRow(
+            'المجموع الفرعي:',
+            '\$${order.subtotal.toStringAsFixed(2)}',
+          ),
           if (order.discount > 0)
             _buildOrderDetailRow(
               'الخصم:',
@@ -342,17 +357,18 @@ class OrderTrackingScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildOrderDetailRow(String label, String value,
-      {Color? valueColor, bool isBold = false}) {
+  Widget _buildOrderDetailRow(
+    String label,
+    String value, {
+    Color? valueColor,
+    bool isBold = false,
+  }) {
     return Padding(
       padding: EdgeInsets.only(bottom: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(color: teal300, fontSize: 13),
-          ),
+          Text(label, style: TextStyle(color: teal300, fontSize: 13)),
           Text(
             value,
             style: TextStyle(
@@ -401,4 +417,3 @@ class OrderTrackingScreen extends StatelessWidget {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
-

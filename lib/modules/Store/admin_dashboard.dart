@@ -6,6 +6,7 @@ import 'package:church/core/repositories/order_repository.dart';
 import 'package:church/core/repositories/store_repository.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/styles/colors.dart';
@@ -1226,12 +1227,26 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
         leading: product.imageUrls.isNotEmpty
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  product.imageUrls.first,
+                child: CachedNetworkImage(
+                  imageUrl: product.imageUrls.first,
                   width: 60,
                   height: 60,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                  placeholder: (_, __) => SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: teal100,
+                        ),
+                      ),
+                    ),
+                  ),
+                  errorWidget: (_, __, ___) => Container(
                     width: 60,
                     height: 60,
                     color: teal500.withValues(alpha: 0.2),

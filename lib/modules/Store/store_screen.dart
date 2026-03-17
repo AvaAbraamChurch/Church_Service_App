@@ -2,16 +2,18 @@ import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/modules/Store/cart_screen.dart';
 import 'package:church/modules/Store/order_tracking_screen.dart';
 import 'package:church/shared/widgets.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../core/styles/colors.dart';
+
 import '../../core/models/store/product_model.dart';
 import '../../core/models/user/user_model.dart';
-import '../../core/utils/gender_enum.dart';
-import '../../core/repositories/store_repository.dart';
 import '../../core/providers/cart_provider.dart';
+import '../../core/repositories/store_repository.dart';
+import '../../core/styles/colors.dart';
+import '../../core/utils/gender_enum.dart';
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key});
@@ -67,7 +69,7 @@ class _StoreScreenState extends State<StoreScreen> {
       setState(() {
         _categories = [
           'الكل',
-          ...categories.where((c) => c != null && c.isNotEmpty).cast<String>()
+          ...categories.where((c) => c != null && c.isNotEmpty).cast<String>(),
         ];
       });
     } catch (e) {
@@ -142,7 +144,10 @@ class _StoreScreenState extends State<StoreScreen> {
                     hintStyle: TextStyle(color: Colors.white60),
                     prefixIcon: Icon(Icons.search, color: teal100),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 15,
+                    ),
                   ),
                   onChanged: (value) {
                     // TODO: Implement search
@@ -173,12 +178,19 @@ class _StoreScreenState extends State<StoreScreen> {
                     child: AnimatedContainer(
                       duration: Duration(milliseconds: 300),
                       margin: EdgeInsets.only(right: 12),
-                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
-                        color: isSelected ? teal100 : teal700.withValues(alpha: 0.3),
+                        color: isSelected
+                            ? teal100
+                            : teal700.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(25),
                         border: Border.all(
-                          color: isSelected ? teal100 : teal300.withValues(alpha: 0.3),
+                          color: isSelected
+                              ? teal100
+                              : teal300.withValues(alpha: 0.3),
                           width: 1.5,
                         ),
                         boxShadow: isSelected
@@ -196,7 +208,9 @@ class _StoreScreenState extends State<StoreScreen> {
                           category,
                           style: TextStyle(
                             color: isSelected ? teal900 : teal100,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                             fontSize: 14,
                           ),
                         ),
@@ -213,8 +227,11 @@ class _StoreScreenState extends State<StoreScreen> {
             stream: _isLoadingUser || _userGenderCode == null
                 ? const Stream.empty()
                 : (_selectedCategory == 'الكل'
-                    ? _storeRepo.watchProductsByUserGender(_userGenderCode!)
-                    : _storeRepo.watchProductsByUserGenderAndCategory(_userGenderCode!, _selectedCategory)),
+                      ? _storeRepo.watchProductsByUserGender(_userGenderCode!)
+                      : _storeRepo.watchProductsByUserGenderAndCategory(
+                          _userGenderCode!,
+                          _selectedCategory,
+                        )),
             builder: (context, snapshot) {
               // Show loading while user data is loading
               if (_isLoadingUser) {
@@ -296,20 +313,14 @@ class _StoreScreenState extends State<StoreScreen> {
                         SizedBox(height: 16),
                         Text(
                           'لا توجد منتجات',
-                          style: TextStyle(
-                            color: teal100,
-                            fontSize: 18,
-                          ),
+                          style: TextStyle(color: teal100, fontSize: 18),
                         ),
                         SizedBox(height: 8),
                         Text(
                           _selectedCategory == 'الكل'
                               ? 'لم يتم إضافة أي منتجات بعد'
                               : 'لا توجد منتجات في هذه الفئة',
-                          style: TextStyle(
-                            color: teal300,
-                            fontSize: 14,
-                          ),
+                          style: TextStyle(color: teal300, fontSize: 14),
                         ),
                       ],
                     ),
@@ -363,7 +374,9 @@ class _StoreScreenState extends State<StoreScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: teal500.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(20),
+                      ),
                     ),
                     child: Center(
                       child: _buildShimmer(
@@ -437,10 +450,7 @@ class _StoreScreenState extends State<StoreScreen> {
       tween: Tween(begin: 0.3, end: 1.0),
       duration: Duration(milliseconds: 1000),
       builder: (context, value, _) {
-        return Opacity(
-          opacity: 0.3 + (value * 0.4),
-          child: child,
-        );
+        return Opacity(opacity: 0.3 + (value * 0.4), child: child);
       },
       onEnd: () {
         // Loop the animation
@@ -455,10 +465,12 @@ class _StoreScreenState extends State<StoreScreen> {
     final bool isOutOfStock = product.stock == 0;
 
     return GestureDetector(
-      onTap: isOutOfStock ? null : () {
-        // Navigate to product details only if in stock
-        _showProductDetails(product);
-      },
+      onTap: isOutOfStock
+          ? null
+          : () {
+              // Navigate to product details only if in stock
+              _showProductDetails(product);
+            },
       child: Hero(
         tag: 'product_${product.id}',
         child: Opacity(
@@ -474,13 +486,15 @@ class _StoreScreenState extends State<StoreScreen> {
                     ? teal300.withValues(alpha: 0.15)
                     : teal300.withValues(alpha: 0.3),
               ),
-              boxShadow: isOutOfStock ? [] : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: Offset(0, 5),
-                ),
-              ],
+              boxShadow: isOutOfStock
+                  ? []
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: Offset(0, 5),
+                      ),
+                    ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,31 +505,35 @@ class _StoreScreenState extends State<StoreScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: teal500.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(20),
+                      ),
                     ),
                     child: Stack(
                       children: [
                         if (product.imageUrls.isNotEmpty)
                           ClipRRect(
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                            child: Image.network(
-                              product.imageUrls.first,
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(20),
+                            ),
+                            child: CachedNetworkImage(
+                              imageUrl: product.imageUrls.first,
                               fit: BoxFit.cover,
                               width: double.infinity,
                               height: double.infinity,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(teal100),
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) {
+                              progressIndicatorBuilder:
+                                  (context, url, downloadProgress) {
+                                    return Center(
+                                      child: CircularProgressIndicator(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              teal100,
+                                            ),
+                                        value: downloadProgress.progress,
+                                      ),
+                                    );
+                                  },
+                              errorWidget: (context, url, error) {
                                 return Center(
                                   child: Icon(
                                     Icons.broken_image,
@@ -532,7 +550,10 @@ class _StoreScreenState extends State<StoreScreen> {
                             top: 8,
                             left: 8,
                             child: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [red500, red700],
@@ -564,17 +585,22 @@ class _StoreScreenState extends State<StoreScreen> {
                             top: 8,
                             right: 8,
                             child: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: product.stock == 0 ? red500 : brown500,
                                 borderRadius: BorderRadius.circular(12),
-                                boxShadow: product.stock == 0 ? [
-                                  BoxShadow(
-                                    color: red500.withValues(alpha: 0.5),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ] : [],
+                                boxShadow: product.stock == 0
+                                    ? [
+                                        BoxShadow(
+                                          color: red500.withValues(alpha: 0.5),
+                                          blurRadius: 8,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ]
+                                    : [],
                               ),
                               child: Text(
                                 product.stock == 0 ? 'نفذ' : 'محدود',
@@ -592,7 +618,9 @@ class _StoreScreenState extends State<StoreScreen> {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(20),
+                                ),
                               ),
                               child: Center(
                                 child: Column(
@@ -648,10 +676,7 @@ class _StoreScreenState extends State<StoreScreen> {
                               SizedBox(height: 3),
                               Text(
                                 product.category!,
-                                style: TextStyle(
-                                  color: teal300,
-                                  fontSize: 10,
-                                ),
+                                style: TextStyle(color: teal300, fontSize: 10),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -663,17 +688,23 @@ class _StoreScreenState extends State<StoreScreen> {
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       if (_hasDiscount(product)) ...[
                                         Text(
                                           '\$${product.price.toStringAsFixed(2)}',
                                           style: TextStyle(
-                                            color: teal300.withValues(alpha: 0.6),
+                                            color: teal300.withValues(
+                                              alpha: 0.6,
+                                            ),
                                             fontSize: 11,
-                                            decoration: TextDecoration.lineThrough,
-                                            decorationColor: teal300.withValues(alpha: 0.6),
+                                            decoration:
+                                                TextDecoration.lineThrough,
+                                            decorationColor: teal300.withValues(
+                                              alpha: 0.6,
+                                            ),
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -683,7 +714,9 @@ class _StoreScreenState extends State<StoreScreen> {
                                       Text(
                                         '\$${_getDiscountedPrice(product).toStringAsFixed(2)}',
                                         style: TextStyle(
-                                          color: _hasDiscount(product) ? red300 : teal100,
+                                          color: _hasDiscount(product)
+                                              ? red300
+                                              : teal100,
                                           fontSize: 15,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -695,25 +728,39 @@ class _StoreScreenState extends State<StoreScreen> {
                                 ),
                                 SizedBox(width: 6),
                                 GestureDetector(
-                                  onTap: isOutOfStock ? null : () {
-                                    final cart = Provider.of<CartProvider>(context, listen: false);
-                                    cart.addItem(product);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('تمت الإضافة إلى السلة'),
-                                        backgroundColor: teal500,
-                                        behavior: SnackBarBehavior.floating,
-                                        duration: Duration(seconds: 1),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                      ),
-                                    );
-                                  },
+                                  onTap: isOutOfStock
+                                      ? null
+                                      : () {
+                                          final cart =
+                                              Provider.of<CartProvider>(
+                                                context,
+                                                listen: false,
+                                              );
+                                          cart.addItem(product);
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'تمت الإضافة إلى السلة',
+                                              ),
+                                              backgroundColor: teal500,
+                                              behavior:
+                                                  SnackBarBehavior.floating,
+                                              duration: Duration(seconds: 1),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                          );
+                                        },
                                   child: Container(
                                     padding: EdgeInsets.all(6),
                                     decoration: BoxDecoration(
-                                      color: isOutOfStock ? teal300.withValues(alpha: 0.3) : teal100,
+                                      color: isOutOfStock
+                                          ? teal300.withValues(alpha: 0.3)
+                                          : teal100,
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
@@ -779,24 +826,24 @@ class _StoreScreenState extends State<StoreScreen> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(20),
                         child: product.imageUrls.isNotEmpty
-                            ? Image.network(
-                                product.imageUrls.first,
+                            ? CachedNetworkImage(
+                                imageUrl: product.imageUrls.first,
                                 fit: BoxFit.cover,
                                 // width: double.infinity,
                                 // height: double.infinity,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Center(
-                                    child: CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(teal100),
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded /
-                                              loadingProgress.expectedTotalBytes!
-                                          : null,
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
+                                progressIndicatorBuilder:
+                                    (context, url, downloadProgress) {
+                                      return Center(
+                                        child: CircularProgressIndicator(
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                teal100,
+                                              ),
+                                          value: downloadProgress.progress,
+                                        ),
+                                      );
+                                    },
+                                errorWidget: (context, url, error) {
                                   return Center(
                                     child: Icon(
                                       Icons.broken_image,
@@ -829,7 +876,10 @@ class _StoreScreenState extends State<StoreScreen> {
                     // Category
                     if (product.category != null)
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: teal500.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(12),
@@ -858,12 +908,17 @@ class _StoreScreenState extends State<StoreScreen> {
                         margin: EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [red500.withValues(alpha: 0.2), red700.withValues(alpha: 0.2)],
+                            colors: [
+                              red500.withValues(alpha: 0.2),
+                              red700.withValues(alpha: 0.2),
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: red300.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: red300.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -883,7 +938,11 @@ class _StoreScreenState extends State<StoreScreen> {
                     // Stock info
                     Row(
                       children: [
-                        Icon(Icons.inventory_2_outlined, color: teal100, size: 20),
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          color: teal100,
+                          size: 20,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'متوفر: ${product.stock} قطعة',
@@ -904,10 +963,7 @@ class _StoreScreenState extends State<StoreScreen> {
                             children: [
                               Text(
                                 'السعر',
-                                style: TextStyle(
-                                  color: teal300,
-                                  fontSize: 14,
-                                ),
+                                style: TextStyle(color: teal300, fontSize: 14),
                               ),
                               SizedBox(height: 4),
                               if (_hasDiscount(product)) ...[
@@ -920,7 +976,9 @@ class _StoreScreenState extends State<StoreScreen> {
                                       color: teal300.withValues(alpha: 0.6),
                                       fontSize: 16,
                                       decoration: TextDecoration.lineThrough,
-                                      decorationColor: teal300.withValues(alpha: 0.6),
+                                      decorationColor: teal300.withValues(
+                                        alpha: 0.6,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -932,7 +990,9 @@ class _StoreScreenState extends State<StoreScreen> {
                                 child: Text(
                                   '\$${_getDiscountedPrice(product).toStringAsFixed(2)}',
                                   style: TextStyle(
-                                    color: _hasDiscount(product) ? red300 : teal100,
+                                    color: _hasDiscount(product)
+                                        ? red300
+                                        : teal100,
                                     fontSize: 28,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -947,7 +1007,10 @@ class _StoreScreenState extends State<StoreScreen> {
                           child: ElevatedButton(
                             onPressed: product.stock > 0
                                 ? () {
-                                    final cart = Provider.of<CartProvider>(context, listen: false);
+                                    final cart = Provider.of<CartProvider>(
+                                      context,
+                                      listen: false,
+                                    );
                                     cart.addItem(product);
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -957,7 +1020,9 @@ class _StoreScreenState extends State<StoreScreen> {
                                         behavior: SnackBarBehavior.floating,
                                         duration: Duration(seconds: 2),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                       ),
                                     );
@@ -966,7 +1031,10 @@ class _StoreScreenState extends State<StoreScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: teal100,
                               foregroundColor: teal900,
-                              padding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                              padding: EdgeInsets.symmetric(
+                                vertical: 16,
+                                horizontal: 12,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(15),
                               ),
@@ -1063,7 +1131,9 @@ class _StoreScreenState extends State<StoreScreen> {
                               ),
                               child: Center(
                                 child: Text(
-                                  cartItemCount > 99 ? '99+' : cartItemCount.toString(),
+                                  cartItemCount > 99
+                                      ? '99+'
+                                      : cartItemCount.toString(),
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
@@ -1088,11 +1158,7 @@ class _StoreScreenState extends State<StoreScreen> {
                     ),
                     SizedBox(width: 8),
                     // Arrow Icon
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      color: teal900,
-                      size: 20,
-                    ),
+                    Icon(Icons.arrow_forward_rounded, color: teal900, size: 20),
                   ],
                 ),
               ),

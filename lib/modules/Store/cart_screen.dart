@@ -1,5 +1,6 @@
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -426,10 +427,18 @@ class _CartScreenState extends State<CartScreen>
                 child: item.product.imageUrls.isNotEmpty
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(15),
-                        child: Image.network(
-                          item.product.imageUrls.first,
+                        child: CachedNetworkImage(
+                          imageUrl: item.product.imageUrls.first,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
+                          placeholder: (context, url) {
+                            return Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: teal100,
+                              ),
+                            );
+                          },
+                          errorWidget: (context, url, error) {
                             return Center(
                               child: Icon(
                                 Icons.shopping_bag_outlined,
