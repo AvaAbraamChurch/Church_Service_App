@@ -6,10 +6,10 @@ import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
-import 'package:church/core/utils/userTypert';
 import 'package:church/shared/avatar_display_widget.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/utils/userType_enum.dart';
 import '../requests/requests_screen.dart';
 
 class PriestView extends StatefulWidget {
