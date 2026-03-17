@@ -80,7 +80,6 @@ class _AddHymnScreenState extends State<AddHymnScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error loading user classes: $e');
       if (mounted) {
         setState(() {
           _isLoadingClasses = false;

@@ -75,9 +75,7 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
           });
         }
       }
-    } catch (e) {
-      debugPrint('Error loading current user class: $e');
-    }
+    } catch (e) {}
   }
 
   /// Load user classes from Firestore
@@ -109,7 +107,6 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error loading user classes: $e');
       if (mounted) {
         setState(() {
           _isLoadingClasses = false;

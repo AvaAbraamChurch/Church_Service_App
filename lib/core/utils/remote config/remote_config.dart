@@ -11,9 +11,12 @@ class RemoteConfigService {
   // Theme configuration keys
   static const String _primaryColorKey = 'theme_primary_color';
   static const String _secondaryColorKey = 'theme_secondary_color';
-  static const String _scaffoldBackgroundColorKey = 'theme_scaffold_background_color';
-  static const String _scaffoldBackgroundImageKey = 'theme_scaffold_background_image';
-  static const String _appBarBackgroundColorKey = 'theme_appbar_background_color';
+  static const String _scaffoldBackgroundColorKey =
+      'theme_scaffold_background_color';
+  static const String _scaffoldBackgroundImageKey =
+      'theme_scaffold_background_image';
+  static const String _appBarBackgroundColorKey =
+      'theme_appbar_background_color';
   static const String _isDarkModeKey = 'theme_is_dark_mode';
   static const String _fontFamilyKey = 'theme_font_family';
   static const String _enableCustomThemeKey = 'enable_custom_theme';
@@ -42,19 +45,15 @@ class RemoteConfigService {
 
       await _remoteConfig.setDefaults(_defaults);
       await fetchAndActivate();
-    } catch (e) {
-      debugPrint('Failed to initialize Remote Config: $e');
-    }
+    } catch (e) {}
   }
 
   /// Fetch and activate remote config values
   Future<bool> fetchAndActivate() async {
     try {
       final bool updated = await _remoteConfig.fetchAndActivate();
-      debugPrint('Remote Config updated: $updated');
       return updated;
     } catch (e) {
-      debugPrint('Failed to fetch and activate Remote Config: $e');
       return false;
     }
   }
@@ -117,7 +116,6 @@ class RemoteConfigService {
 
       return Color(int.parse(hexColor, radix: 16));
     } catch (e) {
-      debugPrint('Failed to parse color: $colorString - $e');
       return null;
     }
   }
@@ -146,9 +144,7 @@ class RemoteConfigService {
     try {
       return await _remoteConfig.activate();
     } catch (e) {
-      debugPrint('Failed to activate Remote Config: $e');
       return false;
     }
   }
 }
-

@@ -54,9 +54,7 @@ class _HymnsScreenState extends State<HymnsScreen> {
           });
         }
       }
-    } catch (e) {
-      debugPrint('Error loading user class: $e');
-    }
+    } catch (e) {}
   }
 
   /// Check if current user can manage hymns (servant, superServant, or priest)

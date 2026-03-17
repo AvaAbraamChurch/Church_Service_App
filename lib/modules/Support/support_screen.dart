@@ -81,10 +81,7 @@ class SupportScreen extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  '💬',
-                  style: TextStyle(fontSize: 18),
-                ),
+                child: const Text('💬', style: TextStyle(fontSize: 18)),
               ),
               const SizedBox(width: 8),
               const Text(
@@ -104,10 +101,7 @@ class SupportScreen extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Colors.green[400]!,
-                Colors.green[700]!,
-              ],
+              colors: [Colors.green[400]!, Colors.green[700]!],
             ),
           ),
         ),
@@ -122,16 +116,10 @@ class SupportScreen extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Colors.green[50]!,
-            Colors.green[100]!,
-          ],
+          colors: [Colors.green[50]!, Colors.green[100]!],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.green[200]!,
-          width: 1,
-        ),
+        border: Border.all(color: Colors.green[200]!, width: 1),
       ),
       child: Column(
         children: [
@@ -200,7 +188,8 @@ class SupportScreen extends StatelessWidget {
               title: 'راسلنا',
               subtitle: 'andrewmichel2002@gmail.com',
               color: Colors.blue,
-              onTap: () => _sendEmailWithContext('andrewmichel2002@gmail.com', context),
+              onTap: () =>
+                  _sendEmailWithContext('andrewmichel2002@gmail.com', context),
             ),
           ],
         );
@@ -270,11 +259,7 @@ class SupportScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.arrow_back_ios,
-                  color: brown300,
-                  size: 16,
-                ),
+                Icon(Icons.arrow_back_ios, color: brown300, size: 16),
               ],
             ),
           ),
@@ -363,14 +348,11 @@ class SupportScreen extends StatelessWidget {
               ),
               child: Text(emoji, style: const TextStyle(fontSize: 28)),
             ),
-          ]
-          else if (icon != null) ...[
+          ] else if (icon != null) ...[
             Icon(icon, color: color, size: 32),
-          ]
-          else if (image != null) ...[
+          ] else if (image != null) ...[
             Image.asset(image, width: 32, height: 32),
-          ]
-          ,
+          ],
 
           const SizedBox(height: 8),
           Text(
@@ -497,7 +479,6 @@ class SupportScreen extends StatelessWidget {
         _showNoEmailAppDialogWithContext(context, email);
       }
     } catch (e) {
-      debugPrint('Error launching email: $e');
       _showNoEmailAppDialogWithContext(context, email);
     }
   }
@@ -514,10 +495,7 @@ class SupportScreen extends StatelessWidget {
             const Expanded(
               child: Text(
                 'لا يوجد تطبيق بريد إلكتروني',
-                style: TextStyle(
-                  fontFamily: 'Alexandria',
-                  fontSize: 18,
-                ),
+                style: TextStyle(fontFamily: 'Alexandria', fontSize: 18),
                 textAlign: TextAlign.right,
               ),
             ),
@@ -606,7 +584,6 @@ class SupportScreen extends StatelessWidget {
     );
   }
 
-
   Future<void> _openUrl(String url) async {
     final Uri uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
@@ -619,19 +596,25 @@ class SupportScreen extends StatelessWidget {
     const message = 'مرحباً، أحتاج للمساعدة في برنامج أبناء الملك';
 
     // Try WhatsApp app scheme first
-    final Uri whatsappAppUri = Uri.parse('whatsapp://send?phone=$phoneNumber&text=${Uri.encodeComponent(message)}');
+    final Uri whatsappAppUri = Uri.parse(
+      'whatsapp://send?phone=$phoneNumber&text=${Uri.encodeComponent(message)}',
+    );
 
     try {
       if (await canLaunchUrl(whatsappAppUri)) {
         await launchUrl(whatsappAppUri);
       } else {
         // Fallback to web WhatsApp if app is not installed
-        final Uri whatsappWebUri = Uri.parse('https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}');
+        final Uri whatsappWebUri = Uri.parse(
+          'https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}',
+        );
         await launchUrl(whatsappWebUri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
       // If all fails, try direct web URL
-      final Uri whatsappWebUri = Uri.parse('https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}');
+      final Uri whatsappWebUri = Uri.parse(
+        'https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}',
+      );
       await launchUrl(whatsappWebUri, mode: LaunchMode.externalApplication);
     }
   }

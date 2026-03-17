@@ -43,11 +43,6 @@ Future<void> showLocalNotification(RemoteMessage message) async {
   final notification = message.notification;
   final data = message.data;
 
-  // Debug log: print incoming message payload
-  debugPrint(
-    'showLocalNotification() called. notification=${notification?.toString()}, data=$data',
-  );
-
   final title = notification?.title ?? data['title'];
   // fallback to other common keys or default text
   final body =
@@ -68,7 +63,6 @@ Future<void> showLocalNotification(RemoteMessage message) async {
       payload: payload?.toString(),
     );
   } catch (e) {
-    debugPrint('Failed to show notification via NotificationService: $e');
     // Fallback to direct platform call if needed
     final androidDetails = AndroidNotificationDetails(
       channel.id,
@@ -132,26 +126,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         'type': message.data['type'] ?? 'message',
         'actionUrl': message.data['actionUrl'],
       });
-      debugPrint(
-        'Background: Notification saved to Firestore for user $userId',
-      );
-    } catch (e) {
-      debugPrint('Background: Failed to save notification to Firestore: $e');
-    }
+    } catch (e) {}
   }
 
-  // Debug: log the message and attempt to show a local notification
   try {
-    debugPrint(
-      'Background handler received message: id=${message.messageId}, data=${message.data}, notification=${message.notification}',
-    );
     await showLocalNotification(message);
-    debugPrint(
-      'Background handler displayed local notification for messageId=${message.messageId}',
-    );
-  } catch (e, st) {
-    debugPrint('Background handler failed to display notification: $e\n$st');
-  }
+  } catch (e, st) {}
 }
 
 // Background task callback for Workmanager. This runs on a background isolate.
@@ -172,15 +152,10 @@ void callbackDispatcher() {
       if (task == 'syncPendingAttendance') {
         final pointsSync = PointsSyncService();
         final result = await pointsSync.syncPendingTransactions();
-
-        debugPrint(
-          '✅ Background points sync completed: ${result['synced']} synced, ${result['failed']} failed',
-        );
       }
 
       return Future.value(true);
     } catch (e) {
-      debugPrint('❌ Background sync failed: $e');
       return Future.value(false);
     }
   });
@@ -233,8 +208,6 @@ void main() async {
       // ignore: avoid_print
       print('❌ Initialization error: $e');
     }
-  } else {
-    debugPrint('Web build: skipping Hive/local storage initialization');
   }
 
   // Initialize Workmanager to run periodic background sync.
@@ -249,18 +222,9 @@ void main() async {
         'syncPendingAttendance',
         frequency: const Duration(minutes: 15),
       );
-      debugPrint('Workmanager initialized successfully for background sync');
     } catch (e) {
       // Workmanager failed - app will still work with foreground sync via connectivity listener
-      debugPrint(
-        'Workmanager initialization failed (background sync disabled): $e',
-      );
-      debugPrint(
-        'Offline attendance will still work - sync will happen when app is open',
-      );
     }
-  } else {
-    debugPrint('Web build: skipping Workmanager initialization');
   }
 
   // If user is signed in, save the device FCM token to their user doc
@@ -271,16 +235,12 @@ void main() async {
       await userRef.set({
         'fcmTokens': FieldValue.arrayUnion([token]),
       }, SetOptions(merge: true));
-      debugPrint('Saved FCM token for user $uid');
-    } catch (e) {
-      debugPrint('Failed saving FCM token: $e');
-    }
+    } catch (e) {}
   }
 
   if (!kIsWeb) {
     // When token refreshes, update Firestore
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-      debugPrint('FCM token refreshed: $newToken');
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) registerTokenToFirestore(uid, newToken);
     });
@@ -289,7 +249,6 @@ void main() async {
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
     if (currentUid != null) {
       final token = await FirebaseMessaging.instance.getToken();
-      debugPrint('Current FCM token: $token');
       registerTokenToFirestore(currentUid, token);
     }
 
@@ -303,7 +262,6 @@ void main() async {
       provisional: false,
       sound: true,
     );
-    debugPrint('User granted permission: ${settings.authorizationStatus}');
 
     // On iOS, show notifications when app is in foreground
     await FirebaseMessaging.instance
@@ -357,34 +315,21 @@ void main() async {
           'type': message.data['type'] ?? 'message',
           'actionUrl': message.data['actionUrl'],
         });
-        debugPrint('Notification saved to Firestore for user $userId');
-      } catch (e) {
-        debugPrint('Failed to save notification to Firestore: $e');
-      }
+      } catch (e) {}
     }
 
     // Listen for messages when the app is in the foreground
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      debugPrint(
-        'onMessage (foreground) received: id=${message.messageId}, data=${message.data}, notification=${message.notification}',
-      );
       try {
         await showLocalNotification(message);
         await saveNotificationToFirestore(message);
-      } catch (e) {
-        debugPrint('Error showing local notification: $e');
-      }
+      } catch (e) {}
     });
 
     // Handle when app is opened from a notification
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('Message clicked! payload: ${message.data}');
       saveNotificationToFirestore(message);
     });
-  } else {
-    debugPrint(
-      'Web build: skipping Firebase Messaging & local notifications init',
-    );
   }
 
   if (!kIsWeb) {
@@ -401,16 +346,10 @@ void main() async {
       await remoteConfig.fetchAndActivate().timeout(
         const Duration(seconds: 5),
         onTimeout: () {
-          debugPrint('Remote Config fetch timed out - using defaults');
           return false;
         },
       );
-      debugPrint('Remote Config fetched and activated.');
-    } catch (e) {
-      debugPrint('Remote Config fetch/activate failed: $e');
-    }
-  } else {
-    debugPrint('Web build: skipping Firebase Remote Config init');
+    } catch (e) {}
   }
 
   // Initialize cache helper
@@ -439,8 +378,6 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     if (!kIsWeb) {
       _setupConnectivityListener();
-    } else {
-      debugPrint('Web build: skipping connectivity listener / local sync');
     }
   }
 
@@ -461,15 +398,7 @@ class _MyAppState extends State<MyApp> {
         // Check if there are pending items to sync
         final pendingCount = LocalPointsRepository().getPendingCount();
         if (pendingCount > 0) {
-          debugPrint(
-            '🔄 Connection restored. Syncing $pendingCount pending points...',
-          );
-
           final result = await _syncService.syncPendingTransactions();
-
-          debugPrint(
-            '✅ Auto-sync completed: ${result['synced']} synced, ${result['failed']} failed',
-          );
 
           // Show notification only once per app session if sync was successful
           if (mounted && result['synced'] > 0 && !_hasShownSyncNotification) {
@@ -531,11 +460,8 @@ class _MyAppState extends State<MyApp> {
 //           await file.delete(recursive: true);
 //         }
 //       }
-//       debugPrint('Cache cleared successfully');
 //     }
-//   } catch (e) {
-//     debugPrint('Error clearing cache: $e');
-//   }
+//   } catch (e) {}
 // }
 //
 // // Helper function to calculate folder size
@@ -548,8 +474,6 @@ class _MyAppState extends State<MyApp> {
 //         size += await file.length();
 //       }
 //     }
-//   } catch (e) {
-//     debugPrint('Error calculating folder size: $e');
-//   }
+//   } catch (e) {}
 //   return size;
 // }

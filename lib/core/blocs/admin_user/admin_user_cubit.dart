@@ -41,12 +41,10 @@ class AdminUserCubit extends Cubit<AdminUserState> {
         },
         onError: (error) {
           _safeEmit(AdminUserError(error.toString()));
-          debugPrint(error.toString());
         },
       );
     } catch (e) {
       _safeEmit(AdminUserError(e.toString()));
-      debugPrint(e.toString());
     }
   }
 
@@ -58,7 +56,6 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       _safeEmit(AdminUserLoaded([user]));
     } catch (e) {
       _safeEmit(AdminUserError(e.toString()));
-      debugPrint(e.toString());
     }
   }
 
@@ -89,7 +86,6 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       _safeEmit(AdminUserUpdated());
     } catch (e) {
       _safeEmit(AdminUserError(e.toString()));
-      debugPrint(e.toString());
     }
   }
 
@@ -101,7 +97,6 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       _safeEmit(AdminUserDeleted());
     } catch (e) {
       _safeEmit(AdminUserError(e.toString()));
-      debugPrint(e.toString());
     }
   }
 
@@ -113,7 +108,6 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       _safeEmit(AdminUserUpdated());
     } catch (e) {
       _safeEmit(AdminUserError(e.toString()));
-      debugPrint(e.toString());
     }
   }
 
@@ -125,8 +119,7 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       final temporaryPassword = await _adminRepository.resetUserPassword(userId);
       _safeEmit(AdminPasswordReset(temporaryPassword: temporaryPassword));
     } catch (e) {
-      _safeEmit(AdminUserError('فشل إعادة تعيين كلمة المرور: ${e.toString()}'));
-      debugPrint(e.toString());
+      _safeEmit(AdminUserError('ÙØ´Ù„ Ø¥Ø¹Ø§Ø¯Ø© ØªØ¹ÙŠÙŠÙ† ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±: ${e.toString()}'));
     }
   }
 
@@ -138,7 +131,6 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       _safeEmit(AdminUserSearchResults(users));
     } catch (e) {
       _safeEmit(AdminUserError(e.toString()));
-      debugPrint(e.toString());
     }
   }
 
@@ -155,12 +147,10 @@ class AdminUserCubit extends Cubit<AdminUserState> {
         },
         onError: (error) {
           _safeEmit(AdminUserError(error.toString()));
-          debugPrint(error.toString());
         },
       );
     } catch (e) {
       _safeEmit(AdminUserError(e.toString()));
-      debugPrint(e.toString());
     }
   }
 
@@ -177,12 +167,10 @@ class AdminUserCubit extends Cubit<AdminUserState> {
         },
         onError: (error) {
           _safeEmit(AdminUserError(error.toString()));
-          debugPrint(error.toString());
         },
       );
     } catch (e) {
       _safeEmit(AdminUserError(e.toString()));
-      debugPrint(e.toString());
     }
   }
 
@@ -272,7 +260,7 @@ class AdminUserCubit extends Cubit<AdminUserState> {
       );
       // Creating a user logs out the admin, so emit session lost state
       _safeEmit(AdminSessionLost(
-        'تم إنشاء المستخدم بنجاح. يرجى تسجيل الدخول مرة أخرى.',
+        'ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ø¨Ù†Ø¬Ø§Ø­. ÙŠØ±Ø¬Ù‰ ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.',
         temporaryPassword: temporaryPassword,
       ));
     } catch (e) {

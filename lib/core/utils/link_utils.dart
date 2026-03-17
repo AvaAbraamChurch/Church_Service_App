@@ -25,16 +25,9 @@ class LinkUtils {
     try {
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
-        await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-      } else {
-        debugPrint('Could not launch $url');
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
-    } catch (e) {
-      debugPrint('Error launching URL: $e');
-    }
+    } catch (e) {}
   }
 
   /// Build a TextSpan with clickable links
@@ -54,30 +47,32 @@ class LinkUtils {
     for (final match in matches) {
       // Add text before the link
       if (match.start > lastMatchEnd) {
-        spans.add(TextSpan(
-          text: text.substring(lastMatchEnd, match.start),
-          style: normalStyle,
-        ));
+        spans.add(
+          TextSpan(
+            text: text.substring(lastMatchEnd, match.start),
+            style: normalStyle,
+          ),
+        );
       }
 
       // Add the clickable link
       final url = match.group(0)!;
-      spans.add(TextSpan(
-        text: url,
-        style: linkStyle,
-        recognizer: TapGestureRecognizer()
-          ..onTap = () => launchURL(url),
-      ));
+      spans.add(
+        TextSpan(
+          text: url,
+          style: linkStyle,
+          recognizer: TapGestureRecognizer()..onTap = () => launchURL(url),
+        ),
+      );
 
       lastMatchEnd = match.end;
     }
 
     // Add remaining text after the last link
     if (lastMatchEnd < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(lastMatchEnd),
-        style: normalStyle,
-      ));
+      spans.add(
+        TextSpan(text: text.substring(lastMatchEnd), style: normalStyle),
+      );
     }
 
     return TextSpan(children: spans);
@@ -89,7 +84,8 @@ class LinkUtils {
     required TextStyle normalStyle,
     TextStyle? linkStyle,
   }) {
-    final effectiveLinkStyle = linkStyle ??
+    final effectiveLinkStyle =
+        linkStyle ??
         normalStyle.copyWith(
           decoration: TextDecoration.underline,
           decorationColor: Colors.white,
@@ -105,4 +101,3 @@ class LinkUtils {
     );
   }
 }
-

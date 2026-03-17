@@ -1545,7 +1545,6 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
 
       return imageUrl;
     } catch (e) {
-      debugPrint('Error uploading image: $e');
       rethrow;
     }
   }
@@ -2365,7 +2364,6 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
 
       return imageUrl;
     } catch (e) {
-      debugPrint('Error uploading image: $e');
       rethrow;
     }
   }

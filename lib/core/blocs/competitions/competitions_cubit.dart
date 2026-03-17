@@ -52,7 +52,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(LoadCompetitionsSuccess());
     } catch (e) {
-      debugPrint('Error loading competitions: $e');
       emit(LoadCompetitionsError(e.toString()));
     }
   }
@@ -66,7 +65,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(LoadCompetitionsSuccess());
     } catch (e) {
-      debugPrint('Error loading active competitions: $e');
       emit(LoadCompetitionsError(e.toString()));
     }
   }
@@ -81,7 +79,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(LoadCompetitionsSuccess());
     } catch (e) {
-      debugPrint('Error loading ongoing competitions: $e');
       emit(LoadCompetitionsError(e.toString()));
     }
   }
@@ -96,7 +93,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(LoadCompetitionsSuccess());
     } catch (e) {
-      debugPrint('Error loading upcoming competitions: $e');
       emit(LoadCompetitionsError(e.toString()));
     }
   }
@@ -110,7 +106,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(LoadCompetitionsSuccess());
     } catch (e) {
-      debugPrint('Error loading past competitions: $e');
       emit(LoadCompetitionsError(e.toString()));
     }
   }
@@ -130,7 +125,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
         emit(LoadCompetitionError('Competition not found'));
       }
     } catch (e) {
-      debugPrint('Error loading competition: $e');
       emit(LoadCompetitionError(e.toString()));
     }
   }
@@ -146,7 +140,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(LoadCompetitionsSuccess());
     } catch (e) {
-      debugPrint('Error loading competitions by audience: $e');
       emit(LoadCompetitionsError(e.toString()));
     }
   }
@@ -207,7 +200,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
       emit(CreateCompetitionSuccess(competitionId));
       return competitionId;
     } catch (e) {
-      debugPrint('Error creating competition: $e');
       emit(CreateCompetitionError(e.toString()));
       return null;
     }
@@ -228,7 +220,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
       emit(UploadImageSuccess(imageUrl));
       return imageUrl;
     } catch (e) {
-      debugPrint('Error uploading image: $e');
       emit(UploadImageError(e.toString()));
       rethrow;
     }
@@ -256,7 +247,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(UpdateCompetitionSuccess());
     } catch (e) {
-      debugPrint('Error updating competition: $e');
       emit(UpdateCompetitionError(e.toString()));
     }
   }
@@ -287,7 +277,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(UpdateCompetitionSuccess());
     } catch (e) {
-      debugPrint('Error updating competition with image: $e');
       emit(UpdateCompetitionError(e.toString()));
     }
   }
@@ -315,7 +304,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(ToggleCompetitionStatusSuccess());
     } catch (e) {
-      debugPrint('Error toggling competition status: $e');
       emit(ToggleCompetitionStatusError(e.toString()));
     }
   }
@@ -347,7 +335,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(DeleteCompetitionSuccess());
     } catch (e) {
-      debugPrint('Error deleting competition: $e');
       emit(DeleteCompetitionError(e.toString()));
     }
   }
@@ -358,7 +345,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
       final ref = _storage.refFromURL(imageUrl);
       await ref.delete();
     } catch (e) {
-      debugPrint('Error deleting competition image: $e');
       // Don't throw - image deletion is not critical
     }
   }
@@ -375,7 +361,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(DeleteCompetitionSuccess());
     } catch (e) {
-      debugPrint('Error batch deleting competitions: $e');
       emit(DeleteCompetitionError(e.toString()));
     }
   }
@@ -398,7 +383,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(SearchCompetitionsSuccess());
     } catch (e) {
-      debugPrint('Error searching competitions: $e');
       emit(SearchCompetitionsError(e.toString()));
     }
   }
@@ -421,7 +405,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
         excludeId: excludeId,
       );
     } catch (e) {
-      debugPrint('Error checking competition name: $e');
       return false;
     }
   }
@@ -433,7 +416,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     try {
       return await competitionsRepository.getCompetitionsCount();
     } catch (e) {
-      debugPrint('Error getting competitions count: $e');
       return 0;
     }
   }
@@ -443,7 +425,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     try {
       return await competitionsRepository.getActiveCompetitionsCount();
     } catch (e) {
-      debugPrint('Error getting active competitions count: $e');
       return 0;
     }
   }
@@ -486,7 +467,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
       emit(SubmitAnswersSuccess(totalScore, totalPoints));
       return totalScore.ceil();
     } catch (e) {
-      debugPrint('Error validating answers: $e');
       emit(SubmitAnswersError(e.toString()));
       return null;
     }
@@ -517,7 +497,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
       final questionId = await questionsRepository.addQuestion(question);
       return questionId;
     } catch (e) {
-      debugPrint('Error adding question to bank: $e');
       return null;
     }
   }
@@ -527,7 +506,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     try {
       return await questionsRepository.getRandomQuestions(count);
     } catch (e) {
-      debugPrint('Error getting random questions: $e');
       return [];
     }
   }
@@ -540,7 +518,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     try {
       return await questionsRepository.getRandomQuestionsByType(type, count);
     } catch (e) {
-      debugPrint('Error getting random questions by type: $e');
       return [];
     }
   }
@@ -579,7 +556,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
 
       emit(SubmitAnswersSuccess(score, totalQuestions * 10));
     } catch (e) {
-      debugPrint('Error submitting competition result: $e');
       emit(SubmitAnswersError(e.toString()));
       rethrow;
     }
@@ -598,7 +574,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
         competitionId,
       );
     } catch (e) {
-      debugPrint('Error getting user competition result: $e');
       return null;
     }
   }
@@ -614,7 +589,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
         competitionId,
       );
     } catch (e) {
-      debugPrint('Error checking competition completion: $e');
       return false;
     }
   }

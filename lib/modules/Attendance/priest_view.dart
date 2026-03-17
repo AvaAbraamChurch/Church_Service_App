@@ -5,8 +5,8 @@ import 'package:church/core/models/attendance/attendance_model.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
-import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
+import 'package:church/core/utils/userTypert';
 import 'package:church/shared/avatar_display_widget.dart';
 import 'package:flutter/material.dart';
 
@@ -95,13 +95,17 @@ class _PriestViewState extends State<PriestView> {
 
       // Apply class filter
       if (selectedClass != null && selectedClass != 'الكل') {
-        tempFiltered = tempFiltered.where((user) => user.userClass == selectedClass).toList();
+        tempFiltered = tempFiltered
+            .where((user) => user.userClass == selectedClass)
+            .toList();
       }
 
       // Apply gender filter
       if (selectedGender != null && selectedGender != 'الكل') {
         final genderCode = selectedGender == 'ذكر' ? 'M' : 'F';
-        tempFiltered = tempFiltered.where((user) => user.gender.code == genderCode).toList();
+        tempFiltered = tempFiltered
+            .where((user) => user.gender.code == genderCode)
+            .toList();
       }
 
       // Apply search query
@@ -110,7 +114,8 @@ class _PriestViewState extends State<PriestView> {
       } else {
         filteredUsers = tempFiltered
             .where(
-              (user) => normalizeArabic(user.fullName.toLowerCase()).contains(query),
+              (user) =>
+                  normalizeArabic(user.fullName.toLowerCase()).contains(query),
             )
             .toList();
       }
@@ -127,7 +132,7 @@ class _PriestViewState extends State<PriestView> {
         return hymns;
       case 3:
         return bibleClass;
-        case 4:
+      case 4:
         return visit;
       default:
         return '';
@@ -135,10 +140,7 @@ class _PriestViewState extends State<PriestView> {
   }
 
   Future<void> _submitAttendance() async {
-    debugPrint('🟢 [PriestView] _submitAttendance called');
-
     if (isSubmitting) {
-      debugPrint('⚠️ [PriestView] Already submitting, ignoring duplicate call');
       return;
     }
 
@@ -168,7 +170,6 @@ class _PriestViewState extends State<PriestView> {
 
     // If user cancelled date selection, return
     if (selectedDate == null) {
-      debugPrint('⚠️ [PriestView] Date selection cancelled');
       return;
     }
 
@@ -178,7 +179,11 @@ class _PriestViewState extends State<PriestView> {
 
     try {
       final now = DateTime.now();
-      final attendanceDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+      final attendanceDate = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+      );
 
       final attendanceList = attendanceMap.entries.map((entry) {
         final user = selectedGroupUsers.firstWhere((u) => u.id == entry.key);
@@ -196,9 +201,7 @@ class _PriestViewState extends State<PriestView> {
         );
       }).toList();
 
-      debugPrint('🟢 [PriestView] Calling cubit.batchTakeAttendance with ${attendanceList.length} items');
       await widget.cubit.batchTakeAttendance(attendanceList);
-      debugPrint('🟢 [PriestView] batchTakeAttendance completed');
 
       if (mounted) {
         setState(() {
@@ -209,7 +212,6 @@ class _PriestViewState extends State<PriestView> {
         });
       }
     } catch (e) {
-      debugPrint('❌ [PriestView] Error in _submitAttendance: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -224,7 +226,6 @@ class _PriestViewState extends State<PriestView> {
       }
     } finally {
       if (mounted) {
-        debugPrint('🟢 [PriestView] Setting isSubmitting = false');
         setState(() {
           isSubmitting = false;
         });
@@ -392,15 +393,20 @@ class _PriestViewState extends State<PriestView> {
             setState(() {
               selectedUserType = userType; // Arabic label stored
               // Refresh master lists from cubit
-              superServants = widget.cubit.users
-                      ?.where((u) => u.userType.code == UserType.superServant.code)
+              superServants =
+                  widget.cubit.users
+                      ?.where(
+                        (u) => u.userType.code == UserType.superServant.code,
+                      )
                       .toList() ??
                   [];
-              servants = widget.cubit.users
+              servants =
+                  widget.cubit.users
                       ?.where((u) => u.userType.code == UserType.servant.code)
                       .toList() ??
                   [];
-              children = widget.cubit.users
+              children =
+                  widget.cubit.users
                       ?.where((u) => u.userType.code == UserType.child.code)
                       .toList() ??
                   [];
@@ -471,8 +477,9 @@ class _PriestViewState extends State<PriestView> {
               ],
             ),
           ),
-        ),)
-      );
+        ),
+      ),
+    );
   }
 
   Widget _buildAttendanceTaking() {
@@ -487,318 +494,328 @@ class _PriestViewState extends State<PriestView> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: teal100,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              if (!keyboardVisible)
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      selectedUserType = null;
-                      attendanceMap.clear();
-                      searchController.clear();
-                      selectedGroupUsers = [];
-                      filteredUsers = [];
-                      selectedClass = null;
-                      selectedGender = null;
-                      availableClasses = [];
-                    });
-                  },
-                  icon: const Icon(Icons.arrow_back, color: teal900),
-                ),
-              Expanded(
-                child: Text(
-                  selectedUserType == superServant
-                      ? 'أمناء الخدمة'
-                      : selectedUserType == servant
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  if (!keyboardVisible)
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          selectedUserType = null;
+                          attendanceMap.clear();
+                          searchController.clear();
+                          selectedGroupUsers = [];
+                          filteredUsers = [];
+                          selectedClass = null;
+                          selectedGender = null;
+                          availableClasses = [];
+                        });
+                      },
+                      icon: const Icon(Icons.arrow_back, color: teal900),
+                    ),
+                  Expanded(
+                    child: Text(
+                      selectedUserType == superServant
+                          ? 'أمناء الخدمة'
+                          : selectedUserType == servant
                           ? 'الخدام'
                           : 'المخدومين',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: teal900,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: teal300,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  searchController.text.isEmpty && selectedClass == 'الكل' && selectedGender == 'الكل'
-                      ? '${selectedGroupUsers.length} مستخدم'
-                      : '${filteredUsers.length} من ${selectedGroupUsers.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Search bar
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                hintText: 'بحث...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: Icon(Icons.search, color: teal500),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Filter chips
-        if (availableClasses.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Class filter
-                if (availableClasses.length > 1) ...[
-                  Row(
-                    children: [
-                      Icon(Icons.class_, color: teal700, size: 18),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'الفصل:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: teal900,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 40,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: availableClasses.length,
-                      separatorBuilder: (context, index) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        final className = availableClasses[index];
-                        final isSelected = selectedClass == className;
-                        return FilterChip(
-                          label: Text(className),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              selectedClass = className;
-                              _filterUsers();
-                            });
-                          },
-                          backgroundColor: Colors.white,
-                          selectedColor: teal300,
-                          checkmarkColor: Colors.white,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : teal900,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                          side: BorderSide(
-                            color: isSelected ? teal500 : Colors.grey[300]!,
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        );
-                      },
                     ),
                   ),
-                  const SizedBox(height: 8),
-                ],
-                // Gender filter
-                Row(
-                  children: [
-                    Icon(Icons.wc, color: teal700, size: 18),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'النوع:',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: teal300,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      searchController.text.isEmpty &&
+                              selectedClass == 'الكل' &&
+                              selectedGender == 'الكل'
+                          ? '${selectedGroupUsers.length} مستخدم'
+                          : '${filteredUsers.length} من ${selectedGroupUsers.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 40,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      for (final gender in ['الكل', 'ذكر', 'أنثى']) ...[
-                        FilterChip(
-                          label: Text(gender),
-                          selected: selectedGender == gender,
-                          onSelected: (selected) {
-                            setState(() {
-                              selectedGender = gender;
-                              _filterUsers();
-                            });
-                          },
-                          backgroundColor: Colors.white,
-                          selectedColor: teal300,
-                          checkmarkColor: Colors.white,
-                          labelStyle: TextStyle(
-                            color: selectedGender == gender ? Colors.white : teal900,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                          side: BorderSide(
-                            color: selectedGender == gender ? teal500 : Colors.grey[300]!,
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                    ],
+                child: TextField(
+                  controller: searchController,
+                  decoration: InputDecoration(
+                    hintText: 'بحث...',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    prefixIcon: Icon(Icons.search, color: teal500),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        const SizedBox(height: 8),
-
-        // Users list - Flexible for better keyboard handling
-        Flexible(
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: filteredUsers.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final user = filteredUsers[index];
-              final userId = user.id;
-              final status = attendanceMap[userId] ?? AttendanceStatus.absent;
-
-              return _buildUserAttendanceCard(user, status);
-            },
-          ),
-        ),
-
-        // Submit button - hide when keyboard is visible
-        if (!keyboardVisible)
-          Padding(
-          padding: const EdgeInsets.all(16),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                colors: isSubmitting
-                    ? [Colors.grey, Colors.grey[400]!]
-                    : [teal700, teal300],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: isSubmitting
-                      ? Colors.black.withValues(alpha: 0.2)
-                      : teal500.withValues(alpha: 0.5),
-                  spreadRadius: 1,
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: isSubmitting ? null : _submitAttendance,
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  height: 56,
-                  alignment: Alignment.center,
-                  child: isSubmitting
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.check_circle_outline,
-                              color: Colors.white,
-                              size: 24,
+            const SizedBox(height: 12),
+
+            // Filter chips
+            if (availableClasses.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Class filter
+                    if (availableClasses.length > 1) ...[
+                      Row(
+                        children: [
+                          Icon(Icons.class_, color: teal700, size: 18),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'الفصل:',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                             ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'حفظ الحضور',
-                              style: TextStyle(
-                                fontSize: 16,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 40,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: availableClasses.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            final className = availableClasses[index];
+                            final isSelected = selectedClass == className;
+                            return FilterChip(
+                              label: Text(className),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() {
+                                  selectedClass = className;
+                                  _filterUsers();
+                                });
+                              },
+                              backgroundColor: Colors.white,
+                              selectedColor: teal300,
+                              checkmarkColor: Colors.white,
+                              labelStyle: TextStyle(
+                                color: isSelected ? Colors.white : teal900,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                letterSpacing: 1,
+                                fontSize: 13,
+                              ),
+                              side: BorderSide(
+                                color: isSelected ? teal500 : Colors.grey[300]!,
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    // Gender filter
+                    Row(
+                      children: [
+                        Icon(Icons.wc, color: teal700, size: 18),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'النوع:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 40,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          for (final gender in ['الكل', 'ذكر', 'أنثى']) ...[
+                            FilterChip(
+                              label: Text(gender),
+                              selected: selectedGender == gender,
+                              onSelected: (selected) {
+                                setState(() {
+                                  selectedGender = gender;
+                                  _filterUsers();
+                                });
+                              },
+                              backgroundColor: Colors.white,
+                              selectedColor: teal300,
+                              checkmarkColor: Colors.white,
+                              labelStyle: TextStyle(
+                                color: selectedGender == gender
+                                    ? Colors.white
+                                    : teal900,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                              side: BorderSide(
+                                color: selectedGender == gender
+                                    ? teal500
+                                    : Colors.grey[300]!,
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
                               ),
                             ),
+                            const SizedBox(width: 8),
                           ],
-                        ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                 ),
               ),
-            ),
-          ),
-        ),
+            const SizedBox(height: 8),
 
-        // Floating Action Button for Requests
-        if (!keyboardVisible)
-          Positioned(
-            bottom: 16,
-            right: 16,
-            child: FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => RequestsScreen(cubit: widget.cubit),
-                  ),
-                );
-              },
-              child: Icon(Icons.request_page),
+            // Users list - Flexible for better keyboard handling
+            Flexible(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: filteredUsers.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final user = filteredUsers[index];
+                  final userId = user.id;
+                  final status =
+                      attendanceMap[userId] ?? AttendanceStatus.absent;
+
+                  return _buildUserAttendanceCard(user, status);
+                },
+              ),
             ),
-          ),
-      ],
+
+            // Submit button - hide when keyboard is visible
+            if (!keyboardVisible)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      colors: isSubmitting
+                          ? [Colors.grey, Colors.grey[400]!]
+                          : [teal700, teal300],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isSubmitting
+                            ? Colors.black.withValues(alpha: 0.2)
+                            : teal500.withValues(alpha: 0.5),
+                        spreadRadius: 1,
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: isSubmitting ? null : _submitAttendance,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        height: 56,
+                        alignment: Alignment.center,
+                        child: isSubmitting
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 3,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle_outline,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'حفظ الحضور',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Floating Action Button for Requests
+            if (!keyboardVisible)
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            RequestsScreen(cubit: widget.cubit),
+                      ),
+                    );
+                  },
+                  child: Icon(Icons.request_page),
+                ),
+              ),
+          ],
         );
       },
     );
@@ -982,7 +999,8 @@ class _PriestViewState extends State<PriestView> {
             ],
           ),
         ),
-      )      );
+      ),
+    );
   }
 
   Widget _buildStatusButton({
@@ -1029,5 +1047,3 @@ class _PriestViewState extends State<PriestView> {
     );
   }
 }
-
-

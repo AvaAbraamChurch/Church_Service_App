@@ -53,10 +53,6 @@ class AuthRepository {
       value: sessionExpiry.millisecondsSinceEpoch,
     );
 
-    debugPrint('✅ User session saved: $uid');
-    debugPrint(
-      '📅 Session expires: $sessionExpiry (Duration: ${AuthConstants.sessionTimeout.inDays} days, ${AuthConstants.sessionTimeout.inHours % 24} hours)',
-    );
   }
 
   /// Save user profile data to cache for offline access
@@ -72,9 +68,6 @@ class AuthRepository {
     await CacheHelper.saveData(
       key: AuthConstants.cacheKeyGender,
       value: user.gender.code,
-    );
-    debugPrint(
-      '✅ User profile cached: ${user.userType.code}, ${user.userClass}, ${user.gender.code}',
     );
   }
 
@@ -100,7 +93,6 @@ class AuthRepository {
         'gender': gender,
       };
     } catch (e) {
-      debugPrint('⚠️ Error parsing cached user profile: $e');
       return null;
     }
   }
@@ -138,7 +130,6 @@ class AuthRepository {
             sessionExpiryMs,
           );
           if (DateTime.now().isAfter(sessionExpiry)) {
-            debugPrint('⏰ App session expired. Requiring re-login.');
             await _clearUserCache();
             return false;
           }
@@ -151,7 +142,6 @@ class AuthRepository {
       // after initialisation it means the user genuinely signed out or the
       // account was removed.
       if (user == null) {
-        debugPrint('⚠️ Firebase Auth has no current user. Clearing cache.');
         await _clearUserCache();
         return false;
       }
@@ -163,13 +153,10 @@ class AuthRepository {
         final expirationTime = tokenResult.expirationTime;
 
         if (expirationTime != null && expirationTime.isBefore(DateTime.now())) {
-          // Token already expired – force a silent refresh
-          debugPrint('🔄 Firebase token expired, refreshing silently...');
+          // Token already expired â€“ force a silent refresh
           try {
             await user.getIdToken(true);
-            debugPrint('✅ Firebase token refreshed successfully.');
           } catch (refreshError) {
-            debugPrint('❌ Token refresh failed: $refreshError');
             await _clearUserCache();
             return false;
           }
@@ -178,25 +165,18 @@ class AuthRepository {
           if (timeUntilExpiry < AuthConstants.tokenRefreshThreshold) {
             // Fire-and-forget proactive refresh
             user.getIdToken(true).catchError((e) {
-              debugPrint(
-                '⚠️ Proactive token refresh failed (non-critical): $e',
-              );
               return '';
             });
           }
         }
       } catch (tokenError) {
-        // Token introspection failed – could be transient network issue.
+        // Token introspection failed â€“ could be transient network issue.
         // Don't log the user out for this; Firebase Auth still knows the user.
-        debugPrint(
-          '⚠️ Could not fetch token details (non-critical): $tokenError',
-        );
       }
 
       // Keep cache in sync with the Firebase user
       final cachedUid = CacheHelper.getData(key: AuthConstants.cacheKeyUserId);
       if (cachedUid != user.uid) {
-        debugPrint('🔄 Cache uid mismatch – refreshing session cache.');
         await _saveUserSessionToCache(user.uid, user.email ?? '');
       } else {
         // Extend session expiry so active users never get kicked out
@@ -205,7 +185,6 @@ class AuthRepository {
 
       return true;
     } on FirebaseAuthException catch (e) {
-      debugPrint('🔥 FirebaseAuthException in validateToken: ${e.code}');
       // Only hard-clear for definitive account issues
       if (e.code == 'user-disabled' || e.code == 'user-not-found') {
         await _clearUserCache();
@@ -214,7 +193,6 @@ class AuthRepository {
       // For any other Firebase error return true if we still have a user
       return _firebaseAuth.currentUser != null;
     } catch (e) {
-      debugPrint('⚠️ Unexpected error in validateToken: $e');
       // Don't punish the user for transient errors
       return _firebaseAuth.currentUser != null;
     }
@@ -320,7 +298,7 @@ class AuthRepository {
       });
       return docRef.id;
     } catch (e) {
-      throw Exception('خطأ في إنشاء طلب التسجيل: $e');
+      throw Exception('Ø®Ø·Ø£ ÙÙŠ Ø¥Ù†Ø´Ø§Ø¡ Ø·Ù„Ø¨ Ø§Ù„ØªØ³Ø¬ÙŠÙ„: $e');
     }
   }
 
@@ -373,11 +351,11 @@ class AuthRepository {
       await user.updatePassword(newPassword);
     } on FirebaseAuthException catch (e) {
       if (e.code == 'wrong-password') {
-        throw Exception('كلمة المرور الحالية غير صحيحة');
+        throw Exception('ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø§Ù„Ø­Ø§Ù„ÙŠØ© ØºÙŠØ± ØµØ­ÙŠØ­Ø©');
       } else if (e.code == 'weak-password') {
-        throw Exception('كلمة المرور الجديدة ضعيفة جداً');
+        throw Exception('ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø© Ø¶Ø¹ÙŠÙØ© Ø¬Ø¯Ø§Ù‹');
       } else {
-        throw Exception('حدث خطأ: ${e.message}');
+        throw Exception('Ø­Ø¯Ø« Ø®Ø·Ø£: ${e.message}');
       }
     }
   }

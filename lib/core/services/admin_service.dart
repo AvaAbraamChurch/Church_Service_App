@@ -1,9 +1,8 @@
 import 'package:church/core/models/user/user_model.dart';
-import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
+import 'package:church/core/utils/userType_enum.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 
 /// Service to check admin privileges
 /// Admins are: priests or specific user IDs
@@ -52,7 +51,6 @@ class AdminService {
       final String? userTypeCode = data['userType'] as String?;
       return userTypeCode == UserType.priest.code;
     } catch (e) {
-      debugPrint('Error checking admin status: $e');
       return false;
     }
   }
@@ -92,7 +90,6 @@ class AdminService {
         storeAdmin: data['storeAdmin'] ?? false,
       );
     } catch (e) {
-      debugPrint('Error getting current user: $e');
       return null;
     }
   }
@@ -124,7 +121,6 @@ class AdminService {
       final String? userTypeCode = data['userType'] as String?;
       return userTypeCode == UserType.priest.code;
     } catch (e) {
-      debugPrint('Error checking user admin status: $e');
       return false;
     }
   }
@@ -160,4 +156,3 @@ extension UserTypeX on UserType {
     }
   }
 }
-

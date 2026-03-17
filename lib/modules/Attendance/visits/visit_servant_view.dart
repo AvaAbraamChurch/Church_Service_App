@@ -81,62 +81,66 @@ class _VisitServantViewState extends State<VisitServantView> {
           types,
           widget.currentUser!.gender.code,
         )
-        .listen((users) {
-      if (mounted) {
-        setState(() {
-          _fetchedNonPriests = users;
-          // Merge with priests list (if any) and deduplicate by id
-          final Map<String, UserModel> merged = {};
-          for (final u in _fetchedNonPriests) {
-            merged[u.id] = u;
-          }
-          for (final p in _fetchedPriests) {
-            merged[p.id] = p;
-          }
-          _fetchedUsers = merged.values.toList();
-          _isLoadingUsers = false;
-        });
-      }
-    }, onError: (error) {
-      debugPrint('Error fetching users: $error');
-      if (mounted) {
-        setState(() {
-          _isLoadingUsers = false;
-        });
-      }
-    });
+        .listen(
+          (users) {
+            if (mounted) {
+              setState(() {
+                _fetchedNonPriests = users;
+                // Merge with priests list (if any) and deduplicate by id
+                final Map<String, UserModel> merged = {};
+                for (final u in _fetchedNonPriests) {
+                  merged[u.id] = u;
+                }
+                for (final p in _fetchedPriests) {
+                  merged[p.id] = p;
+                }
+                _fetchedUsers = merged.values.toList();
+                _isLoadingUsers = false;
+              });
+            }
+          },
+          onError: (error) {
+            if (mounted) {
+              setState(() {
+                _isLoadingUsers = false;
+              });
+            }
+          },
+        );
 
     // If needed, fetch priests separately (they may not have userClass)
     if (includePriests) {
       _priestsSubscription = _usersRepository
           .getUsersByType('PR')
-          .listen((priests) {
-        if (mounted) {
-          setState(() {
-            _fetchedPriests = priests;
-            // Keep priests as-is (do not filter by gender) so they appear for visiting
-            // regardless of gender assignment.
-            _fetchedPriests = priests;
-            // Merge and deduplicate
-            final Map<String, UserModel> merged = {};
-            for (final u in _fetchedNonPriests) {
-              merged[u.id] = u;
-            }
-            for (final p in _fetchedPriests) {
-              merged[p.id] = p;
-            }
-            _fetchedUsers = merged.values.toList();
-            _isLoadingUsers = false;
-          });
-        }
-      }, onError: (error) {
-        debugPrint('Error fetching priests: $error');
-        if (mounted) {
-          setState(() {
-            _isLoadingUsers = false;
-          });
-        }
-      });
+          .listen(
+            (priests) {
+              if (mounted) {
+                setState(() {
+                  _fetchedPriests = priests;
+                  // Keep priests as-is (do not filter by gender) so they appear for visiting
+                  // regardless of gender assignment.
+                  _fetchedPriests = priests;
+                  // Merge and deduplicate
+                  final Map<String, UserModel> merged = {};
+                  for (final u in _fetchedNonPriests) {
+                    merged[u.id] = u;
+                  }
+                  for (final p in _fetchedPriests) {
+                    merged[p.id] = p;
+                  }
+                  _fetchedUsers = merged.values.toList();
+                  _isLoadingUsers = false;
+                });
+              }
+            },
+            onError: (error) {
+              if (mounted) {
+                setState(() {
+                  _isLoadingUsers = false;
+                });
+              }
+            },
+          );
     } else {
       // Ensure priests list is empty when not including them
       _fetchedPriests = [];
@@ -156,21 +160,28 @@ class _VisitServantViewState extends State<VisitServantView> {
 
   List<UserModel> get children {
     // Only children of same class and gender from fetched users
-    final allChildren = _fetchedUsers
-        .where((u) =>
-            u.userType == UserType.child &&
-            u.userClass == widget.currentUser!.userClass &&
-            u.gender == widget.currentUser!.gender)
-        .toList()
-      ..sort((a, b) => a.fullName.compareTo(b.fullName));
+    final allChildren =
+        _fetchedUsers
+            .where(
+              (u) =>
+                  u.userType == UserType.child &&
+                  u.userClass == widget.currentUser!.userClass &&
+                  u.gender == widget.currentUser!.gender,
+            )
+            .toList()
+          ..sort((a, b) => a.fullName.compareTo(b.fullName));
 
     if (childSearchQuery.isEmpty) {
       return allChildren;
     }
 
-    return allChildren.where((child) =>
-      child.fullName.toLowerCase().contains(childSearchQuery.toLowerCase())
-    ).toList();
+    return allChildren
+        .where(
+          (child) => child.fullName.toLowerCase().contains(
+            childSearchQuery.toLowerCase(),
+          ),
+        )
+        .toList();
   }
 
   List<UserModel> get servants {
@@ -178,24 +189,29 @@ class _VisitServantViewState extends State<VisitServantView> {
     // If this is a visiting (home) visit, priests are also allowed to participate
     final allServants = _fetchedUsers.where((u) {
       // Priests should appear for visiting (home) visits regardless of gender
-      if (u.userType == UserType.priest) return selectedVisitType == VisitType.home;
+      if (u.userType == UserType.priest)
+        return selectedVisitType == VisitType.home;
 
       // SuperServants and Servants must match the current user's gender
-      if (u.userType == UserType.superServant || u.userType == UserType.servant) {
+      if (u.userType == UserType.superServant ||
+          u.userType == UserType.servant) {
         return u.gender == widget.currentUser!.gender;
       }
 
       return false;
-    }).toList()
-      ..sort((a, b) => a.fullName.compareTo(b.fullName));
+    }).toList()..sort((a, b) => a.fullName.compareTo(b.fullName));
 
     if (servantSearchQuery.isEmpty) {
       return allServants;
     }
 
-    return allServants.where((servant) =>
-      servant.fullName.toLowerCase().contains(servantSearchQuery.toLowerCase())
-    ).toList();
+    return allServants
+        .where(
+          (servant) => servant.fullName.toLowerCase().contains(
+            servantSearchQuery.toLowerCase(),
+          ),
+        )
+        .toList();
   }
 
   void _createVisit() async {
@@ -205,7 +221,9 @@ class _VisitServantViewState extends State<VisitServantView> {
           content: const Text('الرجاء اختيار مخدوم'),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
       return;
@@ -217,7 +235,9 @@ class _VisitServantViewState extends State<VisitServantView> {
           content: const Text('الرجاء اختيار خادم واحد على الأقل'),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
       return;
@@ -232,7 +252,9 @@ class _VisitServantViewState extends State<VisitServantView> {
       userType: selectedChild!.userType,
       date: DateTime.now(),
       visitType: selectedVisitType,
-      notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+      notes: notesController.text.trim().isEmpty
+          ? null
+          : notesController.text.trim(),
     );
 
     try {
@@ -250,7 +272,9 @@ class _VisitServantViewState extends State<VisitServantView> {
             ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
 
@@ -258,7 +282,9 @@ class _VisitServantViewState extends State<VisitServantView> {
         setState(() {
           selectedChild = null;
           selectedServants.clear();
-          selectedServants.add(widget.currentUser!); // Keep current user selected
+          selectedServants.add(
+            widget.currentUser!,
+          ); // Keep current user selected
           notesController.clear();
           childSearchController.clear();
           servantSearchController.clear();
@@ -274,7 +300,9 @@ class _VisitServantViewState extends State<VisitServantView> {
             content: Text('حدث خطأ: ${e.toString()}'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
@@ -331,7 +359,11 @@ class _VisitServantViewState extends State<VisitServantView> {
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.home_outlined, color: Colors.white, size: 28),
+                  child: const Icon(
+                    Icons.home_outlined,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -349,10 +381,7 @@ class _VisitServantViewState extends State<VisitServantView> {
                       const SizedBox(height: 4),
                       Text(
                         'سجل زيارات مخدومي اسرتك',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -389,7 +418,11 @@ class _VisitServantViewState extends State<VisitServantView> {
                           color: Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.add_circle_outline, color: teal900, size: 24),
+                        child: Icon(
+                          Icons.add_circle_outline,
+                          color: teal900,
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Text(
@@ -416,7 +449,8 @@ class _VisitServantViewState extends State<VisitServantView> {
                       onChanged: (value) {
                         setState(() {
                           childSearchQuery = value;
-                          if (selectedChild != null && !children.contains(selectedChild)) {
+                          if (selectedChild != null &&
+                              !children.contains(selectedChild)) {
                             selectedChild = null;
                           }
                         });
@@ -425,13 +459,22 @@ class _VisitServantViewState extends State<VisitServantView> {
                         labelText: 'ابحث عن مخدوم',
                         labelStyle: TextStyle(color: teal900),
                         hintText: 'اكتب اسم المخدوم للبحث...',
-                        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+                        hintStyle: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 14,
+                        ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         prefixIcon: Icon(Icons.search, color: teal900),
                         suffixIcon: childSearchQuery.isNotEmpty
                             ? IconButton(
-                                icon: Icon(Icons.clear, color: Colors.grey[600]),
+                                icon: Icon(
+                                  Icons.clear,
+                                  color: Colors.grey[600],
+                                ),
                                 onPressed: () {
                                   setState(() {
                                     childSearchController.clear();
@@ -458,7 +501,10 @@ class _VisitServantViewState extends State<VisitServantView> {
                         labelText: 'اختر المخدوم',
                         labelStyle: TextStyle(color: teal900),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         prefixIcon: Icon(Icons.person_outline, color: teal900),
                       ),
                       dropdownColor: Colors.white,
@@ -483,7 +529,10 @@ class _VisitServantViewState extends State<VisitServantView> {
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         'لا توجد نتائج للبحث',
-                        style: TextStyle(color: Colors.orange[700], fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.orange[700],
+                          fontSize: 13,
+                        ),
                       ),
                     ),
 
@@ -517,7 +566,9 @@ class _VisitServantViewState extends State<VisitServantView> {
                               _isLoadingUsers = true;
                             });
                             // Fetch asynchronously after state updated
-                            WidgetsBinding.instance.addPostFrameCallback((_) => _fetchUsersFromFirestore());
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              (_) => _fetchUsersFromFirestore(),
+                            );
                           },
                           child: Container(
                             margin: const EdgeInsets.only(right: 8),
@@ -549,7 +600,9 @@ class _VisitServantViewState extends State<VisitServantView> {
                             child: Column(
                               children: [
                                 Icon(
-                                  type == VisitType.home ? Icons.home : Icons.phone,
+                                  type == VisitType.home
+                                      ? Icons.home
+                                      : Icons.phone,
                                   color: isSelected ? Colors.white : teal700,
                                   size: 28,
                                 ),
@@ -601,13 +654,22 @@ class _VisitServantViewState extends State<VisitServantView> {
                           labelText: 'ابحث عن خادم',
                           labelStyle: TextStyle(color: teal900),
                           hintText: 'اكتب اسم الخادم للبحث...',
-                          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+                          hintStyle: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 14,
+                          ),
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           prefixIcon: Icon(Icons.search, color: teal500),
                           suffixIcon: servantSearchQuery.isNotEmpty
                               ? IconButton(
-                                  icon: Icon(Icons.clear, color: Colors.grey[600]),
+                                  icon: Icon(
+                                    Icons.clear,
+                                    color: Colors.grey[600],
+                                  ),
                                   onPressed: () {
                                     setState(() {
                                       servantSearchController.clear();
@@ -625,13 +687,19 @@ class _VisitServantViewState extends State<VisitServantView> {
                       spacing: 8,
                       runSpacing: 8,
                       children: selectedServants.map((servant) {
-                        final isCurrentUser = servant.id == widget.currentUser!.id;
+                        final isCurrentUser =
+                            servant.id == widget.currentUser!.id;
                         return Chip(
                           avatar: CircleAvatar(
-                            backgroundColor: isCurrentUser ? Colors.green : teal500,
+                            backgroundColor: isCurrentUser
+                                ? Colors.green
+                                : teal500,
                             child: Text(
                               servant.fullName[0],
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                           label: Row(
@@ -640,18 +708,30 @@ class _VisitServantViewState extends State<VisitServantView> {
                               Text(servant.fullName),
                               if (isCurrentUser) ...[
                                 const SizedBox(width: 4),
-                                Icon(Icons.check_circle, size: 14, color: Colors.green[700]),
+                                Icon(
+                                  Icons.check_circle,
+                                  size: 14,
+                                  color: Colors.green[700],
+                                ),
                               ],
                             ],
                           ),
-                          deleteIcon: isCurrentUser ? null : const Icon(Icons.close, size: 18),
-                          onDeleted: isCurrentUser ? null : () {
-                            setState(() {
-                              selectedServants.remove(servant);
-                            });
-                          },
-                          backgroundColor: isCurrentUser ? Colors.green[50] : Colors.blue.shade50,
-                          labelStyle: TextStyle(color: isCurrentUser ? Colors.green[900] : teal900),
+                          deleteIcon: isCurrentUser
+                              ? null
+                              : const Icon(Icons.close, size: 18),
+                          onDeleted: isCurrentUser
+                              ? null
+                              : () {
+                                  setState(() {
+                                    selectedServants.remove(servant);
+                                  });
+                                },
+                          backgroundColor: isCurrentUser
+                              ? Colors.green[50]
+                              : Colors.blue.shade50,
+                          labelStyle: TextStyle(
+                            color: isCurrentUser ? Colors.green[900] : teal900,
+                          ),
                         );
                       }).toList(),
                     ),
@@ -670,60 +750,82 @@ class _VisitServantViewState extends State<VisitServantView> {
                         itemBuilder: (context, index) {
                           final servant = servants[index];
                           final isSelected = selectedServants.contains(servant);
-                          final isCurrentUser = servant.id == widget.currentUser!.id;
-                        return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? (isCurrentUser ? Colors.green[50] : Colors.blue.shade50)
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: isCurrentUser ? Border.all(color: Colors.green, width: 1.5) : null,
-                          ),
-                          child: CheckboxListTile(
-                            title: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    servant.fullName,
-                                    style: TextStyle(
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                      color: isSelected
-                                          ? (isCurrentUser ? Colors.green[900] : teal900)
-                                          : Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                if (isCurrentUser)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Text(
-                                      'أنت',
-                                      style: TextStyle(color: Colors.white, fontSize: 10),
-                                    ),
-                                  ),
-                              ],
+                          final isCurrentUser =
+                              servant.id == widget.currentUser!.id;
+                          return Container(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
                             ),
-                            value: isSelected,
-                            onChanged: isCurrentUser ? null : (checked) {
-                              setState(() {
-                                if (checked == true) {
-                                  selectedServants.add(servant);
-                                } else {
-                                  selectedServants.remove(servant);
-                                }
-                              });
-                            },
-                            activeColor: isCurrentUser ? Colors.green : teal500,
-                            checkColor: Colors.white,
-                            shape: RoundedRectangleBorder(
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? (isCurrentUser
+                                        ? Colors.green[50]
+                                        : Colors.blue.shade50)
+                                  : Colors.white,
                               borderRadius: BorderRadius.circular(8),
+                              border: isCurrentUser
+                                  ? Border.all(color: Colors.green, width: 1.5)
+                                  : null,
                             ),
-                          ),
+                            child: CheckboxListTile(
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      servant.fullName,
+                                      style: TextStyle(
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: isSelected
+                                            ? (isCurrentUser
+                                                  ? Colors.green[900]
+                                                  : teal900)
+                                            : Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isCurrentUser)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Text(
+                                        'أنت',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              value: isSelected,
+                              onChanged: isCurrentUser
+                                  ? null
+                                  : (checked) {
+                                      setState(() {
+                                        if (checked == true) {
+                                          selectedServants.add(servant);
+                                        } else {
+                                          selectedServants.remove(servant);
+                                        }
+                                      });
+                                    },
+                              activeColor: isCurrentUser
+                                  ? Colors.green
+                                  : teal500,
+                              checkColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
                           );
                         },
                       ),
@@ -745,7 +847,10 @@ class _VisitServantViewState extends State<VisitServantView> {
                         labelText: 'ملاحظات (اختياري)',
                         labelStyle: TextStyle(color: teal700),
                         hintText: 'أضف أي ملاحظات حول الزيارة...',
-                        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+                        hintStyle: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 14,
+                        ),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(16),
                         prefixIcon: Padding(
@@ -788,7 +893,11 @@ class _VisitServantViewState extends State<VisitServantView> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: const [
-                          Icon(Icons.check_circle_outline, color: Colors.white, size: 24),
+                          Icon(
+                            Icons.check_circle_outline,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                           SizedBox(width: 12),
                           Text(
                             'إضافة الإفتقاد',
@@ -848,106 +957,112 @@ class _VisitServantViewState extends State<VisitServantView> {
     return StreamBuilder<List<VisitModel>>(
       stream: widget.attendanceCubit.getVisitsForChild(child.id),
       builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const SizedBox.shrink();
-            }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
 
-            final visits = snapshot.data!;
-            visits.sort((a, b) => b.date.compareTo(a.date));
+        final visits = snapshot.data!;
+        visits.sort((a, b) => b.date.compareTo(a.date));
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withValues(alpha: 0.1),
+                blurRadius: 10,
+                spreadRadius: 2,
+                offset: const Offset(0, 2),
               ),
-              child: Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                child: ExpansionTile(
-                  tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  childrenPadding: const EdgeInsets.only(bottom: 12),
-                  leading: Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [teal500, teal300],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: teal500.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        child.fullName[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+            ],
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 8,
+              ),
+              childrenPadding: const EdgeInsets.only(bottom: 12),
+              leading: Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [teal500, teal300],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  title: Text(
-                    child.fullName,
-                    style: TextStyle(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: teal500.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    child.fullName[0].toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: teal900,
                     ),
                   ),
-                  subtitle: Container(
-                    margin: const EdgeInsets.only(top: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.event_note, size: 14, color: teal700),
-                        const SizedBox(width: 6),
-                        Text(
-                          'عدد الإفتقادات: ${visits.length}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: teal700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  trailing: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.keyboard_arrow_down, color: teal700),
-                  ),
-                  children: visits.map((visit) => _buildVisitTile(visit)).toList(),
                 ),
               ),
-            );
-          },
+              title: Text(
+                child.fullName,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: teal900,
+                ),
+              ),
+              subtitle: Container(
+                margin: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.event_note, size: 14, color: teal700),
+                    const SizedBox(width: 6),
+                    Text(
+                      'عدد الإفتقادات: ${visits.length}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: teal700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.keyboard_arrow_down, color: teal700),
+              ),
+              children: visits.map((visit) => _buildVisitTile(visit)).toList(),
+            ),
+          ),
         );
+      },
+    );
   }
 
   Widget _buildVisitTile(VisitModel visit) {
@@ -984,7 +1099,7 @@ class _VisitServantViewState extends State<VisitServantView> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: visit.visitType == VisitType.home
-                          ? [teal300,teal500]
+                          ? [teal300, teal500]
                           : [Colors.green.shade400, Colors.green.shade600],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -992,10 +1107,11 @@ class _VisitServantViewState extends State<VisitServantView> {
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: [
                       BoxShadow(
-                        color: (visit.visitType == VisitType.home
-                                ? teal900
-                                : Colors.green)
-                            .withValues(alpha: 0.3),
+                        color:
+                            (visit.visitType == VisitType.home
+                                    ? teal900
+                                    : Colors.green)
+                                .withValues(alpha: 0.3),
                         blurRadius: 6,
                         offset: const Offset(0, 3),
                       ),
@@ -1027,10 +1143,17 @@ class _VisitServantViewState extends State<VisitServantView> {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
+                          Icon(
+                            Icons.access_time,
+                            size: 14,
+                            color: Colors.grey[600],
+                          ),
                           const SizedBox(width: 4),
                           Text(
-                            DateFormat('yyyy-MM-dd - hh:mm a', 'ar').format(visit.date),
+                            DateFormat(
+                              'yyyy-MM-dd - hh:mm a',
+                              'ar',
+                            ).format(visit.date),
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey[700],
@@ -1074,7 +1197,10 @@ class _VisitServantViewState extends State<VisitServantView> {
                     runSpacing: 6,
                     children: visit.servantsNames.map((name) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(8),
@@ -1098,7 +1224,11 @@ class _VisitServantViewState extends State<VisitServantView> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.note_alt_outlined, size: 16, color: Colors.orange[700]),
+                        Icon(
+                          Icons.note_alt_outlined,
+                          size: 16,
+                          color: Colors.orange[700],
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Column(
@@ -1208,7 +1338,10 @@ class _VisitServantViewState extends State<VisitServantView> {
                       ),
                       const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(8),
@@ -1315,11 +1448,7 @@ class _VisitServantViewState extends State<VisitServantView> {
                 color: iconColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.arrow_forward_ios,
-                color: iconColor,
-                size: 16,
-              ),
+              child: Icon(Icons.arrow_forward_ios, color: iconColor, size: 16),
             ),
           ],
         ),
@@ -1344,7 +1473,9 @@ class _VisitServantViewState extends State<VisitServantView> {
             ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
@@ -1372,11 +1503,12 @@ class _VisitServantViewState extends State<VisitServantView> {
             ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
     }
   }
 }
-

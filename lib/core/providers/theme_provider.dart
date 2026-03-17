@@ -32,7 +32,6 @@ class ThemeProvider extends ChangeNotifier {
       _isInitialized = true;
       notifyListeners();
     } catch (e) {
-      debugPrint('Failed to initialize theme: $e');
       _currentTheme = app_theme.theme;
       _isInitialized = true;
       notifyListeners();
@@ -42,7 +41,6 @@ class ThemeProvider extends ChangeNotifier {
   /// Listen to Remote Config updates and refresh theme
   void _listenToRemoteConfigUpdates() {
     _remoteConfigService.onConfigUpdated.listen((event) async {
-      debugPrint('Remote Config updated, refreshing theme...');
       await _remoteConfigService.activate();
       await refreshTheme();
     });
@@ -62,10 +60,8 @@ class ThemeProvider extends ChangeNotifier {
         }
 
         notifyListeners();
-        debugPrint('Theme refreshed from Remote Config');
       }
     } catch (e) {
-      debugPrint('Failed to refresh theme: $e');
     }
   }
 

@@ -5,14 +5,14 @@ import 'package:church/core/models/attendance/attendance_model.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
-import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
+import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/shared/avatar_display_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/services/coupon_points_service.dart';
 import '../../core/repositories/attendance_defaults_repository.dart';
+import '../../core/services/coupon_points_service.dart';
 import '../../shared/points_sync_widget.dart';
 
 class SuperServantView extends StatefulWidget {
@@ -21,11 +21,11 @@ class SuperServantView extends StatefulWidget {
   final String gender;
 
   const SuperServantView(
-      this.cubit, {
-        super.key,
-        required this.gender,
-        required this.pageIndex,
-      });
+    this.cubit, {
+    super.key,
+    required this.gender,
+    required this.pageIndex,
+  });
 
   @override
   State<SuperServantView> createState() => _SuperServantViewState();
@@ -43,7 +43,8 @@ class _SuperServantViewState extends State<SuperServantView> {
   final searchController = TextEditingController();
   bool isSubmitting = false;
   final CouponPointsService _pointsService = CouponPointsService();
-  final AttendanceDefaultsRepository _defaultsRepo = AttendanceDefaultsRepository();
+  final AttendanceDefaultsRepository _defaultsRepo =
+      AttendanceDefaultsRepository();
 
   bool isLoadingUsers = false;
 
@@ -60,12 +61,12 @@ class _SuperServantViewState extends State<SuperServantView> {
         widget.cubit.users
             ?.where((u) => u.userType.code == UserType.servant.code)
             .toList() ??
-            [];
+        [];
     chidrenList =
         widget.cubit.users
             ?.where((u) => u.userType.code == UserType.child.code)
             .toList() ??
-            [];
+        [];
   }
 
   @override
@@ -103,12 +104,16 @@ class _SuperServantViewState extends State<SuperServantView> {
       List<UserModel> tempFiltered = List.from(sourceList);
 
       if (selectedClass != null && selectedClass != 'الكل') {
-        tempFiltered = tempFiltered.where((user) => user.userClass == selectedClass).toList();
+        tempFiltered = tempFiltered
+            .where((user) => user.userClass == selectedClass)
+            .toList();
       }
 
       if (selectedGender != null && selectedGender != 'الكل') {
         final genderCode = selectedGender == 'ذكر' ? 'M' : 'F';
-        tempFiltered = tempFiltered.where((user) => user.gender.code == genderCode).toList();
+        tempFiltered = tempFiltered
+            .where((user) => user.gender.code == genderCode)
+            .toList();
       }
 
       if (query.isEmpty) {
@@ -117,8 +122,8 @@ class _SuperServantViewState extends State<SuperServantView> {
         filteredUsers = tempFiltered
             .where(
               (user) =>
-              normalizeArabic(user.fullName.toLowerCase()).contains(query),
-        )
+                  normalizeArabic(user.fullName.toLowerCase()).contains(query),
+            )
             .toList();
       }
     });
@@ -176,10 +181,7 @@ class _SuperServantViewState extends State<SuperServantView> {
   }
 
   Future<void> _submitAttendance() async {
-    debugPrint('🟢 [SuperServantView] _submitAttendance called');
-
     if (isSubmitting) {
-      debugPrint('⚠️ [SuperServantView] Already submitting, ignoring duplicate call');
       return;
     }
 
@@ -209,7 +211,6 @@ class _SuperServantViewState extends State<SuperServantView> {
 
     // If user cancelled date selection, return
     if (selectedDate == null) {
-      debugPrint('⚠️ [SuperServantView] Date selection cancelled');
       return;
     }
 
@@ -219,7 +220,11 @@ class _SuperServantViewState extends State<SuperServantView> {
 
     try {
       final now = DateTime.now();
-      final attendanceDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+      final attendanceDate = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+      );
 
       final attendanceList = attendanceMap.entries.map((entry) {
         final user = _loadedUsers.firstWhere((u) => u.id == entry.key);
@@ -241,9 +246,7 @@ class _SuperServantViewState extends State<SuperServantView> {
         );
       }).toList();
 
-      debugPrint('🟢 [SuperServantView] Calling cubit.batchTakeAttendance with ${attendanceList.length} items');
       await widget.cubit.batchTakeAttendance(attendanceList);
-      debugPrint('🟢 [SuperServantView] batchTakeAttendance completed');
 
       // Add points automatically for present children
       final defaults = await _defaultsRepo.getDefaults();
@@ -253,22 +256,18 @@ class _SuperServantViewState extends State<SuperServantView> {
           .where((entry) => entry.value == AttendanceStatus.present)
           .map((entry) => entry.key)
           .where((userId) {
-        final user = _loadedUsers.firstWhere((u) => u.id == userId);
-        return user.userType.code == UserType.child.code;
-      })
+            final user = _loadedUsers.firstWhere((u) => u.id == userId);
+            return user.userType.code == UserType.child.code;
+          })
           .toList();
 
       if (presentChildren.isNotEmpty) {
-        debugPrint('🟢 [SuperServantView] Adding points to ${presentChildren.length} present children');
-
         final result = await _pointsService.bulkSetPoints(
           presentChildren,
           defaultPoints,
           'حضور - ${_getAttendanceTypeName()}',
           widget.cubit.currentUser?.id ?? 'system',
         );
-
-        debugPrint('🟢 [SuperServantView] Points added successfully to ${result['successCount']} children');
       }
 
       if (mounted) {
@@ -296,7 +295,6 @@ class _SuperServantViewState extends State<SuperServantView> {
         );
       }
     } catch (e) {
-      debugPrint('❌ [SuperServantView] Error in _submitAttendance: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -311,7 +309,6 @@ class _SuperServantViewState extends State<SuperServantView> {
       }
     } finally {
       if (mounted) {
-        debugPrint('🟢 [SuperServantView] Setting isSubmitting = false');
         setState(() {
           isSubmitting = false;
         });
@@ -321,7 +318,9 @@ class _SuperServantViewState extends State<SuperServantView> {
 
   void _showIndividualPointsDialog(UserModel user) {
     final TextEditingController pointsController = TextEditingController();
-    final TextEditingController reasonController = TextEditingController(text: 'تعديل يدوي');
+    final TextEditingController reasonController = TextEditingController(
+      text: 'تعديل يدوي',
+    );
 
     showDialog(
       context: context,
@@ -347,7 +346,10 @@ class _SuperServantViewState extends State<SuperServantView> {
                     children: [
                       Text(
                         user.fullName,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       Text(
                         'النقاط الحالية: ${userPointsMap[user.id] ?? user.couponPoints}',
@@ -446,14 +448,21 @@ class _SuperServantViewState extends State<SuperServantView> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-            child: const Text('تطبيق', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'تطبيق',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _applyIndividualPoints(String userId, int points, String reason) async {
+  Future<void> _applyIndividualPoints(
+    String userId,
+    int points,
+    String reason,
+  ) async {
     try {
       setState(() => isSubmitting = true);
 
@@ -586,9 +595,9 @@ class _SuperServantViewState extends State<SuperServantView> {
                 color: red500,
                 userType: UserType.servant.code,
                 count:
-                widget.cubit.users
-                    ?.where((u) => u.userType.code == UserType.servant.code)
-                    .length ??
+                    widget.cubit.users
+                        ?.where((u) => u.userType.code == UserType.servant.code)
+                        .length ??
                     0,
               ),
               const SizedBox(height: 16),
@@ -599,9 +608,9 @@ class _SuperServantViewState extends State<SuperServantView> {
                 color: sage500,
                 userType: UserType.child.code,
                 count:
-                widget.cubit.users
-                    ?.where((u) => u.userType.code == UserType.child.code)
-                    .length ??
+                    widget.cubit.users
+                        ?.where((u) => u.userType.code == UserType.child.code)
+                        .length ??
                     0,
               ),
             ],
@@ -647,12 +656,12 @@ class _SuperServantViewState extends State<SuperServantView> {
                   widget.cubit.users
                       ?.where((u) => u.userType.code == UserType.servant.code)
                       .toList() ??
-                      [];
+                  [];
               chidrenList =
                   widget.cubit.users
                       ?.where((u) => u.userType.code == UserType.child.code)
                       .toList() ??
-                      [];
+                  [];
               isLoadingUsers = true;
             });
 
@@ -875,7 +884,8 @@ class _SuperServantViewState extends State<SuperServantView> {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: availableClasses.length,
-                          separatorBuilder: (context, index) => const SizedBox(width: 8),
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(width: 8),
                           itemBuilder: (context, index) {
                             final className = availableClasses[index];
                             final isSelected = selectedClass == className;
@@ -909,7 +919,8 @@ class _SuperServantViewState extends State<SuperServantView> {
                       ),
                       const SizedBox(height: 8),
                     ],
-                    if (widget.cubit.currentUser?.userType.code == UserType.priest.code) ...[
+                    if (widget.cubit.currentUser?.userType.code ==
+                        UserType.priest.code) ...[
                       Row(
                         children: [
                           Icon(Icons.wc, color: teal700, size: 18),
@@ -943,12 +954,16 @@ class _SuperServantViewState extends State<SuperServantView> {
                                 selectedColor: teal300,
                                 checkmarkColor: Colors.white,
                                 labelStyle: TextStyle(
-                                  color: selectedGender == gender ? Colors.white : teal900,
+                                  color: selectedGender == gender
+                                      ? Colors.white
+                                      : teal900,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
                                 ),
                                 side: BorderSide(
-                                  color: selectedGender == gender ? teal500 : Colors.grey[300]!,
+                                  color: selectedGender == gender
+                                      ? teal500
+                                      : Colors.grey[300]!,
                                   width: 1.5,
                                 ),
                                 shape: RoundedRectangleBorder(
@@ -970,48 +985,48 @@ class _SuperServantViewState extends State<SuperServantView> {
             Flexible(
               child: isLoadingUsers
                   ? const Center(
-                child: SizedBox(
-                  height: 32,
-                  width: 32,
-                  child: CircularProgressIndicator(),
-                ),
-              )
+                      child: SizedBox(
+                        height: 32,
+                        width: 32,
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
                   : filteredUsers.isEmpty
                   ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.search_off,
-                      size: 64,
-                      color: Colors.grey[400],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'لا توجد نتائج',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w600,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.search_off,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'لا توجد نتائج',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              )
+                    )
                   : ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: filteredUsers.length,
-                separatorBuilder: (context, index) =>
-                const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final user = filteredUsers[index];
-                  final userId = user.id;
-                  final status =
-                      attendanceMap[userId] ?? AttendanceStatus.absent;
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: filteredUsers.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final user = filteredUsers[index];
+                        final userId = user.id;
+                        final status =
+                            attendanceMap[userId] ?? AttendanceStatus.absent;
 
-                  return _buildUserAttendanceCard(user, status);
-                },
-              ),
+                        return _buildUserAttendanceCard(user, status);
+                      },
+                    ),
             ),
 
             if (!keyboardVisible)
@@ -1051,34 +1066,34 @@ class _SuperServantViewState extends State<SuperServantView> {
                         alignment: Alignment.center,
                         child: isSubmitting
                             ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
-                        )
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 3,
+                                ),
+                              )
                             : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.check_circle_outline,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'حفظ الحضور وإضافة النقاط',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                letterSpacing: 1,
-                                fontFamily: 'Alexandria',
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle_outline,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'حفظ الحضور وإضافة النقاط',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                      letterSpacing: 1,
+                                      fontFamily: 'Alexandria',
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                   ),
@@ -1200,7 +1215,11 @@ class _SuperServantViewState extends State<SuperServantView> {
                           const SizedBox(height: 6),
                           Row(
                             children: [
-                              Icon(Icons.card_giftcard, size: 14, color: teal500),
+                              Icon(
+                                Icons.card_giftcard,
+                                size: 14,
+                                color: teal500,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 '${userPointsMap[user.id] ?? user.couponPoints} نقطة',
@@ -1288,8 +1307,8 @@ class _SuperServantViewState extends State<SuperServantView> {
             ],
           ),
         ),
-      )
-      );
+      ),
+    );
   }
 
   Widget _buildStatusButton({
@@ -1336,6 +1355,3 @@ class _SuperServantViewState extends State<SuperServantView> {
     );
   }
 }
-
-
-

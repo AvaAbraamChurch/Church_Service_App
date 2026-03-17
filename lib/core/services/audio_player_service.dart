@@ -68,7 +68,6 @@ class AudioPlayerService {
         await _audioPlayer.play(UrlSource(audioUrl));
       }
     } catch (e) {
-      debugPrint('Error playing audio: $e');
       rethrow;
     } finally {
       isLoadingNotifier.value = false;

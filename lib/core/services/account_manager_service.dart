@@ -1,5 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+
 import '../network/local/cache_helper.dart';
 
 /// Service to manage multiple user accounts and switching between them
@@ -12,23 +12,18 @@ class AccountManagerService {
   /// Get all saved accounts
   Future<List<Map<String, dynamic>>> getSavedAccounts() async {
     try {
-      debugPrint('📖 Reading saved accounts from cache...');
       final accountsJson = await CacheHelper.getData(key: _accountsKey);
 
       if (accountsJson == null) {
-        debugPrint('📖 No accounts found in cache');
         return [];
       }
 
-      debugPrint('📖 Raw data type: ${accountsJson.runtimeType}');
-      debugPrint('📖 Raw data: $accountsJson');
-
       final List<dynamic> accountsList = accountsJson as List<dynamic>;
-      final result = accountsList.map((e) => Map<String, dynamic>.from(e)).toList();
-      debugPrint('📖 Successfully loaded ${result.length} accounts');
+      final result = accountsList
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
       return result;
     } catch (e) {
-      debugPrint('❌ Error getting saved accounts: $e');
       return [];
     }
   }
@@ -43,12 +38,12 @@ class AccountManagerService {
     required String userType,
   }) async {
     try {
-      debugPrint('💾 Attempting to save account: $email (ID: $userId)');
       final accounts = await getSavedAccounts();
-      debugPrint('💾 Current accounts count: ${accounts.length}');
 
       // Check if account already exists
-      final existingIndex = accounts.indexWhere((acc) => acc['userId'] == userId);
+      final existingIndex = accounts.indexWhere(
+        (acc) => acc['userId'] == userId,
+      );
 
       final accountData = {
         'userId': userId,
@@ -62,27 +57,16 @@ class AccountManagerService {
 
       if (existingIndex >= 0) {
         // Update existing account
-        debugPrint('💾 Updating existing account at index $existingIndex');
         accounts[existingIndex] = accountData;
       } else {
         // Add new account
-        debugPrint('💾 Adding new account');
         accounts.add(accountData);
       }
 
-      debugPrint('💾 Saving ${accounts.length} accounts to cache');
-      final saved = await CacheHelper.saveData(key: _accountsKey, value: accounts);
-      debugPrint('💾 Save result: $saved');
+      await CacheHelper.saveData(key: _accountsKey, value: accounts);
 
       await CacheHelper.saveData(key: _activeAccountKey, value: userId);
-      debugPrint('✅ Account saved successfully: $email');
-
-      // Verify save
-      final savedAccounts = await getSavedAccounts();
-      debugPrint('🔍 Verification: ${savedAccounts.length} accounts in cache');
-    } catch (e) {
-      debugPrint('❌ Error saving account: $e');
-    }
+    } catch (e) {}
   }
 
   /// Switch to a different saved account
@@ -95,7 +79,6 @@ class AccountManagerService {
       );
 
       if (account.isEmpty) {
-        debugPrint('Account not found: $userId');
         return false;
       }
 
@@ -120,19 +103,14 @@ class AccountManagerService {
 
         await CacheHelper.saveData(key: _accountsKey, value: accounts);
         await CacheHelper.saveData(key: _activeAccountKey, value: userId);
-
-        debugPrint('✅ Switched to account: $email');
         return true;
       } catch (authError) {
-        debugPrint('❌ Sign in failed during account switch: $authError');
-
         // If sign-in failed, user is now signed out
         // We can't rollback to previous account without their password
         // Just return false and let the UI handle it
         return false;
       }
     } catch (e) {
-      debugPrint('❌ Error switching account: $e');
       return false;
     }
   }
@@ -150,11 +128,7 @@ class AccountManagerService {
       if (activeAccountId == userId) {
         await CacheHelper.removeData(key: _activeAccountKey);
       }
-
-      debugPrint('Account removed: $userId');
-    } catch (e) {
-      debugPrint('Error removing account: $e');
-    }
+    } catch (e) {}
   }
 
   /// Get currently active account ID
@@ -162,7 +136,6 @@ class AccountManagerService {
     try {
       return await CacheHelper.getData(key: _activeAccountKey);
     } catch (e) {
-      debugPrint('Error getting active account: $e');
       return null;
     }
   }
@@ -188,11 +161,8 @@ class AccountManagerService {
       if (index >= 0) {
         accounts[index]['photoUrl'] = photoUrl;
         await CacheHelper.saveData(key: _accountsKey, value: accounts);
-        debugPrint('Account photo updated: $userId');
       }
-    } catch (e) {
-      debugPrint('Error updating account photo: $e');
-    }
+    } catch (e) {}
   }
 
   /// Clear all saved accounts (for logout all)
@@ -201,10 +171,6 @@ class AccountManagerService {
       await CacheHelper.removeData(key: _accountsKey);
       await CacheHelper.removeData(key: _activeAccountKey);
       await _auth.signOut();
-      debugPrint('All accounts cleared');
-    } catch (e) {
-      debugPrint('Error clearing accounts: $e');
-    }
+    } catch (e) {}
   }
 }
-

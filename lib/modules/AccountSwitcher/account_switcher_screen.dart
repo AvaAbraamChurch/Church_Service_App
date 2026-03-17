@@ -30,12 +30,6 @@ class _AccountSwitcherScreenState extends State<AccountSwitcherScreen> {
     final accounts = await _accountManager.getSavedAccounts();
     final activeId = await _accountManager.getActiveAccountId();
 
-    debugPrint('📱 Loaded ${accounts.length} accounts');
-    debugPrint('📱 Active account ID: $activeId');
-    for (var acc in accounts) {
-      debugPrint('  - ${acc['displayName']} (${acc['email']})');
-    }
-
     setState(() {
       _accounts = accounts;
       _activeAccountId = activeId;
@@ -47,9 +41,7 @@ class _AccountSwitcherScreenState extends State<AccountSwitcherScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
     final success = await _accountManager.switchAccount(userId);
@@ -74,9 +66,7 @@ class _AccountSwitcherScreenState extends State<AccountSwitcherScreen> {
 
         // Restart the app by navigating to splash screen and removing all previous routes
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (context) => const SplashScreen(),
-          ),
+          MaterialPageRoute(builder: (context) => const SplashScreen()),
           (route) => false, // Remove all previous routes
         );
       } else {
@@ -233,7 +223,6 @@ class _AccountSwitcherScreenState extends State<AccountSwitcherScreen> {
               IconButton(
                 icon: const Icon(Icons.refresh, color: Colors.white),
                 onPressed: () {
-                  debugPrint('🔄 Manual refresh requested');
                   _loadAccounts();
                 },
               ),
@@ -244,15 +233,13 @@ class _AccountSwitcherScreenState extends State<AccountSwitcherScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _accounts.isEmpty
-              ? _buildEmptyState()
-              : _buildAccountsList(),
+          ? _buildEmptyState()
+          : _buildAccountsList(),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           navigateTo(context, const LoginScreen());
         },
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         backgroundColor: const Color(0xFF00897B), // teal600
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
@@ -372,7 +359,10 @@ class _AccountSwitcherScreenState extends State<AccountSwitcherScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.green[600],
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
                               ),
                               child: const Icon(
                                 Icons.check,
@@ -467,10 +457,8 @@ class _AccountSwitcherScreenState extends State<AccountSwitcherScreen> {
                     if (!isActive)
                       IconButton(
                         icon: const Icon(Icons.close, color: Colors.red),
-                        onPressed: () => _removeAccount(
-                          account['userId'],
-                          account['email'],
-                        ),
+                        onPressed: () =>
+                            _removeAccount(account['userId'], account['email']),
                       ),
                   ],
                 ),
@@ -482,4 +470,3 @@ class _AccountSwitcherScreenState extends State<AccountSwitcherScreen> {
     );
   }
 }
-

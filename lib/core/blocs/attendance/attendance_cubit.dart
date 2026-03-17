@@ -93,10 +93,8 @@ class AttendanceCubit extends Cubit<AttendanceState> {
       final isOnline = results.isNotEmpty && !results.contains(ConnectivityResult.none);
 
       if (isOnline) {
-        debugPrint('📡 Network restored, syncing pending data...');
         await syncPendingAttendances();
       } else {
-        debugPrint('📴 Network lost, entering offline mode');
         emit(OfflineModeActive(getPendingCount()));
       }
     });
@@ -105,7 +103,6 @@ class AttendanceCubit extends Cubit<AttendanceState> {
     _autoSyncTimer = Timer.periodic(Duration(minutes: 5), (timer) async {
       final online = await _hasNetwork();
       if (online && getPendingCount() > 0 && !_isSyncing) {
-        debugPrint('⏰ Auto-sync triggered');
         await syncPendingAttendances();
       }
     });
@@ -124,7 +121,6 @@ class AttendanceCubit extends Cubit<AttendanceState> {
       final results = await Connectivity().checkConnectivity();
       return !results.contains(ConnectivityResult.none);
     } catch (e) {
-      debugPrint('Error checking connectivity: $e');
       return false;
     }
   }
@@ -136,7 +132,6 @@ class AttendanceCubit extends Cubit<AttendanceState> {
   /// Enhanced sync with better error handling and progress tracking
   Future<SyncResult> syncPendingAttendances() async {
     if (_isSyncing) {
-      debugPrint('⏳ Sync already in progress, skipping...');
       return SyncResult(
         success: false,
         message: 'Sync already in progress',
@@ -187,11 +182,9 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         await _localRepo.deletePending(row['key']);
         successCount++;
 
-        debugPrint('✅ Synced attendance for user ${attendance.userId}');
       } catch (e) {
         failureCount++;
         failedItems.add(row);
-        debugPrint('❌ Failed to sync attendance: $e');
         // Don't remove from local storage - keep for retry
       }
     }
@@ -203,8 +196,8 @@ class AttendanceCubit extends Cubit<AttendanceState> {
     final result = SyncResult(
       success: failureCount == 0,
       message: failureCount == 0
-          ? 'تمت مزامنة جميع البيانات ($successCount)'
-          : 'تمت مزامنة $successCount، فشل $failureCount',
+          ? 'ØªÙ…Øª Ù…Ø²Ø§Ù…Ù†Ø© Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ($successCount)'
+          : 'ØªÙ…Øª Ù…Ø²Ø§Ù…Ù†Ø© $successCountØŒ ÙØ´Ù„ $failureCount',
       syncedCount: successCount,
       failedCount: failureCount,
     );
@@ -227,7 +220,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
     if (!online) {
       return SyncResult(
         success: false,
-        message: 'لا يوجد اتصال بالإنترنت',
+        message: 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø§ØªØµØ§Ù„ Ø¨Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª',
         syncedCount: 0,
         failedCount: getPendingCount(),
       );
@@ -245,7 +238,6 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         // Save locally with metadata
         final key = await _localRepo.savePendingAttendance(attendance);
         emit(takeAttendanceSuccessOffline(getPendingCount()));
-        debugPrint('💾 Saved attendance offline: $key');
         return 'local_$key';
       }
 
@@ -266,17 +258,14 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         }
 
         emit(takeAttendanceSuccess());
-        debugPrint('☁️ Saved attendance online: $docId');
         return docId;
       } catch (networkError) {
         // Network error during save - fallback to local
-        debugPrint('⚠️ Network error, saving locally: $networkError');
         final key = await _localRepo.savePendingAttendance(attendance);
         emit(takeAttendanceSuccessOffline(getPendingCount()));
         return 'local_$key';
       }
     } catch (e) {
-      debugPrint('❌ Error taking attendance: $e');
       emit(takeAttendanceError(e.toString()));
       rethrow;
     }
@@ -285,23 +274,15 @@ class AttendanceCubit extends Cubit<AttendanceState> {
   /// Batch take attendance with offline support
   Future<BatchResult> batchTakeAttendance(List<AttendanceModel> attendanceList) async {
     try {
-      debugPrint('🔵 [START] batchTakeAttendance with ${attendanceList.length} items');
       emit(takeAttendanceLoading());
 
-      debugPrint('🔍 Checking network connection...');
       final online = await _hasNetwork();
-      debugPrint('📡 Network status: ${online ? "ONLINE" : "OFFLINE"}');
-
       if (!online) {
         // Save all items locally
-        debugPrint('💾 Saving ${attendanceList.length} items offline');
         for (final attendance in attendanceList) {
           await _localRepo.savePendingAttendance(attendance);
-          debugPrint('💾 Saved attendance offline for user: ${attendance.userId}');
         }
-        debugPrint('✅ Emitting takeAttendanceSuccessOffline with ${getPendingCount()} pending');
         emit(takeAttendanceSuccessOffline(getPendingCount()));
-        debugPrint('🔵 [END] Offline save complete');
         return BatchResult(
           success: true,
           savedCount: attendanceList.length,
@@ -311,18 +292,13 @@ class AttendanceCubit extends Cubit<AttendanceState> {
 
       // Try batch upload with timeout
       try {
-        debugPrint('☁️ Attempting to save to Firebase...');
         await attendanceRepository.batchAddAttendance(attendanceList).timeout(
           Duration(seconds: 3),
           onTimeout: () {
-            debugPrint('⏱️ Firebase save timed out after 3 seconds');
             throw TimeoutException('Firebase operation timed out');
           },
         );
-        debugPrint('✅ Firebase save successful');
-        debugPrint('✅ Emitting takeAttendanceSuccess');
         emit(takeAttendanceSuccess());
-        debugPrint('🔵 [END] Online save complete');
         return BatchResult(
           success: true,
           savedCount: attendanceList.length,
@@ -330,14 +306,10 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         );
       } catch (networkError) {
         // Fallback to local storage
-        debugPrint('⚠️ Network error during save: $networkError');
-        debugPrint('💾 Falling back to local storage...');
         for (final attendance in attendanceList) {
           await _localRepo.savePendingAttendance(attendance);
         }
-        debugPrint('✅ Emitting takeAttendanceSuccessOffline with ${getPendingCount()} pending');
         emit(takeAttendanceSuccessOffline(getPendingCount()));
-        debugPrint('🔵 [END] Fallback save complete');
         return BatchResult(
           success: true,
           savedCount: attendanceList.length,
@@ -345,10 +317,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         );
       }
     } catch (e) {
-      debugPrint('❌ [ERROR] batchTakeAttendance failed: $e');
-      debugPrint('❌ Stack trace: ${StackTrace.current}');
       emit(takeAttendanceError(e.toString()));
-      debugPrint('🔵 [END] Error occurred');
       return BatchResult(
         success: false,
         savedCount: 0,
@@ -388,12 +357,10 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         .getUsersByMultipleTypes(userClass, userTypes, gender)
         .map((fetchedUsers) {
       users = fetchedUsers;
-      debugPrint('📋 Loaded ${users?.length ?? 0} users');
       emit(getAllUsersSuccess());
       return users;
     }).handleError((e) {
       emit(getAllUsersError(e.toString()));
-      debugPrint('❌ Error loading users: $e');
     });
   }
 
@@ -407,12 +374,10 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         .getUsersByMultipleTypesAndGender(userTypes, gender)
         .map((fetchedUsers) {
       users = fetchedUsers;
-      debugPrint('📋 Loaded ${users?.length ?? 0} users by gender');
       emit(getAllUsersSuccess());
       return users;
     }).handleError((e) {
       emit(getAllUsersError(e.toString()));
-      debugPrint('❌ Error loading users by gender: $e');
     });
   }
 
@@ -423,12 +388,10 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         .getUsersByMultipleTypesForPriest(userTypes)
         .map((fetchedUsers) {
       users = fetchedUsers;
-      debugPrint('📋 Loaded ${users?.length ?? 0} users for priest');
       emit(getAllUsersSuccess());
       return users;
     }).handleError((e) {
       emit(getAllUsersError(e.toString()));
-      debugPrint('❌ Error loading users for priest: $e');
     });
   }
 
@@ -455,18 +418,16 @@ class AttendanceCubit extends Cubit<AttendanceState> {
       final online = await _hasNetwork();
       if (!online) {
         // TODO: Implement local visit storage
-        emit(VisitError('لا يوجد اتصال بالإنترنت. الزيارات تحتاج اتصال.'));
+        emit(VisitError('Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø§ØªØµØ§Ù„ Ø¨Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª. Ø§Ù„Ø²ÙŠØ§Ø±Ø§Øª ØªØ­ØªØ§Ø¬ Ø§ØªØµØ§Ù„.'));
         throw Exception('No network connection for visits');
       }
 
       final id = await visitRepository.addOrMergeVisit(visit);
       emit(CreateVisitSuccess(id));
-      debugPrint('✅ Visit created/merged: $id');
       return id;
     } catch (e) {
       final msg = e.toString();
       emit(VisitError(msg));
-      debugPrint('❌ Error creating visit: $msg');
       rethrow;
     }
   }
@@ -481,7 +442,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
 
       final online = await _hasNetwork();
       if (!online) {
-        emit(VisitError('لا يوجد اتصال بالإنترنت'));
+        emit(VisitError('Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø§ØªØµØ§Ù„ Ø¨Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª'));
         throw Exception('No network connection');
       }
 
@@ -491,10 +452,8 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         servantName: servantName,
       );
       emit(AddServantSuccess());
-      debugPrint('✅ Servant added to visit: $servantId');
     } catch (e) {
       emit(VisitError(e.toString()));
-      debugPrint('❌ Error adding servant to visit: $e');
       rethrow;
     }
   }
@@ -521,9 +480,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
     try {
       await _localRepo.clearAllPending();
       emit(SyncComplete(0, DateTime.now()));
-      debugPrint('🗑️ Cleared all pending data');
     } catch (e) {
-      debugPrint('❌ Error clearing pending data: $e');
     }
   }
 
@@ -579,7 +536,6 @@ class AttendanceCubit extends Cubit<AttendanceState> {
 
       await attendanceRequestsRepository.createRequest(request);
     } catch (e) {
-      debugPrint('Error submitting attendance request: $e');
       emit(takeAttendanceError(e.toString()));
       rethrow;
     }
@@ -624,7 +580,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         linkedId = await attendanceRepository.addAttendance(attendance);
       }
 
-      // ✅ Automatically award points for the accepted attendance.
+      // âœ… Automatically award points for the accepted attendance.
       // Uses per-type defaults from settings/attendance_defaults.
       int? awardedPoints;
       String? awardReason;
@@ -632,7 +588,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
          final defaults = await attendanceDefaultsRepository.getDefaults();
          final points = defaults[request.attendanceKey] ?? 1;
          final typeLabel = _attendanceTypeLabelFromKey(request.attendanceKey);
-         awardReason = 'حضور $typeLabel';
+         awardReason = 'Ø­Ø¶ÙˆØ± $typeLabel';
 
          if (points > 0) {
            awardedPoints = points;
@@ -642,11 +598,9 @@ class AttendanceCubit extends Cubit<AttendanceState> {
              awardReason,
              currentUser!.id,
            );
-           debugPrint('⭐ Awarded $points points to child ${request.childId} for ${request.attendanceKey}');
          }
        } catch (e) {
-         // Points are a side effect; don’t fail acceptance if points fail.
-         debugPrint('⚠️ Failed to award points for accepted request: $e');
+         // Points are a side effect; donâ€™t fail acceptance if points fail.
        }
 
        await attendanceRequestsRepository.updateRequest(request.id, {
@@ -659,7 +613,6 @@ class AttendanceCubit extends Cubit<AttendanceState> {
          if (awardReason != null) 'awardReason': awardReason,
        });
     } catch (e) {
-      debugPrint('Error accepting attendance request: $e');
       rethrow;
     }
   }
@@ -681,7 +634,6 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         if (reason != null) 'decisionReason': reason,
       });
     } catch (e) {
-      debugPrint('Error declining attendance request: $e');
       rethrow;
     }
   }

@@ -108,7 +108,6 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
         }
       }
     } catch (e) {
-      debugPrint('Error loading user class code: $e');
       if (mounted) {
         setState(() {
           _userClassCode = widget.user!.userClass;

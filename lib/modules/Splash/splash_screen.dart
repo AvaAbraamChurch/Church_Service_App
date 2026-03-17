@@ -55,12 +55,10 @@ class _SplashScreenState extends State<SplashScreen>
         isConnected = await _connectivityService.checkConnection().timeout(
           const Duration(seconds: 5),
           onTimeout: () {
-            debugPrint('⚠️ Connectivity check timed out - assuming offline');
             return false;
           },
         );
       } catch (e) {
-        debugPrint('❌ Connectivity check error: $e');
         isConnected = false;
       }
 
@@ -73,25 +71,16 @@ class _SplashScreenState extends State<SplashScreen>
           isTokenValid = await _authRepository.validateToken().timeout(
             const Duration(seconds: 10),
             onTimeout: () {
-              debugPrint(
-                '⚠️ Token validation timed out – falling back to local session check',
-              );
               return !_authRepository.isSessionExpired();
             },
           );
         } catch (e) {
-          debugPrint(
-            '❌ Token validation error – falling back to local session: $e',
-          );
           // Fall back to local session validity rather than kicking user out
           isTokenValid = !_authRepository.isSessionExpired();
         }
       } else {
         // Offline: Check if session hasn't expired locally
         isTokenValid = !_authRepository.isSessionExpired();
-        debugPrint(
-          '🔌 Offline mode: Using cached credentials. Session valid: $isTokenValid',
-        );
       }
 
       if (isTokenValid) {
@@ -121,12 +110,9 @@ class _SplashScreenState extends State<SplashScreen>
           );
         } catch (e) {
           // If we can't get user data, try cached profile first before giving up
-          debugPrint('⚠️ Could not fetch user data: $e');
-
           final cachedProfile = _authRepository.getCachedUserProfile();
 
           if (cachedProfile != null) {
-            debugPrint('✅ Using cached profile for userId: $userId');
             if (!mounted) return;
             navigateAndFinish(
               context,
@@ -139,17 +125,11 @@ class _SplashScreenState extends State<SplashScreen>
             );
           } else if (isConnected) {
             // Online but no cached profile – something is genuinely wrong
-            debugPrint(
-              '❌ Online, no cached profile, and Firestore fetch failed. Logging out.',
-            );
             await _authRepository.clearUserData();
             if (!mounted) return;
             navigateAndFinish(context, LoginScreen());
           } else {
             // Offline with no cached profile – use safe defaults
-            debugPrint(
-              '🔌 Offline: No cached profile, using defaults for userId: $userId',
-            );
             if (!mounted) return;
             navigateAndFinish(
               context,

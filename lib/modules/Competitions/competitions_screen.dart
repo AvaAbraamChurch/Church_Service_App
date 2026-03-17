@@ -70,13 +70,9 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
         setState(() {
           _userClassCode = userMapping.classCode;
         });
-        debugPrint(
-          'User class code loaded: $_userClassCode for className: $userClassName',
-        );
       }
       return userMapping.classCode;
     } catch (e) {
-      debugPrint('Error loading user class code: $e');
       // Fallback: use the className as the code
       if (mounted) {
         setState(() {
