@@ -1,8 +1,10 @@
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/modules/Store/cart_screen.dart';
 import 'package:church/modules/Store/order_tracking_screen.dart';
 import 'package:church/shared/widgets.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -11,9 +13,11 @@ import 'package:provider/provider.dart';
 import '../../core/models/store/product_model.dart';
 import '../../core/models/user/user_model.dart';
 import '../../core/providers/cart_provider.dart';
+import '../../core/repositories/order_repository.dart';
 import '../../core/repositories/store_repository.dart';
 import '../../core/styles/colors.dart';
 import '../../core/utils/gender_enum.dart';
+import '../../core/utils/userType_enum.dart';
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key});
@@ -23,10 +27,16 @@ class StoreScreen extends StatefulWidget {
 }
 
 class _StoreScreenState extends State<StoreScreen> {
+  static const int _childMonthlyPurchaseLimit = 2;
   final StoreRepository _storeRepo = StoreRepository();
+  final OrderRepository _orderRepo = OrderRepository();
   String _selectedCategory = 'الكل';
   List<String> _categories = ['الكل'];
   String? _userGenderCode; // Store the current user's gender code
+  String? _currentUserId;
+  bool _isChildUser = false;
+  int _monthlyPurchasedItems = 0;
+  StreamSubscription<int>? _monthlyPurchasesSub;
   bool _isLoadingUser = true;
 
   @override
@@ -34,6 +44,12 @@ class _StoreScreenState extends State<StoreScreen> {
     super.initState();
     _loadCurrentUser();
     _loadCategories();
+  }
+
+  @override
+  void dispose() {
+    _monthlyPurchasesSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadCurrentUser() async {
@@ -48,9 +64,13 @@ class _StoreScreenState extends State<StoreScreen> {
         if (userDoc.exists) {
           final userData = UserModel.fromMap(userDoc.data(), id: userId);
           setState(() {
+            _currentUserId = userId;
             _userGenderCode = userData.gender.code;
+            _isChildUser = userData.userType == UserType.child;
             _isLoadingUser = false;
           });
+
+          _startMonthlyPurchaseTracking();
         } else {
           setState(() => _isLoadingUser = false);
         }
@@ -61,6 +81,45 @@ class _StoreScreenState extends State<StoreScreen> {
       print('Error loading user: $e');
       setState(() => _isLoadingUser = false);
     }
+  }
+
+  void _startMonthlyPurchaseTracking() {
+    _monthlyPurchasesSub?.cancel();
+    if (!_isChildUser || _currentUserId == null) {
+      setState(() => _monthlyPurchasedItems = 0);
+      return;
+    }
+
+    _monthlyPurchasesSub = _orderRepo
+        .watchUserPurchasedItemCountForCurrentMonth(_currentUserId!)
+        .listen((count) {
+          if (!mounted) return;
+          setState(() {
+            _monthlyPurchasedItems = count;
+          });
+        });
+  }
+
+  bool _canChildAddToCart(CartProvider cart) {
+    if (!_isChildUser) return true;
+    return _monthlyPurchasedItems + cart.totalQuantity <
+        _childMonthlyPurchaseLimit;
+  }
+
+  void _showChildLimitSnackBar() {
+    final remaining = (_childMonthlyPurchaseLimit - _monthlyPurchasedItems)
+        .clamp(0, _childMonthlyPurchaseLimit);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          remaining == 0
+              ? 'لقد وصلت للحد الشهري (قطعتان).'
+              : 'يمكنك شراء $remaining قطعة فقط هذا الشهر.',
+        ),
+        backgroundColor: red500,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _loadCategories() async {
@@ -92,263 +151,351 @@ class _StoreScreenState extends State<StoreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ThemedScaffold(
-      body: CustomScrollView(
-        slivers: [
-          // Modern App Bar
-          SliverAppBar(
-            expandedHeight: 120,
-            floating: false,
-            pinned: true,
-            backgroundColor: Colors.transparent,
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back_ios, color: teal100),
-              onPressed: () => Navigator.pop(context),
-            ),
-            actions: [
-              IconButton(
-                icon: Icon(Icons.receipt_long, color: teal100),
-                onPressed: () {
-                  navigateTo(context, OrderTrackingScreen());
-                },
-                tooltip: 'تتبع الطلبات',
-              ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'المعرض',
-                style: TextStyle(
-                  color: teal100,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                ),
-              ),
-              centerTitle: true,
-            ),
-          ),
+    return StreamBuilder<bool>(
+      stream: _storeRepo.watchStoreAvailability(),
+      initialData: true,
+      builder: (context, availabilitySnapshot) {
+        final isStoreOpen = availabilitySnapshot.data ?? true;
 
-          // Search Bar
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: teal700.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: teal300.withValues(alpha: 0.3)),
+        return ThemedScaffold(
+          body: CustomScrollView(
+            slivers: [
+              // Modern App Bar
+              SliverAppBar(
+                expandedHeight: 120,
+                floating: false,
+                pinned: true,
+                backgroundColor: Colors.transparent,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back_ios, color: teal100),
+                  onPressed: () => Navigator.pop(context),
                 ),
-                child: TextField(
-                  style: TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'ابحث عن منتج...',
-                    hintStyle: TextStyle(color: Colors.white60),
-                    prefixIcon: Icon(Icons.search, color: teal100),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 15,
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.receipt_long, color: teal100),
+                    onPressed: () {
+                      navigateTo(context, OrderTrackingScreen());
+                    },
+                    tooltip: 'تتبع الطلبات',
+                  ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  title: Text(
+                    'المعرض',
+                    style: TextStyle(
+                      color: teal100,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
                     ),
                   ),
-                  onChanged: (value) {
-                    // TODO: Implement search
-                  },
+                  centerTitle: true,
                 ),
               ),
-            ),
-          ),
 
-          // Categories
-          SliverToBoxAdapter(
-            child: Container(
-              height: 50,
-              margin: EdgeInsets.only(bottom: 16),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final category = _categories[index];
-                  final isSelected = category == _selectedCategory;
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedCategory = category;
-                      });
-                    },
-                    child: AnimatedContainer(
-                      duration: Duration(milliseconds: 300),
-                      margin: EdgeInsets.only(right: 12),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? teal100
-                            : teal700.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(
-                          color: isSelected
-                              ? teal100
-                              : teal300.withValues(alpha: 0.3),
-                          width: 1.5,
+              // Search Bar
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: teal700.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: teal300.withValues(alpha: 0.3)),
+                    ),
+                    child: TextField(
+                      style: TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'ابحث عن منتج...',
+                        hintStyle: TextStyle(color: Colors.white60),
+                        prefixIcon: Icon(Icons.search, color: teal100),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 15,
                         ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: teal100.withValues(alpha: 0.3),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 4),
-                                ),
-                              ]
-                            : [],
                       ),
-                      child: Center(
-                        child: Text(
-                          category,
-                          style: TextStyle(
-                            color: isSelected ? teal900 : teal100,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            fontSize: 14,
+                      onChanged: (value) {
+                        // TODO: Implement search
+                      },
+                    ),
+                  ),
+                ),
+              ),
+
+              // Categories
+              SliverToBoxAdapter(
+                child: Container(
+                  height: 50,
+                  margin: EdgeInsets.only(bottom: 16),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _categories.length,
+                    itemBuilder: (context, index) {
+                      final category = _categories[index];
+                      final isSelected = category == _selectedCategory;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedCategory = category;
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: Duration(milliseconds: 300),
+                          margin: EdgeInsets.only(right: 12),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? teal100
+                                : teal700.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: isSelected
+                                  ? teal100
+                                  : teal300.withValues(alpha: 0.3),
+                              width: 1.5,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: teal100.withValues(alpha: 0.3),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ]
+                                : [],
+                          ),
+                          child: Center(
+                            child: Text(
+                              category,
+                              style: TextStyle(
+                                color: isSelected ? teal900 : teal100,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                fontSize: 14,
+                              ),
+                            ),
                           ),
                         ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              if (_isChildUser)
+                SliverToBoxAdapter(
+                  child: Consumer<CartProvider>(
+                    builder: (context, cart, child) {
+                      final remaining =
+                          (_childMonthlyPurchaseLimit - _monthlyPurchasedItems)
+                              .clamp(0, _childMonthlyPurchaseLimit);
+                      return Container(
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: teal700.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: remaining == 0 ? red500 : teal300,
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: remaining == 0 ? red300 : teal100,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'حد الشراء الشهري: $_monthlyPurchasedItems/$_childMonthlyPurchaseLimit - المتبقي: $remaining',
+                                style: TextStyle(
+                                  color: teal100,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (cart.totalQuantity > 0)
+                              Text(
+                                'في السلة: ${cart.totalQuantity}',
+                                style: TextStyle(color: teal300, fontSize: 12),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+              if (!isStoreOpen)
+                SliverToBoxAdapter(
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: red500.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: red300.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.storefront_outlined, color: red300),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'المعرض مغلق حالياً، يمكنك التصفح فقط.',
+                            style: TextStyle(
+                              color: red300,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Products Grid with StreamBuilder
+              StreamBuilder<List<ProductModel>>(
+                stream: _isLoadingUser || _userGenderCode == null
+                    ? const Stream.empty()
+                    : (_selectedCategory == 'الكل'
+                          ? _storeRepo.watchProductsByUserGender(
+                              _userGenderCode!,
+                            )
+                          : _storeRepo.watchProductsByUserGenderAndCategory(
+                              _userGenderCode!,
+                              _selectedCategory,
+                            )),
+                builder: (context, snapshot) {
+                  // Show loading while user data is loading
+                  if (_isLoadingUser) {
+                    return SliverPadding(
+                      padding: EdgeInsets.all(16),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.7,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildLoadingCard(),
+                          childCount: 6,
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Loading state
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return SliverPadding(
+                      padding: EdgeInsets.all(16),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.7,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildLoadingCard(),
+                          childCount: 6,
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Error state
+                  if (snapshot.hasError) {
+                    return SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline, size: 80, color: red500),
+                            SizedBox(height: 16),
+                            Text(
+                              'حدث خطأ في تحميل المنتجات',
+                              style: TextStyle(color: teal100, fontSize: 18),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              snapshot.error.toString(),
+                              style: TextStyle(color: teal300, fontSize: 12),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final products = snapshot.data ?? [];
+
+                  // Empty state
+                  if (products.isEmpty) {
+                    return SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.shopping_bag_outlined,
+                              size: 80,
+                              color: teal300.withValues(alpha: 0.5),
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'لا توجد منتجات',
+                              style: TextStyle(color: teal100, fontSize: 18),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              _selectedCategory == 'الكل'
+                                  ? 'لم يتم إضافة أي منتجات بعد'
+                                  : 'لا توجد منتجات في هذه الفئة',
+                              style: TextStyle(color: teal300, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Products loaded successfully
+                  return SliverPadding(
+                    padding: EdgeInsets.all(16),
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.7,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) =>
+                            _buildProductCard(products[index], isStoreOpen),
+                        childCount: products.length,
                       ),
                     ),
                   );
                 },
               ),
-            ),
+            ],
           ),
-
-          // Products Grid with StreamBuilder
-          StreamBuilder<List<ProductModel>>(
-            stream: _isLoadingUser || _userGenderCode == null
-                ? const Stream.empty()
-                : (_selectedCategory == 'الكل'
-                      ? _storeRepo.watchProductsByUserGender(_userGenderCode!)
-                      : _storeRepo.watchProductsByUserGenderAndCategory(
-                          _userGenderCode!,
-                          _selectedCategory,
-                        )),
-            builder: (context, snapshot) {
-              // Show loading while user data is loading
-              if (_isLoadingUser) {
-                return SliverPadding(
-                  padding: EdgeInsets.all(16),
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.7,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => _buildLoadingCard(),
-                      childCount: 6,
-                    ),
-                  ),
-                );
-              }
-
-              // Loading state
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return SliverPadding(
-                  padding: EdgeInsets.all(16),
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.7,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => _buildLoadingCard(),
-                      childCount: 6,
-                    ),
-                  ),
-                );
-              }
-
-              // Error state
-              if (snapshot.hasError) {
-                return SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline, size: 80, color: red500),
-                        SizedBox(height: 16),
-                        Text(
-                          'حدث خطأ في تحميل المنتجات',
-                          style: TextStyle(color: teal100, fontSize: 18),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          snapshot.error.toString(),
-                          style: TextStyle(color: teal300, fontSize: 12),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              final products = snapshot.data ?? [];
-
-              // Empty state
-              if (products.isEmpty) {
-                return SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.shopping_bag_outlined,
-                          size: 80,
-                          color: teal300.withValues(alpha: 0.5),
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'لا توجد منتجات',
-                          style: TextStyle(color: teal100, fontSize: 18),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          _selectedCategory == 'الكل'
-                              ? 'لم يتم إضافة أي منتجات بعد'
-                              : 'لا توجد منتجات في هذه الفئة',
-                          style: TextStyle(color: teal300, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              // Products loaded successfully
-              return SliverPadding(
-                padding: EdgeInsets.all(16),
-                sliver: SliverGrid(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.7,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _buildProductCard(products[index]),
-                    childCount: products.length,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      floatingActionButton: _buildModernCartButton(),
+          floatingActionButton: _buildModernCartButton(isStoreOpen),
+        );
+      },
     );
   }
 
@@ -461,15 +608,15 @@ class _StoreScreenState extends State<StoreScreen> {
     );
   }
 
-  Widget _buildProductCard(ProductModel product) {
+  Widget _buildProductCard(ProductModel product, bool isStoreOpen) {
     final bool isOutOfStock = product.stock == 0;
 
     return GestureDetector(
-      onTap: isOutOfStock
+      onTap: (isOutOfStock || !isStoreOpen)
           ? null
           : () {
               // Navigate to product details only if in stock
-              _showProductDetails(product);
+              _showProductDetails(product, isStoreOpen);
             },
       child: Hero(
         tag: 'product_${product.id}',
@@ -728,7 +875,7 @@ class _StoreScreenState extends State<StoreScreen> {
                                 ),
                                 SizedBox(width: 6),
                                 GestureDetector(
-                                  onTap: isOutOfStock
+                                  onTap: (isOutOfStock || !isStoreOpen)
                                       ? null
                                       : () {
                                           final cart =
@@ -736,6 +883,14 @@ class _StoreScreenState extends State<StoreScreen> {
                                                 context,
                                                 listen: false,
                                               );
+                                          if (!isStoreOpen) {
+                                            _showStoreClosedSnackBar();
+                                            return;
+                                          }
+                                          if (!_canChildAddToCart(cart)) {
+                                            _showChildLimitSnackBar();
+                                            return;
+                                          }
                                           cart.addItem(product);
                                           ScaffoldMessenger.of(
                                             context,
@@ -758,7 +913,7 @@ class _StoreScreenState extends State<StoreScreen> {
                                   child: Container(
                                     padding: EdgeInsets.all(6),
                                     decoration: BoxDecoration(
-                                      color: isOutOfStock
+                                      color: (isOutOfStock || !isStoreOpen)
                                           ? teal300.withValues(alpha: 0.3)
                                           : teal100,
                                       shape: BoxShape.circle,
@@ -766,7 +921,9 @@ class _StoreScreenState extends State<StoreScreen> {
                                     child: Icon(
                                       Icons.add_shopping_cart,
                                       size: 14,
-                                      color: isOutOfStock ? teal500 : teal900,
+                                      color: (isOutOfStock || !isStoreOpen)
+                                          ? teal500
+                                          : teal900,
                                     ),
                                   ),
                                 ),
@@ -786,7 +943,7 @@ class _StoreScreenState extends State<StoreScreen> {
     );
   }
 
-  void _showProductDetails(ProductModel product) {
+  void _showProductDetails(ProductModel product, bool isStoreOpen) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1005,12 +1162,20 @@ class _StoreScreenState extends State<StoreScreen> {
                         Expanded(
                           flex: 3,
                           child: ElevatedButton(
-                            onPressed: product.stock > 0
+                            onPressed: (product.stock > 0 && isStoreOpen)
                                 ? () {
                                     final cart = Provider.of<CartProvider>(
                                       context,
                                       listen: false,
                                     );
+                                    if (!isStoreOpen) {
+                                      _showStoreClosedSnackBar();
+                                      return;
+                                    }
+                                    if (!_canChildAddToCart(cart)) {
+                                      _showChildLimitSnackBar();
+                                      return;
+                                    }
                                     cart.addItem(product);
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -1042,7 +1207,9 @@ class _StoreScreenState extends State<StoreScreen> {
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
-                                product.stock > 0 ? 'أضف للسلة' : 'نفذ',
+                                !isStoreOpen
+                                    ? 'المعرض مغلق'
+                                    : (product.stock > 0 ? 'أضف للسلة' : 'نفذ'),
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -1063,7 +1230,7 @@ class _StoreScreenState extends State<StoreScreen> {
     );
   }
 
-  Widget _buildModernCartButton() {
+  Widget _buildModernCartButton(bool isStoreOpen) {
     return Consumer<CartProvider>(
       builder: (context, cart, child) {
         final int cartItemCount = cart.totalQuantity;
@@ -1096,6 +1263,10 @@ class _StoreScreenState extends State<StoreScreen> {
             color: Colors.transparent,
             child: InkWell(
               onTap: () {
+                if (!isStoreOpen) {
+                  _showStoreClosedSnackBar();
+                  return;
+                }
                 navigateTo(context, CartScreen());
               },
               borderRadius: BorderRadius.circular(30),
@@ -1166,6 +1337,16 @@ class _StoreScreenState extends State<StoreScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _showStoreClosedSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('المعرض مغلق حالياً، لا يمكن إتمام الشراء.'),
+        backgroundColor: red500,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 }

@@ -1,6 +1,6 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -22,6 +22,7 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen>
     with SingleTickerProviderStateMixin {
+  static const int _childMonthlyPurchaseLimit = 2;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   final OrderRepository _orderRepo = OrderRepository();
@@ -132,6 +133,11 @@ class _CartScreenState extends State<CartScreen>
   }
 
   void _checkout() {
+    if (_isProcessingOrder) {
+      _showSnackBar('جارٍ إرسال الطلب، يرجى الانتظار...');
+      return;
+    }
+
     final cart = Provider.of<CartProvider>(context, listen: false);
     if (cart.isEmpty) {
       _showSnackBar('السلة فارغة');
@@ -142,6 +148,8 @@ class _CartScreenState extends State<CartScreen>
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      isDismissible: !_isProcessingOrder,
+      enableDrag: !_isProcessingOrder,
       builder: (context) => _buildCheckoutSheet(),
     );
   }
@@ -181,6 +189,27 @@ class _CartScreenState extends State<CartScreen>
 
       // For child users: Check if they have enough points to pay
       if (_isChild) {
+        final purchasedItemsThisMonth = await _orderRepo
+            .getUserPurchasedItemCountForCurrentMonth(user.uid);
+        final requestedItems = cart.totalQuantity;
+        final totalItemsAfterCheckout =
+            purchasedItemsThisMonth + requestedItems;
+
+        if (totalItemsAfterCheckout > _childMonthlyPurchaseLimit) {
+          final remaining =
+              (_childMonthlyPurchaseLimit - purchasedItemsThisMonth).clamp(
+                0,
+                _childMonthlyPurchaseLimit,
+              );
+          setProcessing(false);
+          _showSnackBar(
+            remaining == 0
+                ? 'لقد وصلت للحد الشهري (قطعتان). يمكنك الشراء مرة أخرى الشهر القادم.'
+                : 'يمكنك شراء $remaining قطعة فقط هذا الشهر.',
+          );
+          return;
+        }
+
         final requiredPoints = total.ceil(); // Points needed = order total
         if (_availablePoints < requiredPoints) {
           setProcessing(false);
@@ -814,317 +843,338 @@ class _CartScreenState extends State<CartScreen>
 
     return StatefulBuilder(
       builder: (context, sheetSetState) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          decoration: BoxDecoration(
-            color: teal700,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-            border: Border.all(color: teal300.withValues(alpha: 0.3), width: 2),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: teal300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        return PopScope(
+          canPop: !_isProcessingOrder,
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            decoration: BoxDecoration(
+              color: teal700,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              border: Border.all(
+                color: teal300.withValues(alpha: 0.3),
+                width: 2,
               ),
-              SizedBox(height: 24),
-              // Title
-              Text(
-                'إتمام الشراء',
-                style: TextStyle(
-                  color: teal100,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+            ),
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: teal300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              SizedBox(height: 24),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Order Summary
-                      _buildCheckoutSection(
-                        'ملخص الطلب',
-                        Icons.receipt_long,
-                        Column(
-                          children: [
-                            ...cart.getCartItems().map(
-                              (item) => Padding(
-                                padding: EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        '${item.quantity}x ${item.product.title}',
-                                        style: TextStyle(color: Colors.white70),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Text(
-                                      '\$${item.totalPrice.toStringAsFixed(2)}',
-                                      style: TextStyle(
-                                        color: teal100,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            Divider(color: teal300.withValues(alpha: 0.3)),
-                            SizedBox(height: 8),
-                            if (cart.discount > 0) ...[
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'المجموع',
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                  Text(
-                                    '\$${(cart.subtotal + cart.discount).toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                      color: teal100,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'الخصم',
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                  Text(
-                                    '-\$${cart.discount.toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                      color: red300,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 8),
-                            ],
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                SizedBox(height: 24),
+                // Title
+                Text(
+                  'إتمام الشراء',
+                  style: TextStyle(
+                    color: teal100,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 24),
+                Expanded(
+                  child: IgnorePointer(
+                    ignoring: _isProcessingOrder,
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Order Summary
+                          _buildCheckoutSection(
+                            'ملخص الطلب',
+                            Icons.receipt_long,
+                            Column(
                               children: [
-                                Text(
-                                  'الإجمالي',
-                                  style: TextStyle(
-                                    color: teal100,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  '\$${cart.total.toStringAsFixed(2)}',
-                                  style: TextStyle(
-                                    color: teal100,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 24),
-                      // Notes section (optional)
-                      _buildCheckoutSection(
-                        'ملاحظات',
-                        Icons.note,
-                        TextField(
-                          controller: _notesController,
-                          style: TextStyle(color: Colors.white),
-                          maxLines: 3,
-                          decoration: InputDecoration(
-                            hintText: 'ملاحظات إضافية (اختياري)',
-                            hintStyle: TextStyle(color: Colors.white60),
-                            prefixIcon: Padding(
-                              padding: EdgeInsets.only(bottom: 48),
-                              child: Icon(Icons.note, color: teal300),
-                            ),
-                            filled: true,
-                            fillColor: teal500.withValues(alpha: 0.1),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: BorderSide(
-                                color: teal300.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: BorderSide(
-                                color: teal300.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: BorderSide(color: teal100, width: 2),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 24),
-                      // Insufficient points warning in checkout sheet
-                      if (_isChild && _availablePoints < cart.total.ceil())
-                        Container(
-                          padding: EdgeInsets.all(12),
-                          margin: EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: red500.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: red500.withValues(alpha: 0.5),
-                              width: 2,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.warning_amber_rounded,
-                                color: red300,
-                                size: 24,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'نقاط غير كافية!',
-                                      style: TextStyle(
-                                        color: red300,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      'تحتاج إلى ${cart.total.ceil() - _availablePoints} نقطة إضافية',
-                                      style: TextStyle(
-                                        color: red300,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      // Confirm Button
-                      Container(
-                        width: double.infinity,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: _isProcessingOrder
-                                ? [teal300, teal300]
-                                : (_isChild &&
-                                      _availablePoints < cart.total.ceil())
-                                ? [Colors.grey.shade600, Colors.grey.shade700]
-                                : [teal100, teal300],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow:
-                              (_isChild && _availablePoints < cart.total.ceil())
-                              ? []
-                              : [
-                                  BoxShadow(
-                                    color: teal100.withValues(alpha: 0.4),
-                                    blurRadius: 15,
-                                    offset: Offset(0, 5),
-                                  ),
-                                ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap:
-                                (_isProcessingOrder ||
-                                    (_isChild &&
-                                        _availablePoints < cart.total.ceil()))
-                                ? null
-                                : () => _createOrder(
-                                    sheetSetState: sheetSetState,
-                                  ),
-                            borderRadius: BorderRadius.circular(28),
-                            child: Center(
-                              child: _isProcessingOrder
-                                  ? SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        color: teal900,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Row(
-                                      mainAxisSize: MainAxisSize.min,
+                                ...cart.getCartItems().map(
+                                  (item) => Padding(
+                                    padding: EdgeInsets.only(bottom: 8),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
-                                        if (_isChild &&
-                                            _availablePoints <
-                                                cart.total.ceil())
-                                          Icon(
-                                            Icons.lock,
-                                            color: Colors.grey.shade400,
-                                            size: 20,
+                                        Expanded(
+                                          child: Text(
+                                            '${item.quantity}x ${item.product.title}',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                        if (_isChild &&
-                                            _availablePoints <
-                                                cart.total.ceil())
-                                          SizedBox(width: 8),
+                                        ),
                                         Text(
-                                          (_isChild &&
-                                                  _availablePoints <
-                                                      cart.total.ceil())
-                                              ? 'نقاط غير كافية'
-                                              : 'تأكيد الطلب',
+                                          '\$${item.totalPrice.toStringAsFixed(2)}',
                                           style: TextStyle(
-                                            color:
-                                                (_isChild &&
-                                                    _availablePoints <
-                                                        cart.total.ceil())
-                                                ? Colors.grey.shade400
-                                                : teal900,
-                                            fontSize: 18,
+                                            color: teal100,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                       ],
                                     ),
+                                  ),
+                                ),
+                                Divider(color: teal300.withValues(alpha: 0.3)),
+                                SizedBox(height: 8),
+                                if (cart.discount > 0) ...[
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'المجموع',
+                                        style: TextStyle(color: Colors.white70),
+                                      ),
+                                      Text(
+                                        '\$${(cart.subtotal + cart.discount).toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          color: teal100,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 4),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'الخصم',
+                                        style: TextStyle(color: Colors.white70),
+                                      ),
+                                      Text(
+                                        '-\$${cart.discount.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          color: red300,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 8),
+                                ],
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'الإجمالي',
+                                      style: TextStyle(
+                                        color: teal100,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      '\$${cart.total.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        color: teal100,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ),
+                          SizedBox(height: 24),
+                          // Notes section (optional)
+                          _buildCheckoutSection(
+                            'ملاحظات',
+                            Icons.note,
+                            TextField(
+                              controller: _notesController,
+                              style: TextStyle(color: Colors.white),
+                              maxLines: 3,
+                              decoration: InputDecoration(
+                                hintText: 'ملاحظات إضافية (اختياري)',
+                                hintStyle: TextStyle(color: Colors.white60),
+                                prefixIcon: Padding(
+                                  padding: EdgeInsets.only(bottom: 48),
+                                  child: Icon(Icons.note, color: teal300),
+                                ),
+                                filled: true,
+                                fillColor: teal500.withValues(alpha: 0.1),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: BorderSide(
+                                    color: teal300.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: BorderSide(
+                                    color: teal300.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: BorderSide(
+                                    color: teal100,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 24),
+                          // Insufficient points warning in checkout sheet
+                          if (_isChild && _availablePoints < cart.total.ceil())
+                            Container(
+                              padding: EdgeInsets.all(12),
+                              margin: EdgeInsets.only(bottom: 16),
+                              decoration: BoxDecoration(
+                                color: red500.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: red500.withValues(alpha: 0.5),
+                                  width: 2,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: red300,
+                                    size: 24,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'نقاط غير كافية!',
+                                          style: TextStyle(
+                                            color: red300,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 4),
+                                        Text(
+                                          'تحتاج إلى ${cart.total.ceil() - _availablePoints} نقطة إضافية',
+                                          style: TextStyle(
+                                            color: red300,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          // Confirm Button
+                          Container(
+                            width: double.infinity,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: _isProcessingOrder
+                                    ? [teal300, teal300]
+                                    : (_isChild &&
+                                          _availablePoints < cart.total.ceil())
+                                    ? [
+                                        Colors.grey.shade600,
+                                        Colors.grey.shade700,
+                                      ]
+                                    : [teal100, teal300],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(28),
+                              boxShadow:
+                                  (_isChild &&
+                                      _availablePoints < cart.total.ceil())
+                                  ? []
+                                  : [
+                                      BoxShadow(
+                                        color: teal100.withValues(alpha: 0.4),
+                                        blurRadius: 15,
+                                        offset: Offset(0, 5),
+                                      ),
+                                    ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap:
+                                    (_isProcessingOrder ||
+                                        (_isChild &&
+                                            _availablePoints <
+                                                cart.total.ceil()))
+                                    ? null
+                                    : () => _createOrder(
+                                        sheetSetState: sheetSetState,
+                                      ),
+                                borderRadius: BorderRadius.circular(28),
+                                child: Center(
+                                  child: _isProcessingOrder
+                                      ? SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            color: teal900,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (_isChild &&
+                                                _availablePoints <
+                                                    cart.total.ceil())
+                                              Icon(
+                                                Icons.lock,
+                                                color: Colors.grey.shade400,
+                                                size: 20,
+                                              ),
+                                            if (_isChild &&
+                                                _availablePoints <
+                                                    cart.total.ceil())
+                                              SizedBox(width: 8),
+                                            Text(
+                                              (_isChild &&
+                                                      _availablePoints <
+                                                          cart.total.ceil())
+                                                  ? 'نقاط غير كافية'
+                                                  : 'تأكيد الطلب',
+                                              style: TextStyle(
+                                                color:
+                                                    (_isChild &&
+                                                        _availablePoints <
+                                                            cart.total.ceil())
+                                                    ? Colors.grey.shade400
+                                                    : teal900,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ); // end Container
+        );
       }, // end StatefulBuilder builder
     ); // end StatefulBuilder
   }

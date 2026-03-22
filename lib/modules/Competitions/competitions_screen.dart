@@ -8,7 +8,6 @@ import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/Competitions/create_competition_screen.dart';
 import 'package:church/modules/Competitions/edit_competition_screen.dart';
 import 'package:church/modules/Competitions/take_competition_screen.dart';
-import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -34,53 +33,37 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
   // Store user's competition results: competitionId -> result data
   final Map<String, Map<String, dynamic>> _userResults = {};
   bool _loadingResults = false;
-  String? _userClassCode; // Store the user's classCode from ClassMapping
-  Future<String?>? _classCodeFuture; // Future to track classCode loading
+  bool _pendingResultsReload = false;
+  Stream<String?>? _classCodeStream;
 
   @override
   void initState() {
     super.initState();
-    _classCodeFuture = _loadUserClassCode();
+    _classCodeStream = _watchUserClassCode();
   }
 
-  /// Load user's classCode from ClassMapping
-  Future<String?> _loadUserClassCode() async {
-    try {
-      final userClassName = widget.user.userClass;
-      if (userClassName.isEmpty) {
-        _userClassCode = null;
-        return null;
-      }
-
-      // Try to get the ClassMapping for this user's class
-      final classMappings =
-          await ClassMappingService.getActiveClassMappings().first;
-
-      // Find the mapping that matches the user's className
-      final userMapping = classMappings.firstWhere(
-        (mapping) => mapping.className == userClassName,
-        orElse: () => ClassMapping(
-          id: '',
-          classCode: userClassName, // Fallback: treat className as code
-          className: userClassName,
-        ),
-      );
-
-      if (mounted) {
-        setState(() {
-          _userClassCode = userMapping.classCode;
-        });
-      }
-      return userMapping.classCode;
-    } catch (e) {
-      // Fallback: use the className as the code
-      if (mounted) {
-        setState(() {
-          _userClassCode = widget.user.userClass;
-        });
-      }
-      return widget.user.userClass;
+  /// Watch user's classCode from ClassMapping so screen reacts to mapping updates.
+  Stream<String?> _watchUserClassCode() {
+    final userClassName = widget.user.userClass.trim();
+    if (userClassName.isEmpty) {
+      return Stream<String?>.value(null);
     }
+
+    return ClassMappingService.getActiveClassMappings()
+        .map((classMappings) {
+          final userMapping = classMappings.firstWhere(
+            (mapping) => mapping.className == userClassName,
+            orElse: () => ClassMapping(
+              id: '',
+              classCode: userClassName,
+              className: userClassName,
+            ),
+          );
+
+          final classCode = userMapping.classCode.trim();
+          return classCode.isNotEmpty ? classCode : userClassName;
+        })
+        .handleError((_) => userClassName);
   }
 
   /// Load user results for all competitions
@@ -88,7 +71,10 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
     List competitions,
     CompetitionsCubit cubit,
   ) async {
-    if (_loadingResults) return;
+    if (_loadingResults) {
+      _pendingResultsReload = true;
+      return;
+    }
 
     setState(() {
       _loadingResults = true;
@@ -114,15 +100,31 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
         _loadingResults = false;
       });
     }
+
+    if (_pendingResultsReload) {
+      _pendingResultsReload = false;
+      await _loadUserResults(competitions, cubit);
+    }
+  }
+
+  Future<void> _refreshCompetitionsAfterAction(
+    CompetitionsCubit cubit,
+    String classCode,
+  ) async {
+    _userResults.clear();
+    _pendingResultsReload = false;
+    await cubit.loadCompetitionsByAudience(classCode);
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String?>(
-      future: _classCodeFuture,
+    return StreamBuilder<String?>(
+      stream: _classCodeStream,
+      initialData: widget.user.userClass,
       builder: (context, snapshot) {
         // Show loading indicator while classCode is loading
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
           return ThemedScaffold(
             appBar: AppBar(
               title: const Text('المسابقات'),
@@ -135,8 +137,11 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
         }
 
         // Get the classCode (from snapshot or fallback to stored value)
+        final streamClassCode = snapshot.data?.trim();
         final classCode =
-            snapshot.data ?? _userClassCode ?? widget.user.userClass;
+            (streamClassCode != null && streamClassCode.isNotEmpty)
+            ? streamClassCode
+            : widget.user.userClass;
 
         return BlocProvider(
           create: (BuildContext context) {
@@ -234,13 +239,21 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                     ? FloatingActionButton(
                         onPressed: () {
                           final cubit = CompetitionsCubit.get(context);
-                          navigateTo(
+                          Navigator.push(
                             context,
-                            BlocProvider.value(
-                              value: cubit,
-                              child: const CreateCompetitionScreen(),
+                            MaterialPageRoute(
+                              builder: (_) => BlocProvider.value(
+                                value: cubit,
+                                child: const CreateCompetitionScreen(),
+                              ),
                             ),
-                          );
+                          ).then((_) async {
+                            if (!mounted) return;
+                            await _refreshCompetitionsAfterAction(
+                              cubit,
+                              classCode,
+                            );
+                          });
                         },
                         backgroundColor: Colors.green[600],
                         child: const Icon(Icons.add, color: Colors.white),
@@ -431,6 +444,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                                 count: activeCompetitions.length,
                                 competitions: activeCompetitions,
                                 cubit: cubit,
+                                classCode: classCode,
                                 initiallyExpanded: true,
                               ),
 
@@ -445,6 +459,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                                 count: notActiveCompetitions.length,
                                 competitions: notActiveCompetitions,
                                 cubit: cubit,
+                                classCode: classCode,
                                 isExpired: true,
                                 initiallyExpanded: false,
                               ),
@@ -460,6 +475,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                                 count: newCompetitions.length,
                                 competitions: newCompetitions,
                                 cubit: cubit,
+                                classCode: classCode,
                                 initiallyExpanded: true,
                               ),
 
@@ -474,6 +490,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                                 count: solvedCompetitions.length,
                                 competitions: solvedCompetitions,
                                 cubit: cubit,
+                                classCode: classCode,
                                 initiallyExpanded: false,
                               ),
 
@@ -488,6 +505,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                                 count: expiredCompetitions.length,
                                 competitions: expiredCompetitions,
                                 cubit: cubit,
+                                classCode: classCode,
                                 isExpired: true,
                                 initiallyExpanded: false,
                               ),
@@ -511,6 +529,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
     CompetitionsCubit cubit,
     competition,
     bool isCompleted,
+    String classCode,
   ) {
     final userId = widget.user.id;
 
@@ -518,17 +537,22 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
     if (widget.type.code == UserType.priest.code ||
         widget.type.code == UserType.superServant.code ||
         widget.type.code == UserType.servant.code) {
-      navigateTo(
+      Navigator.push(
         context,
-        BlocProvider.value(
-          value: cubit,
-          child: EditCompetitionScreen(
-            competition: competition,
-            userType: widget.type,
-            isAdmin: widget.isAdmin,
+        MaterialPageRoute(
+          builder: (_) => BlocProvider.value(
+            value: cubit,
+            child: EditCompetitionScreen(
+              competition: competition,
+              userType: widget.type,
+              isAdmin: widget.isAdmin,
+            ),
           ),
         ),
-      );
+      ).then((_) async {
+        if (!mounted) return;
+        await _refreshCompetitionsAfterAction(cubit, classCode);
+      });
     }
     // If user is child or other types
     else {
@@ -563,13 +587,8 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
             ),
           ),
         ).then((_) {
-          // Reload results after completing competition
-          if (mounted) {
-            final cubit = CompetitionsCubit.get(context);
-            final competitions = cubit.displayList ?? [];
-            _userResults.clear();
-            _loadUserResults(competitions, cubit);
-          }
+          if (!mounted) return;
+          _refreshCompetitionsAfterAction(cubit, classCode);
         });
       }
     }
@@ -873,6 +892,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
     required int count,
     required List competitions,
     required CompetitionsCubit cubit,
+    required String classCode,
     bool isExpired = false,
     bool initiallyExpanded = true,
   }) {
@@ -967,6 +987,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                   cubit,
                   competition,
                   isCompleted,
+                  classCode,
                 ),
               ),
             );

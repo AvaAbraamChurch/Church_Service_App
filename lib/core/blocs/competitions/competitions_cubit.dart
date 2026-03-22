@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:church/core/models/competitions/competition_model.dart';
 import 'package:church/core/repositories/competitions_repository.dart';
 import 'package:church/core/repositories/questions_repository.dart';
+import 'package:church/core/services/cloudinary_upload_service.dart';
 import 'package:church/core/services/coupon_points_service.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'competitions_states.dart';
@@ -15,6 +15,8 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   final QuestionsRepository questionsRepository;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final CouponPointsService _pointsService = CouponPointsService();
+  final CloudinaryUploadService _cloudinaryUploadService =
+      CloudinaryUploadService();
 
   // Cached data for UI consumers
   List<CompetitionModel>? allCompetitions;
@@ -205,17 +207,14 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     }
   }
 
-  /// Upload competition image to Firebase Storage
+  /// Upload competition cover image to Cloudinary.
   Future<String> _uploadCompetitionImage(File imageFile) async {
     try {
       emit(UploadImageLoading());
 
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final ref = _storage.ref().child('competitions/images/$timestamp.jpg');
-
-      final uploadTask = ref.putFile(imageFile);
-      final snapshot = await uploadTask;
-      final imageUrl = await snapshot.ref.getDownloadURL();
+      final imageUrl = await _cloudinaryUploadService.uploadCompetitionImage(
+        imageFile,
+      );
 
       emit(UploadImageSuccess(imageUrl));
       return imageUrl;
@@ -339,9 +338,13 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     }
   }
 
-  /// Delete competition image from Firebase Storage
+  /// Delete competition image from Firebase Storage for legacy image URLs.
+  /// Cloudinary cleanup should be handled server-side if needed.
   Future<void> _deleteCompetitionImage(String imageUrl) async {
     try {
+      if (!imageUrl.contains('firebasestorage.googleapis.com')) {
+        return;
+      }
       final ref = _storage.refFromURL(imageUrl);
       await ref.delete();
     } catch (e) {

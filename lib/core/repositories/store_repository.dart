@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/store/product_model.dart';
 
 /// Repository for managing store products with Firestore integration.
@@ -10,12 +11,16 @@ class StoreRepository {
   StoreRepository({
     FirebaseFirestore? firestore,
     String collectionPath = 'products',
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _collectionPath = collectionPath;
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _collectionPath = collectionPath;
 
   /// Reference to the products collection
   CollectionReference get _productsCollection =>
       _firestore.collection(_collectionPath);
+
+  /// Reference to store settings document.
+  DocumentReference<Map<String, dynamic>> get _storeSettingsDoc =>
+      _firestore.collection('settings').doc('store');
 
   // ==================== STREAM METHODS ====================
 
@@ -24,24 +29,30 @@ class StoreRepository {
     return _productsCollection
         .where('isActive', isEqualTo: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => ProductModel.fromFirestore(
                   doc.data() as Map<String, dynamic>,
                   doc.id,
-                ))
-            .toList());
+                ),
+              )
+              .toList(),
+        );
   }
 
   /// Stream all products (including inactive) in real-time
   Stream<List<ProductModel>> watchAllProductsIncludingInactive() {
-    return _productsCollection
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(
-                  doc.data() as Map<String, dynamic>,
-                  doc.id,
-                ))
-            .toList());
+    return _productsCollection.snapshots().map(
+      (snapshot) => snapshot.docs
+          .map(
+            (doc) => ProductModel.fromFirestore(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
+          .toList(),
+    );
   }
 
   /// Stream products by category in real-time
@@ -50,12 +61,16 @@ class StoreRepository {
         .where('category', isEqualTo: category)
         .where('isActive', isEqualTo: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => ProductModel.fromFirestore(
                   doc.data() as Map<String, dynamic>,
                   doc.id,
-                ))
-            .toList());
+                ),
+              )
+              .toList(),
+        );
   }
 
   /// Stream products with available stock in real-time
@@ -64,12 +79,16 @@ class StoreRepository {
         .where('isActive', isEqualTo: true)
         .where('stock', isGreaterThan: 0)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => ProductModel.fromFirestore(
                   doc.data() as Map<String, dynamic>,
                   doc.id,
-                ))
-            .toList());
+                ),
+              )
+              .toList(),
+        );
   }
 
   /// Stream products with discounts in real-time
@@ -78,12 +97,16 @@ class StoreRepository {
         .where('isActive', isEqualTo: true)
         .where('discount', isGreaterThan: 0)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => ProductModel.fromFirestore(
                   doc.data() as Map<String, dynamic>,
                   doc.id,
-                ))
-            .toList());
+                ),
+              )
+              .toList(),
+        );
   }
 
   /// Stream a single product by ID in real-time
@@ -103,37 +126,70 @@ class StoreRepository {
     return _productsCollection
         .where('isActive', isEqualTo: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => ProductModel.fromFirestore(
                   doc.data() as Map<String, dynamic>,
                   doc.id,
-                ))
-            .where((product) =>
-                product.userGender == null ||
-                product.userGender == 'ALL' ||
-                product.userGender == genderCode)
-            .toList());
+                ),
+              )
+              .where(
+                (product) =>
+                    product.userGender == null ||
+                    product.userGender == 'ALL' ||
+                    product.userGender == genderCode,
+              )
+              .toList(),
+        );
   }
 
   /// Stream products by user gender and category in real-time
   Stream<List<ProductModel>> watchProductsByUserGenderAndCategory(
     String genderCode,
-    String category
+    String category,
   ) {
     return _productsCollection
         .where('isActive', isEqualTo: true)
         .where('category', isEqualTo: category)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => ProductModel.fromFirestore(
                   doc.data() as Map<String, dynamic>,
                   doc.id,
-                ))
-            .where((product) =>
-                product.userGender == null ||
-                product.userGender == 'ALL' ||
-                product.userGender == genderCode)
-            .toList());
+                ),
+              )
+              .where(
+                (product) =>
+                    product.userGender == null ||
+                    product.userGender == 'ALL' ||
+                    product.userGender == genderCode,
+              )
+              .toList(),
+        );
+  }
+
+  /// Stream current store availability (defaults to open if settings are missing).
+  Stream<bool> watchStoreAvailability() {
+    return _storeSettingsDoc.snapshots().map((doc) {
+      if (!doc.exists) return true;
+      final data = doc.data();
+      return data?['isOpen'] as bool? ?? true;
+    });
+  }
+
+  /// Update store availability flag.
+  Future<void> setStoreAvailability(bool isOpen) async {
+    try {
+      await _storeSettingsDoc.set({
+        'isOpen': isOpen,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      throw Exception('Failed to update store availability: $e');
+    }
   }
 
   // ==================== FUTURE METHODS (One-time fetch) ====================
@@ -146,10 +202,12 @@ class StoreRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => ProductModel.fromFirestore(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+          .map(
+            (doc) => ProductModel.fromFirestore(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch products: $e');
@@ -180,10 +238,12 @@ class StoreRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => ProductModel.fromFirestore(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+          .map(
+            (doc) => ProductModel.fromFirestore(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch products by category: $e');
@@ -199,14 +259,18 @@ class StoreRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => ProductModel.fromFirestore(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
-          .where((product) =>
-              product.userGender == null ||
-              product.userGender == 'ALL' ||
-              product.userGender == genderCode)
+          .map(
+            (doc) => ProductModel.fromFirestore(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
+          .where(
+            (product) =>
+                product.userGender == null ||
+                product.userGender == 'ALL' ||
+                product.userGender == genderCode,
+          )
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch products by user gender: $e');
@@ -216,7 +280,7 @@ class StoreRepository {
   /// Get products by user gender and category (one-time fetch)
   Future<List<ProductModel>> getProductsByUserGenderAndCategory(
     String genderCode,
-    String category
+    String category,
   ) async {
     try {
       final snapshot = await _productsCollection
@@ -225,17 +289,23 @@ class StoreRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => ProductModel.fromFirestore(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
-          .where((product) =>
-              product.userGender == null ||
-              product.userGender == 'ALL' ||
-              product.userGender == genderCode)
+          .map(
+            (doc) => ProductModel.fromFirestore(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
+          .where(
+            (product) =>
+                product.userGender == null ||
+                product.userGender == 'ALL' ||
+                product.userGender == genderCode,
+          )
           .toList();
     } catch (e) {
-      throw Exception('Failed to fetch products by user gender and category: $e');
+      throw Exception(
+        'Failed to fetch products by user gender and category: $e',
+      );
     }
   }
 
@@ -247,7 +317,10 @@ class StoreRepository {
           .get();
 
       final categories = snapshot.docs
-          .map((doc) => (doc.data() as Map<String, dynamic>)['category'] as String?)
+          .map(
+            (doc) =>
+                (doc.data() as Map<String, dynamic>)['category'] as String?,
+          )
           .where((category) => category != null && category.isNotEmpty)
           .toSet()
           .toList();
@@ -269,10 +342,12 @@ class StoreRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => ProductModel.fromFirestore(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+          .map(
+            (doc) => ProductModel.fromFirestore(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
           .toList();
     } catch (e) {
       throw Exception('Failed to search products: $e');
@@ -349,7 +424,8 @@ class StoreRepository {
           throw Exception('Product not found');
         }
 
-        final currentStock = (snapshot.data() as Map<String, dynamic>)['stock'] as int;
+        final currentStock =
+            (snapshot.data() as Map<String, dynamic>)['stock'] as int;
         if (currentStock < quantity) {
           throw Exception('Insufficient stock');
         }
@@ -413,7 +489,10 @@ class StoreRepository {
 
   /// Create multiple products in a batch
   /// If userGender is provided, it will be applied to all products
-  Future<void> createProductsBatch(List<ProductModel> products, {String? userGender}) async {
+  Future<void> createProductsBatch(
+    List<ProductModel> products, {
+    String? userGender,
+  }) async {
     try {
       final batch = _firestore.batch();
 
@@ -515,10 +594,12 @@ class StoreRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => ProductModel.fromFirestore(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+          .map(
+            (doc) => ProductModel.fromFirestore(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch low stock products: $e');
@@ -531,12 +612,15 @@ class StoreRepository {
         .where('isActive', isEqualTo: true)
         .where('stock', isLessThanOrEqualTo: threshold)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromFirestore(
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => ProductModel.fromFirestore(
                   doc.data() as Map<String, dynamic>,
                   doc.id,
-                ))
-            .toList());
+                ),
+              )
+              .toList(),
+        );
   }
 }
-

@@ -1,12 +1,13 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:church/core/constants/strings.dart';
 import 'package:church/core/models/store/order_model.dart';
 import 'package:church/core/models/store/product_model.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/repositories/order_repository.dart';
 import 'package:church/core/repositories/store_repository.dart';
+import 'package:church/core/services/cloudinary_upload_service.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/styles/colors.dart';
@@ -48,6 +49,48 @@ class _AdminDashboardState extends State<AdminDashboard>
           icon: Icon(Icons.arrow_back, color: teal100),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          StreamBuilder<bool>(
+            stream: _storeRepo.watchStoreAvailability(),
+            initialData: true,
+            builder: (context, snapshot) {
+              final isStoreOpen = snapshot.data ?? true;
+              return IconButton(
+                tooltip: isStoreOpen ? 'إغلاق المعرض' : 'فتح المعرض',
+                icon: Icon(
+                  isStoreOpen
+                      ? Icons.store
+                      : Icons.store_mall_directory_outlined,
+                  color: isStoreOpen ? Colors.greenAccent : red300,
+                ),
+                onPressed: () async {
+                  try {
+                    await _storeRepo.setStoreAvailability(!isStoreOpen);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          !isStoreOpen
+                              ? 'تم فتح المعرض للشراء'
+                              : 'تم إغلاق المعرض مؤقتاً',
+                        ),
+                        backgroundColor: !isStoreOpen ? Colors.green : red500,
+                      ),
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('فشل في تحديث حالة المعرض: $e'),
+                        backgroundColor: red500,
+                      ),
+                    );
+                  }
+                },
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -883,6 +926,8 @@ class _AdminProductsTab extends StatefulWidget {
 
 class _AdminProductsTabState extends State<_AdminProductsTab> {
   final TextEditingController _searchController = TextEditingController();
+  final CloudinaryUploadService _cloudinaryUploadService =
+      CloudinaryUploadService();
   String _searchQuery = '';
   String? _selectedCategory;
   // null = all, 'M' = male, 'F' = female
@@ -1410,6 +1455,15 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
     focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: teal100)),
   );
 
+  Future<String?> _pickAndUploadProductImage() async {
+    final selectedImage = await _cloudinaryUploadService.pickImageFromGallery();
+    if (selectedImage == null) {
+      return null;
+    }
+
+    return _cloudinaryUploadService.uploadProductImage(selectedImage);
+  }
+
   void _showAddProductDialog() {
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
@@ -1421,121 +1475,192 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: teal700,
-        title: Text('إضافة منتج جديد', style: TextStyle(color: teal100)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleCtrl,
-                style: TextStyle(color: teal100),
-                decoration: _fieldDecoration('اسم المنتج'),
+      builder: (ctx) {
+        bool isUploadingImage = false;
+        String? imageUploadError;
+
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            backgroundColor: teal700,
+            title: Text('إضافة منتج جديد', style: TextStyle(color: teal100)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleCtrl,
+                    style: TextStyle(color: teal100),
+                    decoration: _fieldDecoration('اسم المنتج'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descCtrl,
+                    style: TextStyle(color: teal100),
+                    maxLines: 3,
+                    decoration: _fieldDecoration('الوصف'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: priceCtrl,
+                    style: TextStyle(color: teal100),
+                    keyboardType: TextInputType.number,
+                    decoration: _fieldDecoration('السعر'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: stockCtrl,
+                    style: TextStyle(color: teal100),
+                    keyboardType: TextInputType.number,
+                    decoration: _fieldDecoration('الكمية المتوفرة'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: discountCtrl,
+                    style: TextStyle(color: teal100),
+                    keyboardType: TextInputType.number,
+                    decoration: _fieldDecoration('نسبة الخصم (اختياري)'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: categoryCtrl,
+                    style: TextStyle(color: teal100),
+                    decoration: _fieldDecoration('الفئة'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: imageCtrl,
+                    style: TextStyle(color: teal100),
+                    decoration: _fieldDecoration('رابط الصورة'),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ElevatedButton.icon(
+                      onPressed: isUploadingImage
+                          ? null
+                          : () async {
+                              setDialogState(() {
+                                isUploadingImage = true;
+                                imageUploadError = null;
+                              });
+                              try {
+                                final uploadedUrl =
+                                    await _pickAndUploadProductImage();
+                                if (uploadedUrl != null) {
+                                  imageCtrl.text = uploadedUrl;
+                                }
+                              } catch (e) {
+                                imageUploadError = 'فشل رفع الصورة: $e';
+                              } finally {
+                                setDialogState(() {
+                                  isUploadingImage = false;
+                                });
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: teal500,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.cloud_upload_outlined),
+                      label: Text(
+                        isUploadingImage
+                            ? 'جارٍ الرفع...'
+                            : 'رفع الصورة إلى Cloudinary',
+                      ),
+                    ),
+                  ),
+                  if (isUploadingImage)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: LinearProgressIndicator(),
+                    ),
+                  if (!_cloudinaryUploadService.isConfigured)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Cloudinary غير مهيأ. أضف CLOUDINARY_CLOUD_NAME و CLOUDINARY_UPLOAD_PRESET عبر --dart-define.',
+                        style: TextStyle(color: brown300, fontSize: 12),
+                      ),
+                    ),
+                  if (imageUploadError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        imageUploadError!,
+                        style: TextStyle(color: red300, fontSize: 12),
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descCtrl,
-                style: TextStyle(color: teal100),
-                maxLines: 3,
-                decoration: _fieldDecoration('الوصف'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('إلغاء', style: TextStyle(color: teal300)),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: priceCtrl,
-                style: TextStyle(color: teal100),
-                keyboardType: TextInputType.number,
-                decoration: _fieldDecoration('السعر'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: stockCtrl,
-                style: TextStyle(color: teal100),
-                keyboardType: TextInputType.number,
-                decoration: _fieldDecoration('الكمية المتوفرة'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: discountCtrl,
-                style: TextStyle(color: teal100),
-                keyboardType: TextInputType.number,
-                decoration: _fieldDecoration('نسبة الخصم (اختياري)'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: categoryCtrl,
-                style: TextStyle(color: teal100),
-                decoration: _fieldDecoration('الفئة'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: imageCtrl,
-                style: TextStyle(color: teal100),
-                decoration: _fieldDecoration('رابط الصورة'),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: teal500,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: isUploadingImage
+                    ? null
+                    : () async {
+                        if (titleCtrl.text.isEmpty ||
+                            priceCtrl.text.isEmpty ||
+                            stockCtrl.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('يرجى ملء الحقول المطلوبة'),
+                              backgroundColor: red500,
+                            ),
+                          );
+                          return;
+                        }
+                        try {
+                          final product = ProductModel(
+                            id: '',
+                            title: titleCtrl.text,
+                            description: descCtrl.text.isEmpty
+                                ? null
+                                : descCtrl.text,
+                            price: double.parse(priceCtrl.text),
+                            stock: int.parse(stockCtrl.text),
+                            discount: discountCtrl.text.isEmpty
+                                ? null
+                                : int.parse(discountCtrl.text),
+                            category: categoryCtrl.text.isEmpty
+                                ? null
+                                : categoryCtrl.text,
+                            imageUrls: imageCtrl.text.isEmpty
+                                ? []
+                                : [imageCtrl.text],
+                            isActive: true,
+                            createdAt: DateTime.now(),
+                          );
+                          await widget.storeRepo.createProduct(product, 'ALL');
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('تم إضافة المنتج بنجاح'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('فشل في إضافة المنتج: $e'),
+                              backgroundColor: red500,
+                            ),
+                          );
+                        }
+                      },
+                child: const Text('إضافة'),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('إلغاء', style: TextStyle(color: teal300)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: teal500,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              if (titleCtrl.text.isEmpty ||
-                  priceCtrl.text.isEmpty ||
-                  stockCtrl.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('يرجى ملء الحقول المطلوبة'),
-                    backgroundColor: red500,
-                  ),
-                );
-                return;
-              }
-              try {
-                final product = ProductModel(
-                  id: '',
-                  title: titleCtrl.text,
-                  description: descCtrl.text.isEmpty ? null : descCtrl.text,
-                  price: double.parse(priceCtrl.text),
-                  stock: int.parse(stockCtrl.text),
-                  discount: discountCtrl.text.isEmpty
-                      ? null
-                      : int.parse(discountCtrl.text),
-                  category: categoryCtrl.text.isEmpty
-                      ? null
-                      : categoryCtrl.text,
-                  imageUrls: imageCtrl.text.isEmpty ? [] : [imageCtrl.text],
-                  isActive: true,
-                  createdAt: DateTime.now(),
-                );
-                await widget.storeRepo.createProduct(product, 'ALL');
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('تم إضافة المنتج بنجاح'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('فشل في إضافة المنتج: $e'),
-                    backgroundColor: red500,
-                  ),
-                );
-              }
-            },
-            child: const Text('إضافة'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1554,108 +1679,179 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: teal700,
-        title: Text('تعديل المنتج', style: TextStyle(color: teal100)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleCtrl,
-                style: TextStyle(color: teal100),
-                decoration: _fieldDecoration('اسم المنتج'),
+      builder: (ctx) {
+        bool isUploadingImage = false;
+        String? imageUploadError;
+
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            backgroundColor: teal700,
+            title: Text('تعديل المنتج', style: TextStyle(color: teal100)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleCtrl,
+                    style: TextStyle(color: teal100),
+                    decoration: _fieldDecoration('اسم المنتج'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descCtrl,
+                    style: TextStyle(color: teal100),
+                    maxLines: 3,
+                    decoration: _fieldDecoration('الوصف'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: priceCtrl,
+                    style: TextStyle(color: teal100),
+                    keyboardType: TextInputType.number,
+                    decoration: _fieldDecoration('السعر'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: stockCtrl,
+                    style: TextStyle(color: teal100),
+                    keyboardType: TextInputType.number,
+                    decoration: _fieldDecoration('الكمية المتوفرة'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: discountCtrl,
+                    style: TextStyle(color: teal100),
+                    keyboardType: TextInputType.number,
+                    decoration: _fieldDecoration('نسبة الخصم (اختياري)'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: categoryCtrl,
+                    style: TextStyle(color: teal100),
+                    decoration: _fieldDecoration('الفئة'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: imageCtrl,
+                    style: TextStyle(color: teal100),
+                    decoration: _fieldDecoration('رابط الصورة'),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ElevatedButton.icon(
+                      onPressed: isUploadingImage
+                          ? null
+                          : () async {
+                              setDialogState(() {
+                                isUploadingImage = true;
+                                imageUploadError = null;
+                              });
+                              try {
+                                final uploadedUrl =
+                                    await _pickAndUploadProductImage();
+                                if (uploadedUrl != null) {
+                                  imageCtrl.text = uploadedUrl;
+                                }
+                              } catch (e) {
+                                imageUploadError = 'فشل رفع الصورة: $e';
+                              } finally {
+                                setDialogState(() {
+                                  isUploadingImage = false;
+                                });
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: teal500,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.cloud_upload_outlined),
+                      label: Text(
+                        isUploadingImage
+                            ? 'جارٍ الرفع...'
+                            : 'رفع الصورة إلى Cloudinary',
+                      ),
+                    ),
+                  ),
+                  if (isUploadingImage)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: LinearProgressIndicator(),
+                    ),
+                  if (!_cloudinaryUploadService.isConfigured)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Cloudinary غير مهيأ. أضف CLOUDINARY_CLOUD_NAME و CLOUDINARY_UPLOAD_PRESET عبر --dart-define.',
+                        style: TextStyle(color: brown300, fontSize: 12),
+                      ),
+                    ),
+                  if (imageUploadError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        imageUploadError!,
+                        style: TextStyle(color: red300, fontSize: 12),
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descCtrl,
-                style: TextStyle(color: teal100),
-                maxLines: 3,
-                decoration: _fieldDecoration('الوصف'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('إلغاء', style: TextStyle(color: teal300)),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: priceCtrl,
-                style: TextStyle(color: teal100),
-                keyboardType: TextInputType.number,
-                decoration: _fieldDecoration('السعر'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: stockCtrl,
-                style: TextStyle(color: teal100),
-                keyboardType: TextInputType.number,
-                decoration: _fieldDecoration('الكمية المتوفرة'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: discountCtrl,
-                style: TextStyle(color: teal100),
-                keyboardType: TextInputType.number,
-                decoration: _fieldDecoration('نسبة الخصم (اختياري)'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: categoryCtrl,
-                style: TextStyle(color: teal100),
-                decoration: _fieldDecoration('الفئة'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: imageCtrl,
-                style: TextStyle(color: teal100),
-                decoration: _fieldDecoration('رابط الصورة'),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: teal500,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: isUploadingImage
+                    ? null
+                    : () async {
+                        try {
+                          final updated = product.copyWith(
+                            title: titleCtrl.text,
+                            description: descCtrl.text.isEmpty
+                                ? null
+                                : descCtrl.text,
+                            price: double.parse(priceCtrl.text),
+                            stock: int.parse(stockCtrl.text),
+                            discount: discountCtrl.text.isEmpty
+                                ? null
+                                : int.parse(discountCtrl.text),
+                            category: categoryCtrl.text.isEmpty
+                                ? null
+                                : categoryCtrl.text,
+                            imageUrls: imageCtrl.text.isEmpty
+                                ? []
+                                : [imageCtrl.text],
+                            updatedAt: DateTime.now(),
+                          );
+                          await widget.storeRepo.updateProduct(updated);
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('تم تحديث المنتج بنجاح'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('فشل في تحديث المنتج: $e'),
+                              backgroundColor: red500,
+                            ),
+                          );
+                        }
+                      },
+                child: const Text('حفظ'),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('إلغاء', style: TextStyle(color: teal300)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: teal500,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              try {
-                final updated = product.copyWith(
-                  title: titleCtrl.text,
-                  description: descCtrl.text.isEmpty ? null : descCtrl.text,
-                  price: double.parse(priceCtrl.text),
-                  stock: int.parse(stockCtrl.text),
-                  discount: discountCtrl.text.isEmpty
-                      ? null
-                      : int.parse(discountCtrl.text),
-                  category: categoryCtrl.text.isEmpty
-                      ? null
-                      : categoryCtrl.text,
-                  imageUrls: imageCtrl.text.isEmpty ? [] : [imageCtrl.text],
-                  updatedAt: DateTime.now(),
-                );
-                await widget.storeRepo.updateProduct(updated);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('تم تحديث المنتج بنجاح'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('فشل في تحديث المنتج: $e'),
-                    backgroundColor: red500,
-                  ),
-                );
-              }
-            },
-            child: const Text('حفظ'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

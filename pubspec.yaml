@@ -126,6 +126,9 @@ flutter:
     - family: Alexandria
       fonts:
         - asset: assets/fonts/Alexandria/Alexandria-SemiBold.ttf
+    - family: Athanasius
+      fonts:
+        - asset: assets/fonts/Coptic/Athanasius.ttf
   #   - family: Trajan Pro
   #     fonts:
   #       - asset: fonts/TrajanPro.ttf

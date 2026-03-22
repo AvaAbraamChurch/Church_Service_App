@@ -26,6 +26,7 @@ class _HymnsScreenState extends State<HymnsScreen> {
   final AudioPlayerService _audioPlayerService = AudioPlayerService();
   final UsersRepository _usersRepository = UsersRepository();
   final ScrollController _scrollController = ScrollController();
+  static const String _copticFontFamily = 'Athanasius';
   HymnModel? _selectedHymn;
   bool _showDropdown = true;
   double _lastScrollOffset = 0.0;
@@ -146,7 +147,37 @@ class _HymnsScreenState extends State<HymnsScreen> {
 
                       final hymns = snapshot.data ?? [];
 
-                      if (hymns.isEmpty) {
+                      // Keep dropdown values unique and non-empty to satisfy DropdownButton assertions.
+                      final uniqueHymnsById = <String, HymnModel>{};
+                      for (final hymn in hymns) {
+                        final normalizedId = hymn.id.trim();
+                        if (normalizedId.isEmpty ||
+                            uniqueHymnsById.containsKey(normalizedId)) {
+                          continue;
+                        }
+                        uniqueHymnsById[normalizedId] = hymn;
+                      }
+                      final dropdownHymns = uniqueHymnsById.values.toList(
+                        growable: false,
+                      );
+
+                      final selectedId = _selectedHymn?.id.trim();
+                      final safeSelectedId =
+                          selectedId != null &&
+                              uniqueHymnsById.containsKey(selectedId)
+                          ? selectedId
+                          : null;
+
+                      if (_selectedHymn != null && safeSelectedId == null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted || _selectedHymn == null) return;
+                          setState(() {
+                            _selectedHymn = null;
+                          });
+                        });
+                      }
+
+                      if (dropdownHymns.isEmpty) {
                         return const Padding(
                           padding: EdgeInsets.all(16.0),
                           child: Text(
@@ -202,10 +233,8 @@ class _HymnsScreenState extends State<HymnsScreen> {
                                 ),
                               ),
                             DropdownButtonFormField<String>(
-                              key: ValueKey(
-                                _selectedHymn?.id ?? 'no_selection',
-                              ),
-                              initialValue: _selectedHymn?.id,
+                              key: ValueKey(safeSelectedId ?? 'no_selection'),
+                              initialValue: safeSelectedId,
                               decoration: InputDecoration(
                                 labelText: 'اختر اللحن',
                                 border: OutlineInputBorder(
@@ -216,9 +245,9 @@ class _HymnsScreenState extends State<HymnsScreen> {
                               ),
                               isExpanded: true,
                               hint: const Text('اختر لحناً من القائمة'),
-                              items: hymns.map((hymn) {
+                              items: dropdownHymns.map((hymn) {
                                 return DropdownMenuItem<String>(
-                                  value: hymn.id,
+                                  value: hymn.id.trim(),
                                   child: Text(
                                     hymn.arabicTitle,
                                     overflow: TextOverflow.ellipsis,
@@ -226,13 +255,12 @@ class _HymnsScreenState extends State<HymnsScreen> {
                                 );
                               }).toList(),
                               onChanged: (String? newValue) {
-                                if (newValue != null) {
-                                  setState(() {
-                                    _selectedHymn = hymns.firstWhere(
-                                      (hymn) => hymn.id == newValue,
-                                    );
-                                  });
-                                }
+                                if (newValue == null) return;
+                                final selected = uniqueHymnsById[newValue];
+                                if (selected == null) return;
+                                setState(() {
+                                  _selectedHymn = selected;
+                                });
                               },
                             ),
                           ],
@@ -324,9 +352,11 @@ class _HymnsScreenState extends State<HymnsScreen> {
                   Text(
                     _selectedHymn!.copticTitle,
                     textAlign: TextAlign.center,
+                    textDirection: TextDirection.ltr,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontStyle: FontStyle.italic,
                       color: teal500,
+                      fontFamily: _copticFontFamily,
                     ),
                   ),
                 const SizedBox(height: 8),
@@ -410,10 +440,12 @@ class _HymnsScreenState extends State<HymnsScreen> {
                             title: 'القبطية',
                             lyrics: _selectedHymn!.copticLyrics!,
                             isRightBorder: hasEnglish,
+                            direction: TextDirection.ltr,
+                            fontFamily: _copticFontFamily,
                           ),
                         ),
 
-                      // English Column with left and right borders
+                      // Arabic Coptic Column with left and right borders
                       if (hasEnglish)
                         Expanded(
                           child: _buildLyricsColumn(
@@ -441,8 +473,11 @@ class _HymnsScreenState extends State<HymnsScreen> {
                       if (_selectedHymn!.copticLyrics != null &&
                           _selectedHymn!.copticLyrics!.isNotEmpty)
                         _buildLyricsSection(
+                          fontSize: 30,
                           title: 'الكلمات بالقبطية',
                           lyrics: _selectedHymn!.copticLyrics!,
+                          textDirection: TextDirection.ltr,
+                          fontFamily: _copticFontFamily,
                         ),
 
                       // قبطي معرب
@@ -469,6 +504,8 @@ class _HymnsScreenState extends State<HymnsScreen> {
     required String title,
     required String lyrics,
     required bool isRightBorder,
+    TextDirection direction = TextDirection.rtl,
+    String? fontFamily,
     bool hasLeftBorder = false,
   }) {
     // Split lyrics by double line breaks to get paragraphs/verses
@@ -520,11 +557,16 @@ class _HymnsScreenState extends State<HymnsScreen> {
               children: [
                 Text(
                   verse,
+                  textDirection: direction,
                   style: TextStyle(
                     fontSize: 15,
                     height: 1.8,
                     color: teal900,
                     letterSpacing: 0.3,
+                    fontFamily: fontFamily,
+                    fontFamilyFallback: fontFamily == null
+                        ? null
+                        : const ['Alexandria'],
                   ),
                 ),
                 // Add divider after each verse except the last one
@@ -546,7 +588,13 @@ class _HymnsScreenState extends State<HymnsScreen> {
   }
 
   // Build a section for single-column layout
-  Widget _buildLyricsSection({required String title, required String lyrics}) {
+  Widget _buildLyricsSection({
+    required String title,
+    required String lyrics,
+    double fontSize = 20.0,
+    TextDirection textDirection = TextDirection.rtl,
+    String? fontFamily,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -571,11 +619,16 @@ class _HymnsScreenState extends State<HymnsScreen> {
         const SizedBox(height: 16),
         Text(
           lyrics,
+          textDirection: textDirection,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: fontSize,
             height: 1.8,
             color: teal900,
             letterSpacing: 0.3,
+            fontFamily: fontFamily,
+            fontFamilyFallback: fontFamily == null
+                ? null
+                : const ['Alexandria'],
           ),
         ),
         const SizedBox(height: 32),

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/store/order_model.dart';
 
 /// Repository for managing orders with Firestore integration.
@@ -9,11 +10,13 @@ class OrderRepository {
   OrderRepository({
     FirebaseFirestore? firestore,
     String collectionPath = 'orders',
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _collectionPath = collectionPath;
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _collectionPath = collectionPath;
 
   CollectionReference get _ordersCollection =>
       _firestore.collection(_collectionPath);
+
+  static const int childMonthlyPurchaseLimit = 2;
 
   // ==================== STREAM METHODS ====================
 
@@ -22,12 +25,16 @@ class OrderRepository {
     return _ordersCollection
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => OrderModel.fromFirestore(
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => OrderModel.fromFirestore(
                   doc.data() as Map<String, dynamic>,
                   doc.id,
-                ))
-            .toList());
+                ),
+              )
+              .toList(),
+        );
   }
 
   /// Stream orders by status
@@ -35,12 +42,16 @@ class OrderRepository {
     return _ordersCollection
         .where('status', isEqualTo: status.code)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => OrderModel.fromFirestore(
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => OrderModel.fromFirestore(
                   doc.data() as Map<String, dynamic>,
                   doc.id,
-                ))
-            .toList());
+                ),
+              )
+              .toList(),
+        );
   }
 
   /// Stream orders by user
@@ -48,12 +59,33 @@ class OrderRepository {
     return _ordersCollection
         .where('userId', isEqualTo: userId)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => OrderModel.fromFirestore(
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => OrderModel.fromFirestore(
                   doc.data() as Map<String, dynamic>,
                   doc.id,
-                ))
-            .toList());
+                ),
+              )
+              .toList(),
+        );
+  }
+
+  /// Stream purchased item quantity for the current month (excludes cancelled/refunded).
+  Stream<int> watchUserPurchasedItemCountForCurrentMonth(String userId) {
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    final nextMonthStart = DateTime(now.year, now.month + 1, 1);
+
+    return _ordersCollection
+        .where('userId', isEqualTo: userId)
+        .where(
+          'createdAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart),
+        )
+        .where('createdAt', isLessThan: Timestamp.fromDate(nextMonthStart))
+        .snapshots()
+        .map((snapshot) => _sumPurchasedItems(snapshot.docs));
   }
 
   /// Stream pending orders
@@ -77,14 +109,15 @@ class OrderRepository {
   /// Get all orders
   Future<List<OrderModel>> getAllOrders() async {
     try {
-      final snapshot = await _ordersCollection
-          .get();
+      final snapshot = await _ordersCollection.get();
 
       return snapshot.docs
-          .map((doc) => OrderModel.fromFirestore(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+          .map(
+            (doc) => OrderModel.fromFirestore(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch orders: $e');
@@ -115,10 +148,12 @@ class OrderRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => OrderModel.fromFirestore(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+          .map(
+            (doc) => OrderModel.fromFirestore(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch orders by status: $e');
@@ -134,14 +169,61 @@ class OrderRepository {
           .get();
 
       return snapshot.docs
-          .map((doc) => OrderModel.fromFirestore(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+          .map(
+            (doc) => OrderModel.fromFirestore(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch orders by user: $e');
     }
+  }
+
+  /// Get purchased item quantity for the current month (excludes cancelled/refunded).
+  Future<int> getUserPurchasedItemCountForCurrentMonth(String userId) async {
+    try {
+      final now = DateTime.now();
+      final monthStart = DateTime(now.year, now.month, 1);
+      final nextMonthStart = DateTime(now.year, now.month + 1, 1);
+
+      final snapshot = await _ordersCollection
+          .where('userId', isEqualTo: userId)
+          .where(
+            'createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart),
+          )
+          .where('createdAt', isLessThan: Timestamp.fromDate(nextMonthStart))
+          .get();
+
+      return _sumPurchasedItems(snapshot.docs);
+    } catch (e) {
+      throw Exception('Failed to fetch monthly purchased item count: $e');
+    }
+  }
+
+  int _sumPurchasedItems(List<QueryDocumentSnapshot> docs) {
+    int totalPurchasedItems = 0;
+
+    for (final doc in docs) {
+      final order = OrderModel.fromFirestore(
+        doc.data() as Map<String, dynamic>,
+        doc.id,
+      );
+
+      if (order.status == OrderStatus.cancelled ||
+          order.status == OrderStatus.refunded) {
+        continue;
+      }
+
+      totalPurchasedItems += order.items.fold<int>(
+        0,
+        (sum, item) => sum + item.quantity,
+      );
+    }
+
+    return totalPurchasedItems;
   }
 
   // ==================== CREATE / UPDATE / DELETE ====================
@@ -173,7 +255,11 @@ class OrderRepository {
   }
 
   /// Update order status
-  Future<void> updateOrderStatus(String orderId, OrderStatus status, {String? notes}) async {
+  Future<void> updateOrderStatus(
+    String orderId,
+    OrderStatus status, {
+    String? notes,
+  }) async {
     try {
       // Get order data to check if points need to be returned
       final orderDoc = await _ordersCollection.doc(orderId).get();
@@ -205,7 +291,6 @@ class OrderRepository {
           paidWithPoints &&
           pointsDeducted > 0 &&
           userId != null) {
-
         // Use a transaction to ensure atomicity
         await _firestore.runTransaction((transaction) async {
           // Update order status
@@ -216,7 +301,10 @@ class OrderRepository {
           final userDoc = await transaction.get(userRef);
 
           if (userDoc.exists) {
-            final currentPoints = (userDoc.data() as Map<String, dynamic>)['couponPoints'] as int? ?? 0;
+            final currentPoints =
+                (userDoc.data() as Map<String, dynamic>)['couponPoints']
+                    as int? ??
+                0;
             final newPoints = currentPoints + pointsDeducted;
 
             transaction.update(userRef, {
@@ -225,13 +313,16 @@ class OrderRepository {
             });
 
             // Log the refund transaction
-            final transactionRef = _firestore.collection('pointsTransactions').doc();
+            final transactionRef = _firestore
+                .collection('pointsTransactions')
+                .doc();
             transaction.set(transactionRef, {
               'userId': userId,
               'orderId': orderId,
               'points': pointsDeducted,
               'type': 'REFUND',
-              'reason': 'Order ${status == OrderStatus.cancelled ? "cancelled" : "refunded"}',
+              'reason':
+                  'Order ${status == OrderStatus.cancelled ? "cancelled" : "refunded"}',
               'previousBalance': currentPoints,
               'newBalance': newPoints,
               'createdAt': FieldValue.serverTimestamp(),
@@ -305,17 +396,21 @@ class OrderRepository {
   ) async {
     try {
       final snapshot = await _ordersCollection
-          .where('createdAt',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
+          .where(
+            'createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+          )
           .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
           .orderBy('createdAt', descending: true)
           .get();
 
       return snapshot.docs
-          .map((doc) => OrderModel.fromFirestore(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+          .map(
+            (doc) => OrderModel.fromFirestore(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch orders by date range: $e');
@@ -337,4 +432,3 @@ class OrderRepository {
     }
   }
 }
-

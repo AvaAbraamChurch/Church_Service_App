@@ -992,60 +992,107 @@ class _EditCompetitionScreenState extends State<EditCompetitionScreen> {
                     const SizedBox(height: 16),
 
                     // Target Audience
-                    DropdownButtonFormField<String>(
-                      value: _targetAudience,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontFamily: 'Alexandria',
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'الفئة المستهدفة / الصف',
-                        labelStyle: const TextStyle(color: Colors.white),
-                        prefixIcon: const Icon(
-                          Icons.group,
-                          color: Colors.white,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      items: _buildClassDropdownItems(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _targetAudience = value;
+                    Builder(
+                      builder: (context) {
+                        final audienceItems = _buildClassDropdownItems();
+                        final validAudienceValues = audienceItems
+                            .map((item) => item.value)
+                            .whereType<String>()
+                            .toSet();
+                        final safeTargetAudience =
+                            validAudienceValues.contains(_targetAudience)
+                            ? _targetAudience
+                            : 'all';
+
+                        if (_targetAudience != safeTargetAudience) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            setState(() {
+                              _targetAudience = safeTargetAudience;
+                            });
                           });
                         }
+
+                        return DropdownButtonFormField<String>(
+                          value: safeTargetAudience,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontFamily: 'Alexandria',
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'الفئة المستهدفة / الصف',
+                            labelStyle: const TextStyle(color: Colors.white),
+                            prefixIcon: const Icon(
+                              Icons.group,
+                              color: Colors.white,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          items: audienceItems,
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _targetAudience = value;
+                              });
+                            }
+                          },
+                        );
                       },
                     ),
                     const SizedBox(height: 16),
 
                     // Target Gender
-                    DropdownButtonFormField<String>(
-                      value: _targetGender,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontFamily: 'Alexandria',
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'النوع المستهدف',
-                        labelStyle: const TextStyle(color: Colors.white),
-                        prefixIcon: const Icon(Icons.wc, color: Colors.white),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'all', child: Text('الكل')),
-                        DropdownMenuItem(value: 'M', child: Text('ذكور فقط')),
-                        DropdownMenuItem(value: 'F', child: Text('إناث فقط')),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _targetGender = value;
+                    Builder(
+                      builder: (context) {
+                        const genderItems = [
+                          DropdownMenuItem(value: 'all', child: Text('الكل')),
+                          DropdownMenuItem(value: 'M', child: Text('ذكور فقط')),
+                          DropdownMenuItem(value: 'F', child: Text('إناث فقط')),
+                        ];
+
+                        const validGenders = {'all', 'M', 'F'};
+                        final safeTargetGender =
+                            validGenders.contains(_targetGender)
+                            ? _targetGender
+                            : 'all';
+
+                        if (_targetGender != safeTargetGender) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            setState(() {
+                              _targetGender = safeTargetGender;
+                            });
                           });
                         }
+
+                        return DropdownButtonFormField<String>(
+                          value: safeTargetGender,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontFamily: 'Alexandria',
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'النوع المستهدف',
+                            labelStyle: const TextStyle(color: Colors.white),
+                            prefixIcon: const Icon(
+                              Icons.wc,
+                              color: Colors.white,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          items: genderItems,
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _targetGender = value;
+                              });
+                            }
+                          },
+                        );
                       },
                     ),
                     const SizedBox(height: 16),
