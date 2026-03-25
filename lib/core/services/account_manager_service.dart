@@ -24,6 +24,9 @@ class AccountManagerService {
           .toList();
       return result;
     } catch (e) {
+      // Log error while retrieving saved accounts
+      // ignore: avoid_print
+      print('AccountManagerService.getSavedAccounts error: $e');
       return [];
     }
   }
@@ -111,6 +114,9 @@ class AccountManagerService {
         return false;
       }
     } catch (e) {
+      // Log error switching account
+      // ignore: avoid_print
+      print('AccountManagerService.switchAccount error: $e');
       return false;
     }
   }
@@ -136,6 +142,9 @@ class AccountManagerService {
     try {
       return await CacheHelper.getData(key: _activeAccountKey);
     } catch (e) {
+      // Log error getting active account id
+      // ignore: avoid_print
+      print('AccountManagerService.getActiveAccountId error: $e');
       return null;
     }
   }

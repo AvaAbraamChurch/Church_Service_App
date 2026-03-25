@@ -75,7 +75,13 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
           });
         }
       }
-    } catch (e) {}
+    } catch (e, st) {
+      // Log errors while loading current user class
+      // ignore: avoid_print
+      print('EditHymnScreen._loadCurrentUserClass error: $e');
+      // ignore: avoid_print
+      print(st);
+    }
   }
 
   /// Load user classes from Firestore
@@ -106,7 +112,8 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
           _isLoadingClasses = false;
         });
       }
-    } catch (e) {
+    } catch (e, st) {
+      // Ensure loading flag is cleared and surface an error to the user
       if (mounted) {
         setState(() {
           _isLoadingClasses = false;
@@ -118,6 +125,12 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
           ),
         );
       }
+
+      // Log error while loading classes for diagnostics
+      // ignore: avoid_print
+      print('EditHymnScreen._loadUserClasses error: $e');
+      // ignore: avoid_print
+      print(st);
     }
   }
 

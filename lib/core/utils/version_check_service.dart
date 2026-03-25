@@ -1,10 +1,10 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 
 class VersionCheckService {
   static const String _githubApiUrl = 'https://api.github.com/repos';
@@ -36,12 +36,11 @@ class VersionCheckService {
   /// Gets the latest release version from GitHub API
   static Future<String?> _getLatestVersionFromGitHub() async {
     try {
-      final url = '$_githubApiUrl/$_githubUsername/$_repositoryName/releases/latest';
+      final url =
+          '$_githubApiUrl/$_githubUsername/$_repositoryName/releases/latest';
       final response = await http.get(
         Uri.parse(url),
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-        },
+        headers: {'Accept': 'application/vnd.github.v3+json'},
       );
 
       if (response.statusCode == 200) {
@@ -79,7 +78,9 @@ class VersionCheckService {
     final v1Parts = parse(version1);
     final v2Parts = parse(version2);
 
-    final maxLength = v1Parts.length > v2Parts.length ? v1Parts.length : v2Parts.length;
+    final maxLength = v1Parts.length > v2Parts.length
+        ? v1Parts.length
+        : v2Parts.length;
 
     for (int i = 0; i < maxLength; i++) {
       final v1Part = i < v1Parts.length ? v1Parts[i] : 0;
@@ -151,7 +152,9 @@ class VersionCheckService {
                   Text('Current version: $currentVersion'),
                   Text('Latest version: $latestVersion'),
                   const SizedBox(height: 16),
-                  const Text('Please update to get the latest features and bug fixes.'),
+                  const Text(
+                    'Please update to get the latest features and bug fixes.',
+                  ),
                 ],
               ),
               actions: [
@@ -188,7 +191,9 @@ class VersionCheckService {
   /// Opens GitHub releases page in browser
   static void _openGitHubReleases() async {
     try {
-      final url = Uri.parse('https://github.com/$_githubUsername/$_repositoryName/releases');
+      final url = Uri.parse(
+        'https://github.com/$_githubUsername/$_repositoryName/releases',
+      );
       if (await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);
       } else {
@@ -206,7 +211,10 @@ class VersionCheckService {
     await recordVersionCheck();
 
     if (!(await isLatestVersion())) {
-      await showUpdateDialog(context);
+      // Ensure context is still valid before showing dialog
+      if (context.mounted) {
+        await showUpdateDialog(context);
+      }
     }
   }
 }

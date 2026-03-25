@@ -55,7 +55,13 @@ class _HymnsScreenState extends State<HymnsScreen> {
           });
         }
       }
-    } catch (e) {}
+    } catch (e, st) {
+      // Log to help diagnose failures loading the current user
+      // ignore: avoid_print
+      print('Error loading current user class: $e');
+      // ignore: avoid_print
+      print(st);
+    }
   }
 
   /// Check if current user can manage hymns (servant, superServant, or priest)

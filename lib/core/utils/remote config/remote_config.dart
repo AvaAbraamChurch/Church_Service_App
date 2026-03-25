@@ -45,7 +45,13 @@ class RemoteConfigService {
 
       await _remoteConfig.setDefaults(_defaults);
       await fetchAndActivate();
-    } catch (e) {}
+    } catch (e, st) {
+      // Log remote config initialization errors
+      // ignore: avoid_print
+      print('RemoteConfig.initialize error: $e');
+      // ignore: avoid_print
+      print(st);
+    }
   }
 
   /// Fetch and activate remote config values
@@ -53,7 +59,12 @@ class RemoteConfigService {
     try {
       final bool updated = await _remoteConfig.fetchAndActivate();
       return updated;
-    } catch (e) {
+    } catch (e, st) {
+      // Log fetch/activate errors
+      // ignore: avoid_print
+      print('RemoteConfig.fetchAndActivate error: $e');
+      // ignore: avoid_print
+      print(st);
       return false;
     }
   }
@@ -143,7 +154,12 @@ class RemoteConfigService {
   Future<bool> activate() async {
     try {
       return await _remoteConfig.activate();
-    } catch (e) {
+    } catch (e, st) {
+      // Log activate errors
+      // ignore: avoid_print
+      print('RemoteConfig.activate error: $e');
+      // ignore: avoid_print
+      print(st);
       return false;
     }
   }

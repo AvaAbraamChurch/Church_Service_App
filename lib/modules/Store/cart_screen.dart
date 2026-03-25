@@ -87,6 +87,7 @@ class _CartScreenState extends State<CartScreen>
             _availablePoints = userData['couponPoints'] as int? ?? 0;
           }
 
+          if (!mounted) return;
           setState(() {});
         }
       }
@@ -275,7 +276,8 @@ class _CartScreenState extends State<CartScreen>
       // Clear cart
       cart.clear();
 
-      // Show success
+      // Show success only if the widget is still mounted
+      if (!mounted) return;
       Navigator.pop(context); // Close checkout sheet
       _showSuccessDialog(orderId);
     } catch (e) {

@@ -27,7 +27,13 @@ class LinkUtils {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
-    } catch (e) {}
+    } catch (e, st) {
+      // Log link launch errors for diagnostics
+      // ignore: avoid_print
+      print('launchURL error for $url: $e');
+      // ignore: avoid_print
+      print(st);
+    }
   }
 
   /// Build a TextSpan with clickable links
