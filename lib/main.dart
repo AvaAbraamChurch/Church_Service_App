@@ -126,12 +126,24 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         'type': message.data['type'] ?? 'message',
         'actionUrl': message.data['actionUrl'],
       });
-    } catch (e) {}
+    } catch (e, st) {
+      // Log background notification save errors for diagnostics
+      // ignore: avoid_print
+      print('Background saveNotificationToFirestore error: $e');
+      // ignore: avoid_print
+      print(st);
+    }
   }
 
   try {
     await showLocalNotification(message);
-  } catch (e, st) {}
+  } catch (e, st) {
+    // Log background notification display errors
+    // ignore: avoid_print
+    print('Background showLocalNotification error: $e');
+    // ignore: avoid_print
+    print(st);
+  }
 }
 
 // Background task callback for Workmanager. This runs on a background isolate.
@@ -204,9 +216,12 @@ void main() async {
       print('📊 Attendance storage stats: $attendanceStats');
       // ignore: avoid_print
       print('📊 Points storage stats: $pointsStats');
-    } catch (e) {
+    } catch (e, st) {
+      // Log initialization errors to help diagnose runtime crashes
       // ignore: avoid_print
       print('❌ Initialization error: $e');
+      // ignore: avoid_print
+      print(st);
     }
   }
 
@@ -222,8 +237,13 @@ void main() async {
         'syncPendingAttendance',
         frequency: const Duration(minutes: 15),
       );
-    } catch (e) {
+    } catch (e, st) {
       // Workmanager failed - app will still work with foreground sync via connectivity listener
+      // Log the error to help debugging
+      // ignore: avoid_print
+      print('Workmanager initialization error: $e');
+      // ignore: avoid_print
+      print(st);
     }
   }
 
@@ -315,7 +335,13 @@ void main() async {
           'type': message.data['type'] ?? 'message',
           'actionUrl': message.data['actionUrl'],
         });
-      } catch (e) {}
+      } catch (e, st) {
+        // Log errors saving notification when app is foregrounded
+        // ignore: avoid_print
+        print('saveNotificationToFirestore error: $e');
+        // ignore: avoid_print
+        print(st);
+      }
     }
 
     // Listen for messages when the app is in the foreground
@@ -323,7 +349,13 @@ void main() async {
       try {
         await showLocalNotification(message);
         await saveNotificationToFirestore(message);
-      } catch (e) {}
+      } catch (e, st) {
+        // Log errors handling onMessage
+        // ignore: avoid_print
+        print('onMessage handling error: $e');
+        // ignore: avoid_print
+        print(st);
+      }
     });
 
     // Handle when app is opened from a notification
@@ -349,7 +381,13 @@ void main() async {
           return false;
         },
       );
-    } catch (e) {}
+    } catch (e, st) {
+      // Log remote config errors
+      // ignore: avoid_print
+      print('RemoteConfig error: $e');
+      // ignore: avoid_print
+      print(st);
+    }
   }
 
   // Initialize cache helper
