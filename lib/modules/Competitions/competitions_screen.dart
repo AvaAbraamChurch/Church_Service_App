@@ -7,7 +7,7 @@ import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/Competitions/create_competition_screen.dart';
 import 'package:church/modules/Competitions/edit_competition_screen.dart';
-import 'package:church/modules/Competitions/take_competition_screen.dart';
+import 'package:church/modules/Competitions/take_competition_card_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -579,7 +579,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
           MaterialPageRoute(
             builder: (context) => BlocProvider.value(
               value: cubit,
-              child: TakeCompetitionScreen(
+              child: TakeCompetitionCardScreen(
                 competition: competition,
                 userId: userId,
                 user: widget.user,

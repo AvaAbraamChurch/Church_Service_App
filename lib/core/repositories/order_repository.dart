@@ -285,52 +285,156 @@ class OrderRepository {
       if (status == OrderStatus.completed) {
         updateData['completedAt'] = FieldValue.serverTimestamp();
       }
+      // If order is being cancelled or refunded, attempt to return points
+      // and restore product stock, but only once per order (idempotent).
+      final refundProcessed = metadata?['refundProcessed'] as bool? ?? false;
 
-      // If order is being cancelled or refunded, return points to user
       if ((status == OrderStatus.cancelled || status == OrderStatus.refunded) &&
-          paidWithPoints &&
-          pointsDeducted > 0 &&
+          !refundProcessed &&
           userId != null) {
-        // Use a transaction to ensure atomicity
-        await _firestore.runTransaction((transaction) async {
-          // Update order status
-          transaction.update(_ordersCollection.doc(orderId), updateData);
+        final userRef = _firestore.collection('users').doc(userId);
 
-          // Return points to user
-          final userRef = _firestore.collection('users').doc(userId);
-          final userDoc = await transaction.get(userRef);
+        // Collect items for stock restoration
+        final items = (orderData['items'] as List<dynamic>?)
+            ?.map((i) => i as Map<String, dynamic>)
+            .toList();
 
-          if (userDoc.exists) {
-            final currentPoints =
-                (userDoc.data() as Map<String, dynamic>)['couponPoints']
-                    as int? ??
-                0;
-            final newPoints = currentPoints + pointsDeducted;
+        try {
+          // Primary attempt: transaction for atomicity
+          await _firestore.runTransaction((transaction) async {
+            final orderRef = _ordersCollection.doc(orderId);
 
-            transaction.update(userRef, {
-              'couponPoints': newPoints,
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
+            // Update order status and mark refundProcessed in metadata
+            final orderUpdate = Map<String, dynamic>.from(updateData);
+            orderUpdate['metadata'] = {
+              ...?metadata,
+              'refundProcessed': true,
+              'refundProcessedAt': FieldValue.serverTimestamp(),
+            };
+            transaction.update(orderRef, orderUpdate);
 
-            // Log the refund transaction
-            final transactionRef = _firestore
-                .collection('pointsTransactions')
-                .doc();
-            transaction.set(transactionRef, {
-              'userId': userId,
-              'orderId': orderId,
-              'points': pointsDeducted,
-              'type': 'REFUND',
-              'reason':
-                  'Order ${status == OrderStatus.cancelled ? "cancelled" : "refunded"}',
-              'previousBalance': currentPoints,
-              'newBalance': newPoints,
-              'createdAt': FieldValue.serverTimestamp(),
-            });
+            // Refund points if applicable
+            if (paidWithPoints && pointsDeducted > 0) {
+              final userDoc = await transaction.get(userRef);
+              if (userDoc.exists) {
+                final currentPoints =
+                    (userDoc.data() as Map<String, dynamic>)['couponPoints']
+                        as int? ??
+                    0;
+                final newPoints = currentPoints + pointsDeducted;
+
+                transaction.update(userRef, {
+                  'couponPoints': newPoints,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
+
+                final transactionRef = _firestore
+                    .collection('pointsTransactions')
+                    .doc();
+                transaction.set(transactionRef, {
+                  'userId': userId,
+                  'orderId': orderId,
+                  'points': pointsDeducted,
+                  'type': 'REFUND',
+                  'reason':
+                      'Order ${status == OrderStatus.cancelled ? "cancelled" : "refunded"}',
+                  'previousBalance': currentPoints,
+                  'newBalance': newPoints,
+                  'createdAt': FieldValue.serverTimestamp(),
+                });
+              }
+            }
+
+            // Restore stock for order items
+            if (items != null && items.isNotEmpty) {
+              for (final item in items) {
+                final productId = item['productId'] as String?;
+                final qty = (item['quantity'] as num?)?.toInt() ?? 0;
+                if (productId != null && qty > 0) {
+                  final prodRef = _firestore
+                      .collection('products')
+                      .doc(productId);
+                  final prodDoc = await transaction.get(prodRef);
+                  if (prodDoc.exists) {
+                    transaction.update(prodRef, {
+                      'stock': FieldValue.increment(qty),
+                      'updatedAt': FieldValue.serverTimestamp(),
+                    });
+                  }
+                }
+              }
+            }
+          });
+        } catch (txErr) {
+          // Transaction failed — fall back to batch updates
+          try {
+            final batch = _firestore.batch();
+            final orderRef = _ordersCollection.doc(orderId);
+
+            final orderUpdate = Map<String, dynamic>.from(updateData);
+            orderUpdate['metadata'] = {
+              ...?metadata,
+              'refundProcessed': true,
+              'refundProcessedAt': FieldValue.serverTimestamp(),
+            };
+            batch.update(orderRef, orderUpdate);
+
+            if (paidWithPoints && pointsDeducted > 0) {
+              final userDoc = await userRef.get();
+              if (userDoc.exists) {
+                final currentPoints =
+                    (userDoc.data() as Map<String, dynamic>)['couponPoints']
+                        as int? ??
+                    0;
+                final newPoints = currentPoints + pointsDeducted;
+
+                batch.update(userRef, {
+                  'couponPoints': newPoints,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
+
+                final transactionRef = _firestore
+                    .collection('pointsTransactions')
+                    .doc();
+                batch.set(transactionRef, {
+                  'userId': userId,
+                  'orderId': orderId,
+                  'points': pointsDeducted,
+                  'type': 'REFUND',
+                  'reason':
+                      'Order ${status == OrderStatus.cancelled ? "cancelled" : "refunded"}',
+                  'previousBalance': currentPoints,
+                  'newBalance': newPoints,
+                  'createdAt': FieldValue.serverTimestamp(),
+                });
+              }
+            }
+
+            if (items != null && items.isNotEmpty) {
+              for (final item in items) {
+                final productId = item['productId'] as String?;
+                final qty = (item['quantity'] as num?)?.toInt() ?? 0;
+                if (productId != null && qty > 0) {
+                  final prodRef = _firestore
+                      .collection('products')
+                      .doc(productId);
+                  batch.update(prodRef, {
+                    'stock': FieldValue.increment(qty),
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  });
+                }
+              }
+            }
+
+            await batch.commit();
+          } catch (fallbackErr) {
+            throw Exception(
+              'Transaction failed: $txErr; Fallback failed: $fallbackErr',
+            );
           }
-        });
+        }
       } else {
-        // No points refund needed, just update the order
+        // No refund/restore needed (either not a cancel/refund or already processed)
         await _ordersCollection.doc(orderId).update(updateData);
       }
     } catch (e) {
