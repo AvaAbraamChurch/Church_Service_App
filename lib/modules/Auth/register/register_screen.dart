@@ -34,7 +34,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _addressController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
   // Dropdown selections
@@ -60,7 +59,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _addressController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _passwordController.dispose();
     _confirmPasswordController.dispose();
     _pageController.dispose();
     super.dispose();
@@ -82,18 +80,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (v == null || v.trim().isEmpty) return enterPhone;
     final digits = v.replaceAll(RegExp(r'\D'), '');
     if (digits.length < 8) return enterPhone;
-    return null;
-  }
-
-  String? _passwordValidator(String? v) {
-    if (v == null || v.trim().isEmpty) return enterPassword;
-    if (v.trim().length < 6) return weakPassword;
-    return null;
-  }
-
-  String? _confirmValidator(String? v) {
-    if (v == null || v.trim().isEmpty) return passwordsDoNotMatch;
-    if (v != _passwordController.text) return passwordsDoNotMatch;
     return null;
   }
 
@@ -327,7 +313,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       await cubit.signUp(
         _emailController.text.trim(),
-        _passwordController.text.trim(),
         extraData: data,
         profileImage: _selectedImage,
       );
@@ -889,34 +874,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             validator: _phoneValidator,
             gradient: const LinearGradient(
               colors: [sage100, sage500],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          _buildModernTextField(
-            controller: _passwordController,
-            label: password,
-            icon: Icons.lock_rounded,
-            isPassword: true,
-            validator: _passwordValidator,
-            gradient: const LinearGradient(
-              colors: [tawny, Color(0xFFD0A377)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          _buildModernTextField(
-            controller: _confirmPasswordController,
-            label: confirmPassword,
-            icon: Icons.lock_outline_rounded,
-            isPassword: true,
-            validator: _confirmValidator,
-            gradient: const LinearGradient(
-              colors: [teal500, teal700],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

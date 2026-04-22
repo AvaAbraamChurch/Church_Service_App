@@ -91,7 +91,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // Sign up method - creates registration request instead of direct user creation
-  Future<void> signUp(String email, String password, {Map<String, dynamic>? extraData, File? profileImage}) async {
+  Future<void> signUp(String email, {Map<String, dynamic>? extraData, File? profileImage}) async {
     emit(AuthLoading());
     try {
       // Upload profile image to storage first
