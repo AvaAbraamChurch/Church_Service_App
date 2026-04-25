@@ -53,10 +53,11 @@ class CompetitionsRepository {
         );
   }
 
-  /// Stream competitions by target audience
-  Stream<List<CompetitionModel>> watchCompetitionsByAudience(String audience) {
+   /// Stream active competitions for a specific user class
+  /// If competition.targetClasses is empty, it's available for all classes
+  /// Otherwise, only show if user's class is in targetClasses
+  Stream<List<CompetitionModel>> watchCompetitionsByClass(String userClassId) {
     return _competitionsCollection
-        .where('targetAudience', isEqualTo: audience)
         .where('isActive', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .snapshots()
@@ -68,6 +69,12 @@ class CompetitionsRepository {
                   'id': doc.id,
                 }),
               )
+              .where((competition) {
+                // If no target classes specified, available for all
+                if (competition.targetClasses.isEmpty) return true;
+                // Otherwise, only show if user's class is in the target classes
+                return competition.targetClasses.contains(userClassId);
+              })
               .toList(),
         );
   }
@@ -195,14 +202,13 @@ class CompetitionsRepository {
     }
   }
 
-  /// Get competitions by target audience
-  Future<List<CompetitionModel>> getCompetitionsByAudience(
-    String audience,
-  ) async {
+   /// Get active competitions for a specific user class
+  /// If competition.targetClasses is empty, it's available for all classes
+  /// Otherwise, only show if user's class is in targetClasses
+  Future<List<CompetitionModel>> getCompetitionsByClass(String userClassId) async {
     try {
-      // Query for competitions where targetAudience is either the specific audience or 'all'
-      var snapshot = await _competitionsCollection
-          .where('targetAudience', whereIn: [audience, 'all'])
+      final snapshot = await _competitionsCollection
+          .where('isActive', isEqualTo: true)
           .orderBy('createdAt', descending: true)
           .get();
 
@@ -213,9 +219,15 @@ class CompetitionsRepository {
               'id': doc.id,
             }),
           )
+          .where((competition) {
+            // If no target classes specified, available for all
+            if (competition.targetClasses.isEmpty) return true;
+            // Otherwise, only show if user's class is in the target classes
+            return competition.targetClasses.contains(userClassId);
+          })
           .toList();
     } catch (e) {
-      throw Exception('Error fetching competitions by audience: $e');
+      throw Exception('Error fetching competitions by class: $e');
     }
   }
 
@@ -604,4 +616,35 @@ class CompetitionsRepository {
       throw Exception('Error getting user competition result: $e');
     }
   }
+
+   /// Get all distinct user classes available in the system
+   /// Returns a sorted list of class names from the 'classes' collection
+   Future<List<String>> getAvailableUserClasses() async {
+     try {
+       // Fetch all classes from the 'classes' collection
+       final snapshot = await _firestore
+           .collection('classes')
+           .get();
+
+       final userClasses = <String>{};
+       for (var doc in snapshot.docs) {
+         try {
+           // Extract class name - support multiple field name conventions
+           final className = (doc['name'] ?? doc['className'] ?? doc['classCode'] ?? doc.id) as String?;
+           if (className != null && className.trim().isNotEmpty) {
+             userClasses.add(className.trim());
+           }
+         } catch (e) {
+           // Skip documents with missing or malformed class field
+           continue;
+         }
+       }
+
+       // Return sorted list
+       final sorted = userClasses.toList()..sort();
+       return sorted;
+     } catch (e) {
+       throw Exception('Error fetching available user classes: $e');
+     }
+   }
 }

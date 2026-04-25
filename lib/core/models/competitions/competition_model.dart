@@ -12,8 +12,8 @@ class CompetitionModel {
   final List<QuestionModel> questions;
   final bool isActive;
   final String? createdBy; // User ID of creator
-  final String? targetAudience; // 'all', 'children', 'servants', etc.
   final String? targetGender; // 'all', 'M', 'F' - Filter by gender
+  final List<String> targetClasses; // userClass names that can access this competition (empty = all classes)
   final double? pointsPerQuestion;
   final double? totalPoints;
   final String? imageUrl;
@@ -29,8 +29,8 @@ class CompetitionModel {
     required this.questions,
     this.isActive = true,
     this.createdBy,
-    this.targetAudience,
     this.targetGender,
+    this.targetClasses = const [],
     this.pointsPerQuestion,
     this.totalPoints,
     this.imageUrl,
@@ -62,8 +62,11 @@ class CompetitionModel {
           [],
       isActive: json['isActive'] as bool? ?? true,
       createdBy: json['createdBy'] as String?,
-      targetAudience: json['targetAudience'] as String?,
       targetGender: json['targetGender'] as String?,
+      targetClasses: (json['targetClasses'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
       pointsPerQuestion: json['pointsPerQuestion'] != null
           ? (json['pointsPerQuestion'] is int
               ? (json['pointsPerQuestion'] as int).toDouble()
@@ -87,12 +90,12 @@ class CompetitionModel {
       'createdAt': Timestamp.fromDate(createdAt),
       if (startDate != null) 'startDate': Timestamp.fromDate(startDate!),
       if (endDate != null) 'endDate': Timestamp.fromDate(endDate!),
-      'numberOfQuestions': numberOfQuestions,
-      'questions': questions.map((q) => q.toJson()).toList(),
-      'isActive': isActive,
-      if (createdBy != null) 'createdBy': createdBy,
-      if (targetAudience != null) 'targetAudience': targetAudience,
-      if (targetGender != null) 'targetGender': targetGender,
+       'numberOfQuestions': numberOfQuestions,
+       'questions': questions.map((q) => q.toJson()).toList(),
+       'isActive': isActive,
+       if (createdBy != null) 'createdBy': createdBy,
+       if (targetGender != null) 'targetGender': targetGender,
+       if (targetClasses.isNotEmpty) 'targetClasses': targetClasses,
       if (pointsPerQuestion != null) 'pointsPerQuestion': pointsPerQuestion,
       if (totalPoints != null) 'totalPoints': totalPoints,
       if (imageUrl != null) 'imageUrl': imageUrl,
@@ -111,8 +114,8 @@ class CompetitionModel {
     List<QuestionModel>? questions,
     bool? isActive,
     String? createdBy,
-    String? targetAudience,
     String? targetGender,
+    List<String>? targetClasses,
     double? pointsPerQuestion,
     double? totalPoints,
     String? imageUrl,
@@ -128,8 +131,8 @@ class CompetitionModel {
       questions: questions ?? this.questions,
       isActive: isActive ?? this.isActive,
       createdBy: createdBy ?? this.createdBy,
-      targetAudience: targetAudience ?? this.targetAudience,
       targetGender: targetGender ?? this.targetGender,
+      targetClasses: targetClasses ?? this.targetClasses,
       pointsPerQuestion: pointsPerQuestion ?? this.pointsPerQuestion,
       totalPoints: totalPoints ?? this.totalPoints,
       imageUrl: imageUrl ?? this.imageUrl,

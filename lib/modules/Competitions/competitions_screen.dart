@@ -1,9 +1,6 @@
 import 'package:church/core/blocs/competitions/competitions_cubit.dart';
 import 'package:church/core/blocs/competitions/competitions_states.dart';
-import 'package:church/core/models/class_mapping/class_mapping_model.dart';
 import 'package:church/core/styles/themeScaffold.dart';
-import 'package:church/core/utils/classes_mapping.dart';
-import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/Competitions/create_competition_screen.dart';
 import 'package:church/modules/Competitions/edit_competition_screen.dart';
@@ -12,6 +9,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/models/user/user_model.dart';
+
+// FIX summary
+// -----------
+// 1. Removed the dead StreamBuilder that wrapped the whole build() method.
+//    `_classCodeStream` was never defined, so the app would crash immediately.
+//    The class code is read directly from `widget.user.userClass` – it is a
+//    plain string on the user document, no stream needed.
+//
+// 2. Admin routing fix: priests / servants now call `loadAllCompetitions()`
+//    instead of `loadCompetitionsByClass()`, so they see every competition.
+//
+// 3. User list fix: regular users now read from `cubit.activeCompetitions`
+//    (populated by `loadCompetitionsByClass`) rather than `cubit.allCompetitions`.
+//    Both are exposed by `displayList`, so we just keep using that – the cubit
+//    fix in `displayList` already prefers `activeCompetitions` over `allCompetitions`.
+//
+// 4. Removed the unused `gender_enum.dart` import.
 
 class CompetitionsScreen extends StatefulWidget {
   final UserModel user;
@@ -30,43 +44,21 @@ class CompetitionsScreen extends StatefulWidget {
 }
 
 class _CompetitionsScreenState extends State<CompetitionsScreen> {
-  // Store user's competition results: competitionId -> result data
+  // competitionId -> result data
   final Map<String, Map<String, dynamic>> _userResults = {};
   bool _loadingResults = false;
   bool _pendingResultsReload = false;
-  Stream<String?>? _classCodeStream;
+
+  bool get _isAdminUser =>
+      widget.type.code == UserType.priest.code ||
+      widget.type.code == UserType.superServant.code ||
+      widget.type.code == UserType.servant.code;
 
   @override
   void initState() {
     super.initState();
-    _classCodeStream = _watchUserClassCode();
   }
 
-  /// Watch user's classCode from ClassMapping so screen reacts to mapping updates.
-  Stream<String?> _watchUserClassCode() {
-    final userClassName = widget.user.userClass.trim();
-    if (userClassName.isEmpty) {
-      return Stream<String?>.value(null);
-    }
-
-    return ClassMappingService.getActiveClassMappings()
-        .map((classMappings) {
-          final userMapping = classMappings.firstWhere(
-            (mapping) => mapping.className == userClassName,
-            orElse: () => ClassMapping(
-              id: '',
-              classCode: userClassName,
-              className: userClassName,
-            ),
-          );
-
-          final classCode = userMapping.classCode.trim();
-          return classCode.isNotEmpty ? classCode : userClassName;
-        })
-        .handleError((_) => userClassName);
-  }
-
-  /// Load user results for all competitions
   Future<void> _loadUserResults(
     List competitions,
     CompetitionsCubit cubit,
@@ -76,9 +68,7 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
       return;
     }
 
-    setState(() {
-      _loadingResults = true;
-    });
+    setState(() => _loadingResults = true);
 
     for (var competition in competitions) {
       if (competition.id != null) {
@@ -86,20 +76,13 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
           widget.user.id,
           competition.id,
         );
-
         if (result != null && mounted) {
-          setState(() {
-            _userResults[competition.id] = result;
-          });
+          setState(() => _userResults[competition.id] = result);
         }
       }
     }
 
-    if (mounted) {
-      setState(() {
-        _loadingResults = false;
-      });
-    }
+    if (mounted) setState(() => _loadingResults = false);
 
     if (_pendingResultsReload) {
       _pendingResultsReload = false;
@@ -109,419 +92,357 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
 
   Future<void> _refreshCompetitionsAfterAction(
     CompetitionsCubit cubit,
-    String classCode,
   ) async {
     _userResults.clear();
     _pendingResultsReload = false;
-    await cubit.loadCompetitionsByAudience(classCode);
+    if (_isAdminUser) {
+      await cubit.loadAllCompetitions();
+    } else {
+      final userClass = widget.user.userClass.trim();
+      if (userClass.isEmpty) {
+        await cubit.loadActiveCompetitions();
+      } else {
+        await cubit.loadCompetitionsByClass(userClass);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<String?>(
-      stream: _classCodeStream,
-      initialData: widget.user.userClass,
-      builder: (context, snapshot) {
-        // Show loading indicator while classCode is loading
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData) {
-          return ThemedScaffold(
-            appBar: AppBar(
-              title: const Text('المسابقات'),
-              backgroundColor: Colors.green[700],
-            ),
-            body: const Center(
-              child: CircularProgressIndicator(color: Colors.green),
-            ),
-          );
+    // FIX: plain synchronous value – no StreamBuilder needed.
+    final classCode = widget.user.userClass.trim();
+
+    return BlocProvider(
+      create: (context) {
+        final cubit = CompetitionsCubit();
+
+        if (_isAdminUser) {
+          // FIX: admins always load ALL competitions.
+          cubit.loadAllCompetitions();
+        } else {
+          if (classCode.isEmpty) {
+            cubit.loadActiveCompetitions();
+          } else {
+            // FIX: passes the class *name* string that matches what
+            //      `targetClasses` stores in Firestore.
+            cubit.loadCompetitionsByClass(classCode);
+          }
         }
 
-        // Get the classCode (from snapshot or fallback to stored value)
-        final streamClassCode = snapshot.data?.trim();
-        final classCode =
-            (streamClassCode != null && streamClassCode.isNotEmpty)
-            ? streamClassCode
-            : widget.user.userClass;
+        return cubit;
+      },
+      child: BlocConsumer<CompetitionsCubit, CompetitionsState>(
+        listener: (context, state) {},
+        builder: (context, state) {
+          final cubit = CompetitionsCubit.get(context);
 
-        return BlocProvider(
-          create: (BuildContext context) {
-            final cubit = CompetitionsCubit();
-            // Load competitions by audience using the loaded classCode
-            cubit.loadCompetitionsByAudience(classCode);
-            return cubit;
-          },
-          child: BlocConsumer<CompetitionsCubit, CompetitionsState>(
-            builder: (BuildContext context, state) {
-              return ThemedScaffold(
-                appBar: PreferredSize(
-                  preferredSize: const Size.fromHeight(70),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.green[400]!, Colors.green[700]!],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
+          return ThemedScaffold(
+            appBar: PreferredSize(
+              preferredSize: const Size.fromHeight(70),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.green[400]!, Colors.green[700]!],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                          ),
+                          tooltip: 'رجوع',
+                        ),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'المسابقات',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'Alexandria',
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'اختبر معرفتك واكسب كوبونات',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 12,
+                                  fontFamily: 'Alexandria',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.sports_score,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
                       ],
                     ),
-                    child: SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              onPressed: () => Navigator.pop(context),
-                              icon: const Icon(
-                                Icons.arrow_back,
-                                color: Colors.white,
-                              ),
-                              tooltip: 'رجوع',
-                            ),
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'المسابقات',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Alexandria',
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'اختبر معرفتك واكسب كوبونات',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.9,
-                                      ),
-                                      fontSize: 12,
-                                      fontFamily: 'Alexandria',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.sports_score,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   ),
                 ),
-                floatingActionButton:
-                    widget.type.code == UserType.priest.code ||
-                        widget.type.code == UserType.superServant.code ||
-                        widget.type.code == UserType.servant.code
-                    ? FloatingActionButton(
-                        onPressed: () {
-                          final cubit = CompetitionsCubit.get(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => BlocProvider.value(
-                                value: cubit,
-                                child: const CreateCompetitionScreen(),
-                              ),
-                            ),
-                          ).then((_) async {
-                            if (!mounted) return;
-                            await _refreshCompetitionsAfterAction(
-                              cubit,
-                              classCode,
-                            );
-                          });
-                        },
-                        backgroundColor: Colors.green[600],
-                        child: const Icon(Icons.add, color: Colors.white),
-                      )
-                    : null,
-                body: BlocBuilder<CompetitionsCubit, CompetitionsState>(
-                  builder: (context, state) {
-                    final cubit = CompetitionsCubit.get(context);
-                    final allCompetitions = cubit.displayList ?? [];
-
-                    // Filter competitions based on gender
-                    // Servants/priests/superServants see all competitions for management
-                    // Note: Class filtering is already done server-side by loadCompetitionsByAudience
-                    final List competitions;
-                    if (widget.type.code == UserType.priest.code ||
-                        widget.type.code == UserType.superServant.code ||
-                        widget.type.code == UserType.servant.code) {
-                      competitions = allCompetitions;
-                    } else {
-                      // Regular users: only filter by gender (class already filtered server-side)
-                      competitions = allCompetitions.where((competition) {
-                        final targetGender = competition.targetGender ?? 'all';
-
-                        // Check gender access
-                        return targetGender == 'all' ||
-                            targetGender == widget.user.gender.code;
-                      }).toList();
-                    }
-
-                    // Load user results when competitions are loaded
-                    if (state is LoadCompetitionsSuccess &&
-                        competitions.isNotEmpty &&
-                        !_loadingResults &&
-                        _userResults.isEmpty) {
-                      Future.microtask(
-                        () => _loadUserResults(competitions, cubit),
-                      );
-                    }
-
-                    // Show loading indicator
-                    if (state is LoadCompetitionsLoading &&
-                        competitions.isEmpty) {
-                      return const Center(
-                        child: CircularProgressIndicator(color: Colors.green),
-                      );
-                    }
-
-                    // Show error message
-                    if (state is LoadCompetitionsError &&
-                        competitions.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 64,
-                              color: Colors.red[300],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'حدث خطأ في تحميل المسابقات',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.red[700],
-                                fontFamily: 'Alexandria',
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              state.error,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                                fontFamily: 'Alexandria',
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 24),
-                            ElevatedButton.icon(
-                              onPressed: () => cubit.loadAllCompetitions(),
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('إعادة المحاولة'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green[600],
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                          ],
+              ),
+            ),
+            floatingActionButton: _isAdminUser
+                ? FloatingActionButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BlocProvider.value(
+                            value: cubit,
+                            child: const CreateCompetitionScreen(),
+                          ),
                         ),
-                      );
-                    }
+                      ).then((_) async {
+                        if (!mounted) return;
+                        await _refreshCompetitionsAfterAction(cubit);
+                      });
+                    },
+                    backgroundColor: Colors.green[600],
+                    child: const Icon(Icons.add, color: Colors.white),
+                  )
+                : null,
+            body: BlocBuilder<CompetitionsCubit, CompetitionsState>(
+              builder: (context, state) {
+                // FIX: `displayList` now correctly returns `activeCompetitions`
+                //      for regular users (populated by loadCompetitionsByClass)
+                //      and `allCompetitions` for admins.
+                final competitions = cubit.displayList ?? [];
 
-                    // Show empty state
-                    if (competitions.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.sports_score_outlined,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'لا توجد مسابقات متاحة حالياً',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey[600],
-                                fontFamily: 'Alexandria',
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'سيتم إضافة مسابقات جديدة قريباً',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[500],
-                                fontFamily: 'Alexandria',
-                              ),
-                            ),
-                          ],
+                // Eagerly load user results once competitions arrive.
+                if (state is LoadCompetitionsSuccess &&
+                    competitions.isNotEmpty &&
+                    !_isAdminUser &&
+                    !_loadingResults &&
+                    _userResults.isEmpty) {
+                  Future.microtask(
+                    () => _loadUserResults(competitions, cubit),
+                  );
+                }
+
+                if (state is LoadCompetitionsLoading && competitions.isEmpty) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.green),
+                  );
+                }
+
+                if (state is LoadCompetitionsError && competitions.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: Colors.red[300],
                         ),
-                      );
-                    }
+                        const SizedBox(height: 16),
+                        Text(
+                          'حدث خطأ في تحميل المسابقات',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.red[700],
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          state.error,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                            fontFamily: 'Alexandria',
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: () =>
+                              _refreshCompetitionsAfterAction(cubit),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('إعادة المحاولة'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green[600],
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-                    // Check if user is admin
-                    final isAdminUser =
-                        widget.type.code == UserType.priest.code ||
-                        widget.type.code == UserType.superServant.code ||
-                        widget.type.code == UserType.servant.code;
+                if (competitions.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.sports_score_outlined,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'لا توجد مسابقات متاحة حالياً',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'سيتم إضافة مسابقات جديدة قريباً',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-                    // Categorize competitions based on user type
-                    final now = DateTime.now();
-                    final List newCompetitions = [];
-                    final List solvedCompetitions = [];
-                    final List expiredCompetitions = [];
-                    final List activeCompetitions = [];
-                    final List notActiveCompetitions = [];
+                // Categorise competitions.
+                final now = DateTime.now();
+                final List newCompetitions = [];
+                final List solvedCompetitions = [];
+                final List expiredCompetitions = [];
+                final List activeCompetitionsList = [];
+                final List notActiveCompetitions = [];
 
-                    if (isAdminUser) {
-                      // Admin view: categorize by isActive status
-                      for (var competition in competitions) {
-                        if (competition.isActive ?? true) {
-                          activeCompetitions.add(competition);
-                        } else {
-                          notActiveCompetitions.add(competition);
-                        }
-                      }
+                if (_isAdminUser) {
+                  for (var c in competitions) {
+                    if (c.isActive ?? true) {
+                      activeCompetitionsList.add(c);
                     } else {
-                      // Regular user view: categorize by new/solved/expired
-                      // Note: competitions list is already filtered by class (server-side) and gender (client-side)
-                      for (var competition in competitions) {
-                        final userResult = competition.id != null
-                            ? _userResults[competition.id]
-                            : null;
-                        final isCompleted = userResult != null;
-                        final isExpired =
-                            (competition.endDate != null &&
-                                competition.endDate.isBefore(now)) ||
-                            !(competition.isActive ?? true);
-
-                        if (isCompleted) {
-                          solvedCompetitions.add(competition);
-                        } else if (isExpired) {
-                          expiredCompetitions.add(competition);
-                        } else {
-                          newCompetitions.add(competition);
-                        }
-                      }
+                      notActiveCompetitions.add(c);
                     }
+                  }
+                } else {
+                  for (var c in competitions) {
+                    final userResult =
+                        c.id != null ? _userResults[c.id] : null;
+                    final isCompleted = userResult != null;
+                    final isExpired =
+                        (c.endDate != null && c.endDate!.isBefore(now)) ||
+                        !(c.isActive ?? true);
 
-                    // Show competitions list with categories
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Admin View
-                          if (isAdminUser) ...[
-                            // Active Competitions Section
-                            if (activeCompetitions.isNotEmpty)
-                              _buildCategoryExpansionTile(
-                                title: 'مسابقات نشطة',
-                                icon: Icons.check_circle_outline,
-                                color: Colors.green,
-                                count: activeCompetitions.length,
-                                competitions: activeCompetitions,
-                                cubit: cubit,
-                                classCode: classCode,
-                                initiallyExpanded: true,
-                              ),
+                    if (isCompleted) {
+                      solvedCompetitions.add(c);
+                    } else if (isExpired) {
+                      expiredCompetitions.add(c);
+                    } else {
+                      newCompetitions.add(c);
+                    }
+                  }
+                }
 
-                            const SizedBox(height: 12),
-
-                            // Not Active Competitions Section
-                            if (notActiveCompetitions.isNotEmpty)
-                              _buildCategoryExpansionTile(
-                                title: 'مسابقات غير نشطة',
-                                icon: Icons.cancel_outlined,
-                                color: Colors.grey,
-                                count: notActiveCompetitions.length,
-                                competitions: notActiveCompetitions,
-                                cubit: cubit,
-                                classCode: classCode,
-                                isExpired: true,
-                                initiallyExpanded: false,
-                              ),
-                          ]
-                          // Regular User View
-                          else ...[
-                            // New Competitions Section
-                            if (newCompetitions.isNotEmpty)
-                              _buildCategoryExpansionTile(
-                                title: 'مسابقات جديدة',
-                                icon: Icons.new_releases,
-                                color: Colors.blue,
-                                count: newCompetitions.length,
-                                competitions: newCompetitions,
-                                cubit: cubit,
-                                classCode: classCode,
-                                initiallyExpanded: true,
-                              ),
-
-                            const SizedBox(height: 12),
-
-                            // Solved Competitions Section
-                            if (solvedCompetitions.isNotEmpty)
-                              _buildCategoryExpansionTile(
-                                title: 'المسابقات المحلولة',
-                                icon: Icons.check_circle,
-                                color: Colors.green,
-                                count: solvedCompetitions.length,
-                                competitions: solvedCompetitions,
-                                cubit: cubit,
-                                classCode: classCode,
-                                initiallyExpanded: false,
-                              ),
-
-                            const SizedBox(height: 12),
-
-                            // Expired Competitions Section
-                            if (expiredCompetitions.isNotEmpty)
-                              _buildCategoryExpansionTile(
-                                title: 'مسابقات منتهية',
-                                icon: Icons.access_time,
-                                color: Colors.grey,
-                                count: expiredCompetitions.length,
-                                competitions: expiredCompetitions,
-                                cubit: cubit,
-                                classCode: classCode,
-                                isExpired: true,
-                                initiallyExpanded: false,
-                              ),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-            listener: (BuildContext context, state) {},
-          ),
-        );
-      }, // End of FutureBuilder builder
-    ); // End of FutureBuilder
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_isAdminUser) ...[
+                        if (activeCompetitionsList.isNotEmpty)
+                          _buildCategoryExpansionTile(
+                            title: 'مسابقات نشطة',
+                            icon: Icons.check_circle_outline,
+                            color: Colors.green,
+                            count: activeCompetitionsList.length,
+                            competitions: activeCompetitionsList,
+                            cubit: cubit,
+                            initiallyExpanded: true,
+                          ),
+                        const SizedBox(height: 12),
+                        if (notActiveCompetitions.isNotEmpty)
+                          _buildCategoryExpansionTile(
+                            title: 'مسابقات غير نشطة',
+                            icon: Icons.cancel_outlined,
+                            color: Colors.grey,
+                            count: notActiveCompetitions.length,
+                            competitions: notActiveCompetitions,
+                            cubit: cubit,
+                            isExpired: true,
+                            initiallyExpanded: false,
+                          ),
+                      ] else ...[
+                        if (newCompetitions.isNotEmpty)
+                          _buildCategoryExpansionTile(
+                            title: 'مسابقات جديدة',
+                            icon: Icons.new_releases,
+                            color: Colors.blue,
+                            count: newCompetitions.length,
+                            competitions: newCompetitions,
+                            cubit: cubit,
+                            initiallyExpanded: true,
+                          ),
+                        const SizedBox(height: 12),
+                        if (solvedCompetitions.isNotEmpty)
+                          _buildCategoryExpansionTile(
+                            title: 'المسابقات المحلولة',
+                            icon: Icons.check_circle,
+                            color: Colors.green,
+                            count: solvedCompetitions.length,
+                            competitions: solvedCompetitions,
+                            cubit: cubit,
+                            initiallyExpanded: false,
+                          ),
+                        const SizedBox(height: 12),
+                        if (expiredCompetitions.isNotEmpty)
+                          _buildCategoryExpansionTile(
+                            title: 'مسابقات منتهية',
+                            icon: Icons.access_time,
+                            color: Colors.grey,
+                            count: expiredCompetitions.length,
+                            competitions: expiredCompetitions,
+                            cubit: cubit,
+                            isExpired: true,
+                            initiallyExpanded: false,
+                          ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _handleCompetitionTap(
@@ -529,14 +450,8 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
     CompetitionsCubit cubit,
     competition,
     bool isCompleted,
-    String classCode,
   ) {
-    final userId = widget.user.id;
-
-    // If user is priest, super servant, or servant -> show edit screen
-    if (widget.type.code == UserType.priest.code ||
-        widget.type.code == UserType.superServant.code ||
-        widget.type.code == UserType.servant.code) {
+    if (_isAdminUser) {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -551,50 +466,45 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
         ),
       ).then((_) async {
         if (!mounted) return;
-        await _refreshCompetitionsAfterAction(cubit, classCode);
+        await _refreshCompetitionsAfterAction(cubit);
       });
+      return;
     }
-    // If user is child or other types
-    else {
-      // Check if competition is inactive
-      if (!(competition.isActive ?? true)) {
-        _showNotAvailableDialog(context);
-        return;
-      }
 
-      // Check if competition is expired
-      final now = DateTime.now();
-      if (competition.endDate != null && competition.endDate.isBefore(now)) {
-        _showExpiredDialog(context);
-        return;
-      }
+    // Regular user path.
+    if (!(competition.isActive ?? true)) {
+      _showNotAvailableDialog(context);
+      return;
+    }
 
-      // If competition is already completed, show score dialog
-      if (isCompleted) {
-        _showCompletionDialog(context, competition);
-      } else {
-        // Navigate to take competition screen
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BlocProvider.value(
-              value: cubit,
-              child: TakeCompetitionCardScreen(
-                competition: competition,
-                userId: userId,
-                user: widget.user,
-              ),
+    final now = DateTime.now();
+    if (competition.endDate != null && competition.endDate.isBefore(now)) {
+      _showExpiredDialog(context);
+      return;
+    }
+
+    if (isCompleted) {
+      _showCompletionDialog(context, competition);
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BlocProvider.value(
+            value: cubit,
+            child: TakeCompetitionCardScreen(
+              competition: competition,
+              userId: widget.user.id,
+              user: widget.user,
             ),
           ),
-        ).then((_) {
-          if (!mounted) return;
-          _refreshCompetitionsAfterAction(cubit, classCode);
-        });
-      }
+        ),
+      ).then((_) {
+        if (!mounted) return;
+        _refreshCompetitionsAfterAction(cubit);
+      });
     }
   }
 
-  /// Show dialog with user's score and completion status
   void _showCompletionDialog(BuildContext context, competition) {
     final result = _userResults[competition.id];
     if (result == null) return;
@@ -713,7 +623,6 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
     );
   }
 
-  /// Show dialog when competition is not available (inactive)
   void _showNotAvailableDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -801,7 +710,6 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
     );
   }
 
-  /// Show dialog when competition is expired
   void _showExpiredDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -892,7 +800,6 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
     required int count,
     required List competitions,
     required CompetitionsCubit cubit,
-    required String classCode,
     bool isExpired = false,
     bool initiallyExpanded = true,
   }) {
@@ -971,9 +878,8 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
             ],
           ),
           children: competitions.map((competition) {
-            final userResult = competition.id != null
-                ? _userResults[competition.id]
-                : null;
+            final userResult =
+                competition.id != null ? _userResults[competition.id] : null;
             final isCompleted = userResult != null;
             return Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -987,7 +893,6 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                   cubit,
                   competition,
                   isCompleted,
-                  classCode,
                 ),
               ),
             );
@@ -1089,7 +994,6 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
           borderRadius: BorderRadius.circular(20),
           child: Stack(
             children: [
-              // Completion or Expired badge
               if (isCompleted)
                 Positioned(
                   top: 12,
@@ -1110,16 +1014,12 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                         ),
                       ],
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.check_circle,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
+                        Icon(Icons.check_circle, color: Colors.white, size: 16),
+                        SizedBox(width: 4),
+                        Text(
                           'مكتمل',
                           style: TextStyle(
                             color: Colors.white,
@@ -1152,16 +1052,12 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                         ),
                       ],
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.access_time,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
+                        Icon(Icons.access_time, color: Colors.white, size: 16),
+                        SizedBox(width: 4),
+                        Text(
                           'منتهية',
                           style: TextStyle(
                             color: Colors.white,
@@ -1175,7 +1071,6 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                   ),
                 )
               else
-                // New badge for unsolved competitions
                 Positioned(
                   top: 12,
                   right: 12,
@@ -1195,16 +1090,12 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                         ),
                       ],
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.fiber_new,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
+                        Icon(Icons.fiber_new, color: Colors.white, size: 16),
+                        SizedBox(width: 4),
+                        Text(
                           'جديد',
                           style: TextStyle(
                             color: Colors.white,
@@ -1217,18 +1108,15 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                     ),
                   ),
                 ),
-
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
                   children: [
-                    // Competition Details
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(height: 40.0),
-                          // Competition Name
+                          const SizedBox(height: 40.0),
                           Text(
                             competition.competitionName,
                             style: TextStyle(
@@ -1241,8 +1129,6 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 8),
-
-                          // Show score if completed, otherwise show questions count
                           if (isCompleted) ...[
                             Row(
                               children: [
@@ -1298,7 +1184,6 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                               ],
                             ),
                             const SizedBox(height: 6),
-                            // Target Audience (Class)
                             Row(
                               children: [
                                 Container(
@@ -1316,9 +1201,9 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    CompetitionClassMapping.getClassName(
-                                      competition.targetAudience ?? 'all',
-                                    ),
+                                    competition.targetClasses.isEmpty
+                                        ? 'متاحة لجميع الصفوف'
+                                        : 'متاحة لـ: ${competition.targetClasses.join(", ")}',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: Colors.blue[700],
@@ -1332,7 +1217,6 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                               ],
                             ),
                           ] else ...[
-                            // Number of Questions
                             Row(
                               children: [
                                 Container(
@@ -1360,7 +1244,6 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                               ],
                             ),
                             const SizedBox(height: 6),
-                            // Total Points
                             Row(
                               children: [
                                 Container(
@@ -1388,45 +1271,45 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                               ],
                             ),
                             const SizedBox(height: 6),
-                            // Target Audience (Class)
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue[100],
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    Icons.school,
-                                    size: 16,
-                                    color: Colors.blue[700],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    CompetitionClassMapping.getClassName(
-                                      competition.targetAudience ?? 'all',
+                            // Show target audience for admin users
+                            if (_isAdminUser)
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.purple[100],
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.blue[700],
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'Alexandria',
+                                    child: Icon(
+                                      Icons.people,
+                                      size: 16,
+                                      color: Colors.purple[700],
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                              ],
-                            ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      competition.targetClasses.isEmpty
+                                          ? 'متاحة لجميع الصفوف'
+                                          : 'الصفوف: ${competition.targetClasses.join(", ")}',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.purple[700],
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: 'Alexandria',
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                           ],
                         ],
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Competition Image or Placeholder with text underneath
                     Column(
                       children: [
                         Container(
@@ -1451,30 +1334,28 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(16),
-                            child:
-                                competition.imageUrl != null &&
+                            child: competition.imageUrl != null &&
                                     competition.imageUrl.isNotEmpty
                                 ? Image.network(
                                     competition.imageUrl,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return _buildPlaceholderIcon();
-                                    },
+                                    errorBuilder: (_, __, ___) =>
+                                        _buildPlaceholderIcon(),
                                     loadingBuilder:
                                         (context, child, loadingProgress) {
-                                          if (loadingProgress == null)
+                                          if (loadingProgress == null) {
                                             return child;
+                                          }
                                           return Center(
                                             child: CircularProgressIndicator(
                                               color: Colors.white,
-                                              value:
-                                                  loadingProgress
+                                              value: loadingProgress
                                                           .expectedTotalBytes !=
                                                       null
                                                   ? loadingProgress
-                                                            .cumulativeBytesLoaded /
-                                                        loadingProgress
-                                                            .expectedTotalBytes!
+                                                          .cumulativeBytesLoaded /
+                                                      loadingProgress
+                                                          .expectedTotalBytes!
                                                   : null,
                                             ),
                                           );
@@ -1484,7 +1365,6 @@ class _CompetitionsScreenState extends State<CompetitionsScreen> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        // Text under image
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,

@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:church/core/blocs/competitions/competitions_cubit.dart';
 import 'package:church/core/blocs/competitions/competitions_states.dart';
 import 'package:church/core/models/competitions/competition_model.dart';
+import 'package:church/core/repositories/competitions_repository.dart';
+import 'package:church/core/services/cloudinary_upload_service.dart';
 import 'package:church/core/styles/themeScaffold.dart';
-import 'package:church/core/utils/classes_mapping.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -27,8 +27,7 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
 
   DateTime? _startDate;
   DateTime? _endDate;
-  String _targetAudience = 'all';
-  String _targetGender = 'all'; // 'all', 'M', 'F'
+  Set<String> _selectedUserClasses = {}; // Selected userClass names for targeting
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
   bool _isActive = true;
@@ -177,44 +176,6 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
     }
   }
 
-  List<DropdownMenuItem<String>> _buildClassDropdownItems() {
-    List<DropdownMenuItem<String>> items = [];
-    final groupedOptions = CompetitionClassMapping.getGroupedClassOptions();
-
-    groupedOptions.forEach((groupName, options) {
-      // Add group header (disabled item)
-      items.add(
-        DropdownMenuItem<String>(
-          value: null,
-          enabled: false,
-          child: Text(
-            groupName,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      );
-
-      // Add options in this group
-      for (var option in options) {
-        items.add(
-          DropdownMenuItem<String>(
-            value: option.key,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16.0),
-              child: Text(option.value),
-            ),
-          ),
-        );
-      }
-    });
-
-    return items;
-  }
-
   void _addQuestion() {
     showDialog(
       context: context,
@@ -314,8 +275,7 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
       numberOfQuestions: _questions.length,
       questions: updatedQuestions,
       isActive: _isActive,
-      targetAudience: _targetAudience,
-      targetGender: _targetGender,
+      targetClasses: _selectedUserClasses.toList(), // Store userClass names
       pointsPerQuestion: _scoringMode == 'perQuestion'
           ? pointsPerQuestion
           : null,
@@ -858,65 +818,6 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Target Audience
-                    DropdownButtonFormField<String>(
-                      value: _targetAudience,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontFamily: 'Alexandria',
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'الفئة المستهدفة / الصف',
-                        labelStyle: const TextStyle(color: Colors.white),
-                        prefixIcon: const Icon(
-                          Icons.group,
-                          color: Colors.white,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      items: _buildClassDropdownItems(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _targetAudience = value;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Target Gender
-                    DropdownButtonFormField<String>(
-                      value: _targetGender,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontFamily: 'Alexandria',
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'النوع المستهدف',
-                        labelStyle: const TextStyle(color: Colors.white),
-                        prefixIcon: const Icon(Icons.wc, color: Colors.white),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'all', child: Text('الكل')),
-                        DropdownMenuItem(value: 'M', child: Text('ذكور فقط')),
-                        DropdownMenuItem(value: 'F', child: Text('إناث فقط')),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _targetGender = value;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
                     // Start Date
                     InkWell(
                       onTap: () => _selectDate(context, true),
@@ -986,12 +887,233 @@ class _CreateCompetitionScreenState extends State<CreateCompetitionScreen> {
                         style: TextStyle(color: Colors.white30),
                       ),
                       value: _isActive,
-                      activeColor: Colors.green[600],
+                      activeThumbColor: Colors.green[600],
                       onChanged: (value) {
                         setState(() {
                           _isActive = value;
                         });
                       },
+                    ),
+                    const SizedBox(height: 24),
+
+                    // ✨ NEW: Class Targeting Section
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blue[400]!),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.blue[900]?.withValues(alpha: 0.2) ?? Colors.blue.withValues(alpha: 0.1),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.school, color: Colors.blue[300], size: 24),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'المسابقة متاحة لـ:',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'Alexandria',
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                           FutureBuilder<List<String>>(
+                             future: CompetitionsRepository().getAvailableUserClasses(),
+                             builder: (context, snapshot) {
+                               if (snapshot.connectionState == ConnectionState.waiting) {
+                                 return const SizedBox(
+                                   height: 60,
+                                   child: Center(child: CircularProgressIndicator()),
+                                 );
+                               }
+
+                               if (snapshot.hasError) {
+                                 return Container(
+                                   padding: const EdgeInsets.all(12),
+                                   decoration: BoxDecoration(
+                                     color: Colors.red[900]?.withValues(alpha: 0.3) ?? Colors.red.withValues(alpha: 0.1),
+                                     border: Border.all(color: Colors.red[300]!),
+                                     borderRadius: BorderRadius.circular(8),
+                                   ),
+                                   child: Text(
+                                     'خطأ: ${snapshot.error}',
+                                     style: TextStyle(color: Colors.red[300], fontFamily: 'Alexandria'),
+                                   ),
+                                 );
+                               }
+
+                               final userClasses = snapshot.data ?? [];
+
+                               if (userClasses.isEmpty) {
+                                 return Container(
+                                   padding: const EdgeInsets.all(12),
+                                   decoration: BoxDecoration(
+                                     color: Colors.orange[900]?.withValues(alpha: 0.3) ?? Colors.orange.withValues(alpha: 0.1),
+                                     border: Border.all(color: Colors.orange[300]!),
+                                     borderRadius: BorderRadius.circular(8),
+                                   ),
+                                   child: const Text(
+                                     '⚠️ لا توجد صفوف متاحة. يرجى إضافة مستخدمين أولاً.',
+                                     style: TextStyle(
+                                       color: Colors.orange,
+                                       fontFamily: 'Alexandria',
+                                     ),
+                                   ),
+                                 );
+                               }
+
+                               return Column(
+                                 children: [
+                                   if (_selectedUserClasses.isNotEmpty)
+                                     Padding(
+                                       padding: const EdgeInsets.only(bottom: 12),
+                                       child: Row(
+                                         children: [
+                                           Icon(
+                                             Icons.check_circle,
+                                             color: Colors.green[300],
+                                             size: 18,
+                                           ),
+                                           const SizedBox(width: 8),
+                                           Text(
+                                             'تم تحديد: ${_selectedUserClasses.length} صف',
+                                             style: TextStyle(
+                                               fontSize: 13,
+                                               fontWeight: FontWeight.bold,
+                                               color: Colors.green[300],
+                                               fontFamily: 'Alexandria',
+                                             ),
+                                           ),
+                                         ],
+                                       ),
+                                     ),
+                                   Wrap(
+                                     spacing: 8,
+                                     runSpacing: 8,
+                                     children: userClasses.map((userClass) {
+                                       final isSelected = _selectedUserClasses.contains(userClass);
+
+                                       return FilterChip(
+                                         label: Text(
+                                           userClass,
+                                           style: TextStyle(
+                                             color: isSelected ? Colors.white : Colors.grey[300],
+                                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                             fontFamily: 'Alexandria',
+                                           ),
+                                         ),
+                                         selected: isSelected,
+                                         onSelected: (selected) {
+                                           setState(() {
+                                             if (selected) {
+                                               _selectedUserClasses.add(userClass);
+                                             } else {
+                                               _selectedUserClasses.remove(userClass);
+                                             }
+                                           });
+                                         },
+                                         backgroundColor: Colors.grey[800],
+                                         selectedColor: Colors.teal[600],
+                                         showCheckmark: true,
+                                         side: BorderSide(
+                                           color: isSelected
+                                               ? Colors.teal[400]!
+                                               : Colors.grey[600]!,
+                                           width: isSelected ? 2 : 1,
+                                         ),
+                                       );
+                                     }).toList(),
+                                   ),
+                                   const SizedBox(height: 12),
+                                   Row(
+                                     children: [
+                                       Expanded(
+                                         child: OutlinedButton.icon(
+                                           onPressed: userClasses.isEmpty
+                                               ? null
+                                               : () {
+                                             setState(() {
+                                               _selectedUserClasses = userClasses.toSet();
+                                             });
+                                           },
+                                           icon: const Icon(Icons.done_all, size: 18),
+                                           label: const Text(
+                                             'اختر الكل',
+                                             style: TextStyle(fontFamily: 'Alexandria'),
+                                           ),
+                                           style: OutlinedButton.styleFrom(
+                                             padding: const EdgeInsets.symmetric(
+                                               horizontal: 8,
+                                               vertical: 8,
+                                             ),
+                                           ),
+                                         ),
+                                       ),
+                                       const SizedBox(width: 8),
+                                       Expanded(
+                                         child: OutlinedButton.icon(
+                                           onPressed: _selectedUserClasses.isEmpty
+                                               ? null
+                                               : () {
+                                             setState(() => _selectedUserClasses.clear());
+                                           },
+                                           icon: const Icon(Icons.clear_all, size: 18),
+                                           label: const Text(
+                                             'إلغاء',
+                                             style: TextStyle(fontFamily: 'Alexandria'),
+                                           ),
+                                           style: OutlinedButton.styleFrom(
+                                             padding: const EdgeInsets.symmetric(
+                                               horizontal: 8,
+                                               vertical: 8,
+                                             ),
+                                           ),
+                                         ),
+                                       ),
+                                     ],
+                                   ),
+                                   const SizedBox(height: 12),
+                                   Container(
+                                     padding: const EdgeInsets.all(12),
+                                     decoration: BoxDecoration(
+                                       color: Colors.amber[900]?.withValues(alpha: 0.3) ?? Colors.amber.withValues(alpha: 0.1),
+                                       borderRadius: BorderRadius.circular(8),
+                                       border: Border.all(color: Colors.amber[600]!),
+                                     ),
+                                     child: Row(
+                                       crossAxisAlignment: CrossAxisAlignment.start,
+                                       children: [
+                                         Icon(
+                                           Icons.info_outline,
+                                           size: 18,
+                                           color: Colors.amber[400],
+                                         ),
+                                         const SizedBox(width: 8),
+                                         Expanded(
+                                           child: Text(
+                                             'ترك الخيارات فارغة = المسابقة متاحة لجميع الصفوف',
+                                             style: TextStyle(
+                                               fontSize: 12,
+                                               color: Colors.amber[300],
+                                               fontFamily: 'Alexandria',
+                                             ),
+                                           ),
+                                         ),
+                                       ],
+                                     ),
+                                   ),
+                                 ],
+                               );
+                             },
+                           ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 24),
 
@@ -1166,6 +1288,7 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
   final Set<int> _correctAnswerIndices = {0};
   final _uuid = const Uuid();
   final ImagePicker _picker = ImagePicker();
+  final CloudinaryUploadService _cloudinary = CloudinaryUploadService();
   File? _questionImageFile;
   String? _questionImageUrl;
 
@@ -1531,22 +1654,7 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
   }
 
   Future<String> _uploadImage(File imageFile, String folder) async {
-    try {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final random = _uuid.v4().substring(0, 8);
-      final storage = FirebaseStorage.instance;
-      final ref = storage.ref().child(
-        'competitions/$folder/${timestamp}_$random.jpg',
-      );
-
-      final uploadTask = ref.putFile(imageFile);
-      final snapshot = await uploadTask;
-      final imageUrl = await snapshot.ref.getDownloadURL();
-
-      return imageUrl;
-    } catch (e) {
-      rethrow;
-    }
+    return await _cloudinary.uploadCompetitionImage(imageFile);
   }
 
   @override
@@ -1593,7 +1701,7 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
                     children: [
                       // Question Type
                       DropdownButtonFormField<QuestionType>(
-                        value: _questionType,
+                        initialValue: _questionType,
                         style: const TextStyle(
                           color: Colors.black,
                           fontFamily: 'Alexandria',
@@ -2091,6 +2199,7 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
   late final Set<int> _correctAnswerIndices;
   final _uuid = const Uuid();
   final ImagePicker _picker = ImagePicker();
+  final CloudinaryUploadService _cloudinary = CloudinaryUploadService();
   File? _questionImageFile;
   String? _questionImageUrl;
 
@@ -2350,22 +2459,7 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
   }
 
   Future<String> _uploadImage(File imageFile, String folder) async {
-    try {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final random = _uuid.v4().substring(0, 8);
-      final storage = FirebaseStorage.instance;
-      final ref = storage.ref().child(
-        'competitions/$folder/${timestamp}_$random.jpg',
-      );
-
-      final uploadTask = ref.putFile(imageFile);
-      final snapshot = await uploadTask;
-      final imageUrl = await snapshot.ref.getDownloadURL();
-
-      return imageUrl;
-    } catch (e) {
-      rethrow;
-    }
+    return await _cloudinary.uploadCompetitionImage(imageFile);
   }
 
   @override
@@ -2410,33 +2504,33 @@ class _EditQuestionDialogState extends State<EditQuestionDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Question Type
-                      DropdownButtonFormField<QuestionType>(
-                        value: _questionType,
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontFamily: 'Alexandria',
-                        ),
-                        decoration: InputDecoration(
-                          labelText: 'نوع السؤال',
-                          labelStyle: const TextStyle(color: Colors.black),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        items: QuestionType.values.map((type) {
-                          return DropdownMenuItem(
-                            value: type,
-                            child: Text(type.label),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _questionType = value;
-                              if (_questionType == QuestionType.trueFalse) {
-                                // Set true/false answers
-                                _answers.clear();
+                       // Question Type
+                       DropdownButtonFormField<QuestionType>(
+                         initialValue: _questionType,
+                         style: const TextStyle(
+                           color: Colors.black,
+                           fontFamily: 'Alexandria',
+                         ),
+                         decoration: InputDecoration(
+                           labelText: 'نوع السؤال',
+                           labelStyle: const TextStyle(color: Colors.black),
+                           border: OutlineInputBorder(
+                             borderRadius: BorderRadius.circular(12),
+                           ),
+                         ),
+                         items: QuestionType.values.map((type) {
+                           return DropdownMenuItem(
+                             value: type,
+                             child: Text(type.label),
+                           );
+                         }).toList(),
+                         onChanged: (value) {
+                           if (value != null) {
+                             setState(() {
+                               _questionType = value;
+                               if (_questionType == QuestionType.trueFalse) {
+                                 // Set true/false answers
+                                 _answers.clear();
                                 _answers.add(
                                   AnswerController()..controller.text = 'صح',
                                 );
