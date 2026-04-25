@@ -2,10 +2,8 @@ import 'package:church/core/blocs/competitions/competitions_cubit.dart';
 import 'package:church/core/models/competitions/competition_model.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/themeScaffold.dart';
-import 'package:church/core/utils/classes_mapping.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/models/class_mapping/class_mapping_model.dart';
 
 class TakeCompetitionScreen extends StatefulWidget {
   final CompetitionModel competition;
@@ -28,93 +26,39 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
   bool _isSubmitted = false;
   double _totalScore = 0.0;
   List<bool> _correctness = [];
-  String? _userClassCode;
-  bool _isLoadingClassCode = true;
   bool _hasAccess = true;
 
   @override
   void initState() {
     super.initState();
-    _loadUserClassCodeAndCheckAccess();
+    _checkAccess();
   }
 
-  /// Load user's classCode from ClassMapping and check access
-  Future<void> _loadUserClassCodeAndCheckAccess() async {
-    if (widget.user == null) {
-      setState(() {
-        _isLoadingClassCode = false;
-        _hasAccess = true; // No user info, allow access
-      });
-      return;
-    }
+  // Synchronous: targetClasses stores plain userClass name strings, so we
+  // compare directly — no ClassMapping / ClassMappingService needed.
+  void _checkAccess() {
+    final userClassName = widget.user?.userClass ?? '';
 
-    try {
-      final userClassName = widget.user!.userClass;
-      if (userClassName.isEmpty) {
-        setState(() {
-          _isLoadingClassCode = false;
-          _hasAccess = true; // No class, allow access
-        });
-        return;
-      }
+    final canAccess =
+        widget.competition.targetClasses.isEmpty ||
+        userClassName.isEmpty ||
+        widget.competition.targetClasses.contains(userClassName);
 
-      // Try to get the ClassMapping for this user's class
-      final classMappings =
-          await ClassMappingService.getActiveClassMappings().first;
+    setState(() => _hasAccess = canAccess);
 
-      // Find the mapping that matches the user's className
-      final userMapping = classMappings.firstWhere(
-        (mapping) => mapping.className == userClassName,
-        orElse: () => ClassMapping(
-          id: '',
-          classCode: userClassName, // Fallback: treat className as code
-          className: userClassName,
-        ),
-      );
-
-      final classCode = userMapping.classCode;
-      final targetAudience = widget.competition.targetAudience ?? 'all';
-
-      // Check access using classCode
-      final canAccess =
-          targetAudience == 'all' ||
-          targetAudience.isEmpty ||
-          CompetitionClassMapping.canAccessCompetition(
-            classCode,
-            targetAudience,
+    if (!canAccess) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('عذراً، هذه المسابقة غير متاحة لصفك الدراسي'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
           );
-
-      if (mounted) {
-        setState(() {
-          _userClassCode = classCode;
-          _hasAccess = canAccess;
-          _isLoadingClassCode = false;
-        });
-
-        // Show error and navigate back if no access
-        if (!canAccess) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('عذراً، هذه المسابقة غير متاحة لصفك الدراسي'),
-                  backgroundColor: Colors.red,
-                  duration: Duration(seconds: 3),
-                ),
-              );
-              Navigator.pop(context);
-            }
-          });
+          Navigator.pop(context);
         }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _userClassCode = widget.user!.userClass;
-          _hasAccess = true; // Fallback: allow access on error
-          _isLoadingClassCode = false;
-        });
-      }
+      });
     }
   }
 
@@ -192,56 +136,10 @@ class _TakeCompetitionScreenState extends State<TakeCompetitionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Show loading state while checking access
-    if (_isLoadingClassCode) {
-      return ThemedScaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(70),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.green[400]!, Colors.green[700]!],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    ),
-                    const Expanded(
-                      child: Text(
-                        'جاري التحميل...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Alexandria',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(color: Colors.green),
-        ),
-      );
-    }
-
-    // Access check is now done in _loadUserClassCodeAndCheckAccess
-    // If no access, user is already navigated back
     if (!_hasAccess) {
       return const SizedBox.shrink();
     }
+
 
     return ThemedScaffold(
       appBar: PreferredSize(

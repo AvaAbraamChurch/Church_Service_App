@@ -2,11 +2,12 @@ import 'package:church/core/blocs/competitions/competitions_cubit.dart';
 import 'package:church/core/models/competitions/competition_model.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/themeScaffold.dart';
-import 'package:church/core/utils/classes_mapping.dart';
+import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/models/class_mapping/class_mapping_model.dart';
 import '../../core/styles/colors.dart';
+import '../../layout/home_layout.dart';
+
 // Answer-option accent colours (one per slot, cycling)
 const List<Color> _optionColors = [
   Color(0xFF009CA6), // teal500
@@ -38,7 +39,6 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
   bool _isSubmitted = false;
   double _totalScore = 0.0;
   List<bool> _correctness = [];
-  bool _isLoadingClassCode = true;
   bool _hasAccess = true;
   late PageController _pageController;
   int _currentQuestionIndex = 0;
@@ -55,7 +55,7 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fadeController.forward();
     });
-    _loadUserClassCodeAndCheckAccess();
+    _checkAccess();
   }
 
   @override
@@ -65,74 +65,32 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
     super.dispose();
   }
 
-  // ── Access-check logic (unchanged) ────────────────────────────────────────
-  Future<void> _loadUserClassCodeAndCheckAccess() async {
-    if (widget.user == null) {
-      setState(() {
-        _isLoadingClassCode = false;
-        _hasAccess = true;
-      });
-      return;
-    }
+  // ── Access-check logic ────────────────────────────────────────────────────
+  // Synchronous: targetClasses stores plain userClass name strings, so we
+  // compare directly — no ClassMapping / ClassMappingService needed.
+  void _checkAccess() {
+    final userClassName = widget.user?.userClass ?? '';
 
-    try {
-      final userClassName = widget.user!.userClass;
-      if (userClassName.isEmpty) {
-        setState(() {
-          _isLoadingClassCode = false;
-          _hasAccess = true;
-        });
-        return;
-      }
+    final canAccess =
+        widget.competition.targetClasses.isEmpty ||
+        userClassName.isEmpty ||
+        widget.competition.targetClasses.contains(userClassName);
 
-      final classMappings =
-          await ClassMappingService.getActiveClassMappings().first;
+    setState(() => _hasAccess = canAccess);
 
-      final userMapping = classMappings.firstWhere(
-        (mapping) => mapping.className == userClassName,
-        orElse: () => ClassMapping(
-          id: '',
-          classCode: userClassName,
-          className: userClassName,
-        ),
-      );
-
-      final classCode     = userMapping.classCode;
-      final targetAudience = widget.competition.targetAudience ?? 'all';
-
-      final canAccess =
-          targetAudience == 'all' ||
-          targetAudience.isEmpty ||
-          CompetitionClassMapping.canAccessCompetition(classCode, targetAudience);
-
-      if (mounted) {
-        setState(() {
-          _hasAccess            = canAccess;
-          _isLoadingClassCode   = false;
-        });
-
-        if (!canAccess) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('عذراً، هذه المسابقة غير متاحة لصفك الدراسي'),
-                  backgroundColor: Colors.red,
-                  duration: Duration(seconds: 3),
-                ),
-              );
-              Navigator.pop(context);
-            }
-          });
+    if (!canAccess) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('عذراً، هذه المسابقة غير متاحة لصفك الدراسي'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          Navigator.pop(context);
         }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _hasAccess          = true;
-          _isLoadingClassCode = false;
-        });
-      }
+      });
     }
   }
 
@@ -183,12 +141,12 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
       }
     }
 
-    _totalScore  = 0.0;
+    _totalScore = 0.0;
     _correctness = [];
     final pointsPerQuestion = widget.competition.pointsPerQuestion ?? 10.0;
 
     for (int i = 0; i < widget.competition.questions.length; i++) {
-      final question  = widget.competition.questions[i];
+      final question = widget.competition.questions[i];
       final userAnswer = _userAnswers[i]!;
       final isCorrect = question.isCorrectAnswer(userAnswer);
 
@@ -221,34 +179,28 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
   // ── build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    if (_isLoadingClassCode) return _buildLoadingScreen();
-    if (!_hasAccess)         return const SizedBox.shrink();
-    if (_isSubmitted)        return _buildResultsScreen();
+    if (!_hasAccess) return const SizedBox.shrink();
+    if (_isSubmitted) return _buildResultsScreen();
     return _buildQuizScreen();
   }
 
   // ── Loading screen ─────────────────────────────────────────────────────────
   Widget _buildLoadingScreen() {
     return ThemedScaffold(
-      appBar: _buildAppBar(
-        title: 'جاري التحميل..',
-        subtitle: null,
-      ),
-      body: const Center(
-        child: CircularProgressIndicator(color: teal500),
-      ),
+      appBar: _buildAppBar(title: 'جاري التحميل..', subtitle: null),
+      body: const Center(child: CircularProgressIndicator(color: teal500)),
     );
   }
 
   // ── Quiz screen ────────────────────────────────────────────────────────────
   Widget _buildQuizScreen() {
-    final total    = widget.competition.numberOfQuestions;
-    final current  = _currentQuestionIndex + 1;
+    final total = widget.competition.numberOfQuestions;
+    final current = _currentQuestionIndex + 1;
     final progress = current / total;
 
     return ThemedScaffold(
       appBar: _buildAppBar(
-        title:    widget.competition.competitionName,
+        title: widget.competition.competitionName,
         subtitle: 'السؤال $current من $total',
         trailing: _pill('$current/$total'),
       ),
@@ -323,8 +275,8 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
   // ── Bottom bar ─────────────────────────────────────────────────────────────
   Widget _buildBottomBar() {
     final isFirst = _currentQuestionIndex == 0;
-    final isLast  = _currentQuestionIndex ==
-        widget.competition.questions.length - 1;
+    final isLast =
+        _currentQuestionIndex == widget.competition.questions.length - 1;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -397,7 +349,7 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
 
   // ── Question card ──────────────────────────────────────────────────────────
   Widget _buildQuestionCard(int index) {
-    final question   = widget.competition.questions[index];
+    final question = widget.competition.questions[index];
     final isAnswered =
         _userAnswers.containsKey(index) && _userAnswers[index]!.isNotEmpty;
 
@@ -432,7 +384,9 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
                   // Badge
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.20),
                       borderRadius: BorderRadius.circular(50),
@@ -475,8 +429,11 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
                               color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Icon(Icons.image,
-                                size: 48, color: Colors.white),
+                            child: const Icon(
+                              Icons.image,
+                              size: 48,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -514,21 +471,19 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
 
             // ── Answer options ──
             ...question.answerOptions.asMap().entries.map((entry) {
-              final option     = entry.value;
+              final option = entry.value;
               final isSelected =
                   _userAnswers[index]?.contains(option.id) ?? false;
-              final isMultiple =
-                  question.type == QuestionType.multipleChoice;
+              final isMultiple = question.type == QuestionType.multipleChoice;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _buildAnswerButton(
-                  option:      option,
-                  isSelected:  isSelected,
-                  isMultiple:  isMultiple,
+                  option: option,
+                  isSelected: isSelected,
+                  isMultiple: isMultiple,
                   optionIndex: entry.key,
-                  onTap: () =>
-                      _selectAnswer(index, option.id, isMultiple),
+                  onTap: () => _selectAnswer(index, option.id, isMultiple),
                 ),
               );
             }),
@@ -593,11 +548,11 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
                 child: Icon(
                   isMultiple
                       ? (isSelected
-                          ? Icons.check_box_rounded
-                          : Icons.check_box_outline_blank_rounded)
+                            ? Icons.check_box_rounded
+                            : Icons.check_box_outline_blank_rounded)
                       : (isSelected
-                          ? Icons.radio_button_checked_rounded
-                          : Icons.radio_button_unchecked_rounded),
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_unchecked_rounded),
                   color: isSelected ? Colors.white : accent,
                   size: 26,
                 ),
@@ -620,8 +575,7 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
                         height: 1.35,
                       ),
                     ),
-                    if (option.imageUrl != null &&
-                        option.imageUrl!.isNotEmpty)
+                    if (option.imageUrl != null && option.imageUrl!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: ClipRRect(
@@ -667,15 +621,15 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
 
   // ── Results screen ─────────────────────────────────────────────────────────
   Widget _buildResultsScreen() {
-    final correctCount      = _correctness.where((c) => c).length;
-    final percentage        =
+    final correctCount = _correctness.where((c) => c).length;
+    final percentage =
         ((correctCount / widget.competition.numberOfQuestions) * 100).toInt();
     final totalPossiblePoints = widget.competition.totalPoints ?? 0.0;
 
     Color performanceColor() {
       if (percentage >= 80) return const Color(0xFF00897B); // teal-green
       if (percentage >= 60) return const Color(0xFFF9A825); // amber
-      return const Color(0xFFE53935);                        // red
+      return const Color(0xFFE53935); // red
     }
 
     String performanceMessage() {
@@ -690,7 +644,7 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
 
     return ThemedScaffold(
       appBar: _buildAppBar(
-        title:    'النتائج',
+        title: 'النتائج',
         subtitle: null,
         trailing: Container(
           padding: const EdgeInsets.all(10),
@@ -792,93 +746,134 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
             ),
             const SizedBox(height: 24),
 
-            // Question summary
+            // Question summary - Only show incorrect answers with correct answer
             if (_correctness.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  color: teal50,
-                  border: Border.all(color: teal100, width: 1.5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.list_alt_rounded,
-                          color: teal500,
-                          size: 22,
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'ملخص الأسئلة',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Alexandria',
-                            color: teal900,
-                          ),
-                        ),
-                      ],
+              ...[
+                // Count of wrong answers
+                if (_correctness.where((c) => !c).isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: const Color(0xFFFFEBEE),
+                      border: Border.all(color: Colors.red[200]!, width: 1.5),
                     ),
-                    const SizedBox(height: 14),
-                    ...List.generate(_correctness.length, (index) {
-                      final ok = _correctness[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: ok
-                                    ? const Color(0xFFE0F2F1)
-                                    : const Color(0xFFFFEBEE),
-                              ),
-                              child: Icon(
-                                ok
-                                    ? Icons.check_rounded
-                                    : Icons.close_rounded,
-                                color: ok
-                                    ? const Color(0xFF00897B)
-                                    : Colors.red,
-                                size: 22,
-                              ),
+                            const Icon(
+                              Icons.info_rounded,
+                              color: Colors.red,
+                              size: 22,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'السؤال ${index + 1}',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: teal900,
-                                  fontFamily: 'Alexandria',
-                                ),
-                              ),
-                            ),
-                            Text(
-                              ok ? '✓ صحيح' : '✗ خطأ',
+                            const SizedBox(width: 8),
+                            const Text(
+                              'الإجابات الخاطئة',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 15,
                                 fontWeight: FontWeight.bold,
-                                color: ok
-                                    ? const Color(0xFF00897B)
-                                    : Colors.red,
                                 fontFamily: 'Alexandria',
+                                color: Colors.red,
                               ),
                             ),
                           ],
                         ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
+                        const SizedBox(height: 14),
+                        ...List.generate(_correctness.length, (index) {
+                          final ok = _correctness[index];
+                          if (ok) return const SizedBox.shrink();
+
+                          final question = widget.competition.questions[index];
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Question number and title
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 38,
+                                      height: 38,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: const Color(0xFFFFEBEE),
+                                        border: Border.all(
+                                          color: Colors.red,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.close_rounded,
+                                        color: Colors.red,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'السؤال ${index + 1}',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.red,
+                                              fontFamily: 'Alexandria',
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            question.questionText,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: teal900,
+                                              fontFamily: 'Alexandria',
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  )
+                else
+                  Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.celebration_rounded,
+                          color: Colors.green[600],
+                          size: 48,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'لا توجد إجابات خاطئة! 🎉',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[700],
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
 
             const SizedBox(height: 28),
 
@@ -887,7 +882,15 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => navigateAndFinish(
+                  context,
+                  HomeLayout(
+                    userId: widget.userId,
+                    userType: widget.user!.userType,
+                    userClass: widget.user!.userClass,
+                    gender: widget.user!.gender,
+                  ),
+                ),
                 icon: const Icon(Icons.home_rounded, size: 22),
                 label: const Text(
                   'العودة للرئيسية',
@@ -940,8 +943,7 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
         ),
         child: SafeArea(
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Row(
               children: [
                 IconButton(
@@ -993,20 +995,20 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
   }
 
   Widget _pill(String text) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.20),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.20),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
 
   Widget _navButton({
     required String label,
@@ -1032,22 +1034,26 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: iconTrailing
               ? [
-                  Text(label,
-                      style: const TextStyle(
-                        fontFamily: 'Alexandria',
-                        fontWeight: FontWeight.bold,
-                      )),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontFamily: 'Alexandria',
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(width: 6),
                   Icon(icon, size: 16),
                 ]
               : [
                   Icon(icon, size: 16),
                   const SizedBox(width: 6),
-                  Text(label,
-                      style: const TextStyle(
-                        fontFamily: 'Alexandria',
-                        fontWeight: FontWeight.bold,
-                      )),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontFamily: 'Alexandria',
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
         ),
       ),
@@ -1065,10 +1071,7 @@ class _TakeCompetitionCardScreenState extends State<TakeCompetitionCardScreen>
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: color.withValues(alpha: 0.08),
-        border: Border.all(
-          color: color.withValues(alpha: 0.25),
-          width: 1.5,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.25), width: 1.5),
       ),
       child: Column(
         children: [
