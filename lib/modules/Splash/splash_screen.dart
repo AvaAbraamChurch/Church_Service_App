@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:math';
-
 import 'package:church/core/repositories/auth_repository.dart';
 import 'package:church/core/services/connectivity_service.dart';
+import 'package:church/core/services/version_service.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/gender_enum.dart';
@@ -43,6 +43,16 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(seconds: 3));
 
     if (!mounted) return;
+
+    // Check remote version requirement and prompt user to update if needed.
+    // If an update dialog is shown, stop further navigation so the user
+    // can either update or close the app.
+    try {
+      final updateShown = await VersionService().checkAndPromptUpdate(context);
+      if (updateShown) return;
+    } catch (e) {
+      // If the version check fails for any reason, continue silently.
+    }
 
     // Check authentication status
     final isLoggedIn = _authRepository.isLoggedInFromCache();

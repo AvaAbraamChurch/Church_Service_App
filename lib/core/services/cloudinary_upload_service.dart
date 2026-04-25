@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
-/// Uploads product images to Cloudinary using an unsigned upload preset.
+/// Uploads images to Cloudinary using an unsigned upload preset.
 class CloudinaryUploadService {
   static const int _maxFileSizeInBytes = 5 * 1024 * 1024;
   static const Duration _uploadTimeout = Duration(seconds: 30);
@@ -30,6 +30,8 @@ class CloudinaryUploadService {
 
   String get _baseFolder => _folder.trim();
 
+  // ── Pickers ───────────────────────────────────────────────────────────────
+
   Future<XFile?> pickImageFromGallery() {
     return _picker.pickImage(
       source: ImageSource.gallery,
@@ -38,6 +40,18 @@ class CloudinaryUploadService {
       imageQuality: 85,
     );
   }
+
+  /// Pick a profile image: smaller dimensions, higher compression than product images.
+  Future<XFile?> pickProfileImage() {
+    return _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 75,
+    );
+  }
+
+  // ── Upload helpers ────────────────────────────────────────────────────────
 
   Future<String> uploadProductImage(XFile image) async {
     return _uploadImageBytes(
@@ -56,6 +70,19 @@ class CloudinaryUploadService {
     );
   }
 
+  /// Upload a user profile photo.
+  ///
+  /// [userId] is used as the public ID so repeated uploads overwrite the
+  /// previous image instead of creating orphaned files.
+  Future<String> uploadProfileImage(File imageFile, String userId) {
+    return _uploadImageBytes(
+      bytes: imageFile.readAsBytesSync(),
+      filename: 'profile_$userId.jpg',
+      folder: '$_baseFolder/profiles',
+      publicId: 'profiles/profile_$userId',
+    );
+  }
+
   Future<String> uploadImageFile(
     File imageFile, {
     String? folder,
@@ -68,14 +95,18 @@ class CloudinaryUploadService {
     );
   }
 
+  // ── Core upload ───────────────────────────────────────────────────────────
+
   Future<String> _uploadImageBytes({
     required List<int> bytes,
     required String filename,
     required String folder,
+    String? publicId,
   }) async {
     if (!isConfigured) {
       throw Exception(
-        'Cloudinary is not configured. Pass CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET via --dart-define.',
+        'Cloudinary is not configured. '
+        'Pass CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET via --dart-define.',
       );
     }
 
@@ -97,6 +128,12 @@ class CloudinaryUploadService {
           filename: filename.isEmpty ? 'image.jpg' : filename,
         ),
       );
+
+    // Setting public_id lets Cloudinary overwrite the previous file on
+    // re-upload (e.g. when a user updates their profile photo).
+    if (publicId != null && publicId.isNotEmpty) {
+      request.fields['public_id'] = publicId;
+    }
 
     final response = await _httpClient.send(request).timeout(_uploadTimeout);
     final responseBody = await response.stream.bytesToString();

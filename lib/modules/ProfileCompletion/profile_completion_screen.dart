@@ -12,8 +12,10 @@ import 'package:church/core/utils/service_enum.dart';
 import 'package:church/layout/home_layout.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:church/core/services/cloudinary_upload_service.dart';
 import 'dart:io';
+
+import 'package:image_picker/image_picker.dart';
 
 class ProfileCompletionScreen extends StatefulWidget {
   final UserModel user;
@@ -57,7 +59,9 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
   ServiceType? _selectedServiceType;
   DateTime? _birthday;
   File? _selectedImage;
+  bool _isUploadingImage = false;
   final UsersRepository _userRepository = UsersRepository();
+  final CloudinaryUploadService _cloudinaryService = CloudinaryUploadService();
   final AuthRepository _authRepository = AuthRepository();
   final ClassesRepository _classesRepository = ClassesRepository();
 
@@ -186,23 +190,29 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
 
   Future<String?> _uploadProfileImage() async {
     if (_selectedImage == null) return null;
-
     try {
-      final String fileName =
-          'profile_${widget.user.fullName}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final Reference storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_images')
-          .child(fileName);
-
-      final UploadTask uploadTask = storageRef.putFile(_selectedImage!);
-      final TaskSnapshot snapshot = await uploadTask;
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
-
+      setState(() => _isUploadingImage = true);
+      final String downloadUrl = await _cloudinaryService.uploadProfileImage(
+        _selectedImage!,
+        widget.user.id,
+      );
       return downloadUrl;
     } catch (e) {
-      print('Error uploading image: $e');
+      debugPrint('Error uploading image: \$e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'فشل رفع الصورة: \$e',
+              style: const TextStyle(fontFamily: 'Alexandria'),
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       return null;
+    } finally {
+      if (mounted) setState(() => _isUploadingImage = false);
     }
   }
 
@@ -883,73 +893,131 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
         const SizedBox(height: 20),
 
         // Profile Image Picker
-        // _buildModernFieldCard(
-        //   title: 'صورة الملف الشخصي',
-        //   icon: Icons.image,
-        //   color: teal700,
-        //   child: Container(
-        //     padding: const EdgeInsets.all(16),
-        //     decoration: BoxDecoration(
-        //       color: Colors.white,
-        //       borderRadius: BorderRadius.circular(12),
-        //       border: Border.all(color: teal700, width: 2),
-        //       boxShadow: [
-        //         BoxShadow(
-        //           color: teal700.withValues(alpha: 0.2),
-        //           blurRadius: 10,
-        //           offset: const Offset(0, 4),
-        //         ),
-        //       ],
-        //     ),
-        //     child: Row(
-        //       children: [
-        //         ClipOval(
-        //           child: _selectedImage != null
-        //               ? Image.file(
-        //                   _selectedImage!,
-        //                   width: 60,
-        //                   height: 60,
-        //                   fit: BoxFit.cover,
-        //                 )
-        //               : (widget.user.profileImageUrl != null
-        //                   ? Image.network(
-        //                       widget.user.profileImageUrl!,
-        //                       width: 60,
-        //                       height: 60,
-        //                       fit: BoxFit.cover,
-        //                     )
-        //                   : Container(
-        //                       width: 60,
-        //                       height: 60,
-        //                       decoration: BoxDecoration(
-        //                         color: Colors.grey[200],
-        //                         borderRadius: BorderRadius.circular(30),
-        //                       ),
-        //                       child: Icon(
-        //                         Icons.camera_alt,
-        //                         color: teal700,
-        //                         size: 28,
-        //                       ),
-        //                     )),
-        //         ),
-        //         const SizedBox(width: 16),
-        //         Expanded(
-        //           child: Text(
-        //             _selectedImage != null
-        //                 ? 'تم اختيار صورة'
-        //                 : (widget.user.profileImageUrl != null ? 'صورة موجودة' : 'اختر صورة للملف الشخصي (معطل)'),
-        //             style: TextStyle(fontSize: 16),
-        //           ),
-        //         ),
-        //       ],
-        //     ),
-        //   ),
-        // ),
+        _buildModernFieldCard(
+          title: 'صورة الملف الشخصي',
+          icon: Icons.image,
+          color: teal700,
+          child: GestureDetector(
+            onTap: _isUploadingImage ? null : _pickProfileImage,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [teal700, teal500],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: teal700.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  // Preview circle
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      color: Colors.white.withValues(alpha: 0.15),
+                    ),
+                    child: ClipOval(
+                      child: _isUploadingImage
+                          ? Center(
+                              child: SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              ),
+                            )
+                          : _selectedImage != null
+                          ? Image.file(
+                              _selectedImage!,
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                            )
+                          : widget.user.profileImageUrl != null
+                          ? Image.network(
+                              widget.user.profileImageUrl!,
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 32,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isUploadingImage
+                              ? 'جاري رفع الصورة...'
+                              : _selectedImage != null
+                              ? 'تم اختيار صورة'
+                              : widget.user.profileImageUrl != null
+                              ? 'صورة موجودة – اضغط لتغييرها'
+                              : 'اضغط لاختيار صورة',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'اختياري – حجم أقصى 5 ميجابايت',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.75),
+                            fontSize: 12,
+                            fontFamily: 'Alexandria',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.photo_camera_rounded,
+                    color: Colors.white.withValues(alpha: 0.8),
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildGenderOption(Gender gender, String label, IconData icon) {
+  Future<void> _pickProfileImage() async {
+    final XFile? picked = await _cloudinaryService.pickProfileImage();
+    if (picked == null || !mounted) return;
+    setState(() => _selectedImage = File(picked.path));
+  }
+
+    Widget _buildGenderOption(Gender gender, String label, IconData icon) {
     final isSelected = _selectedGender == gender;
 
     return GestureDetector(

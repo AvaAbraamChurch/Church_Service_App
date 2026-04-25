@@ -1,9 +1,9 @@
 import 'dart:io';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:church/core/services/cloudinary_upload_service.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ImageUploadService {
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final CloudinaryUploadService _cloudinary = CloudinaryUploadService();
   final ImagePicker _picker = ImagePicker();
 
   // Maximum file size: 2 MB
@@ -57,33 +57,21 @@ class ImageUploadService {
     return bytes / (1024 * 1024);
   }
 
-  /// Upload image to Firebase Storage
+  /// Upload profile image to Cloudinary
   Future<String> uploadProfileImage(File imageFile, String userId) async {
     try {
-      // Create a reference to the location where we want to upload the file
-      final storageRef = _storage.ref().child('profile_images/$userId.jpg');
-
-      // Upload the file
-      final uploadTask = await storageRef.putFile(imageFile);
-
-      // Get the download URL
-      final downloadUrl = await uploadTask.ref.getDownloadURL();
-
+      final downloadUrl = await _cloudinary.uploadProfileImage(imageFile, userId);
       return downloadUrl;
     } catch (e) {
-      throw Exception('Failed to upload image: $e');
+      throw Exception('Failed to upload image: \$e');
     }
   }
 
-  /// Delete profile image from Firebase Storage
+  /// Delete profile image — handled server-side via Cloudinary.
+  /// No-op on the client; pass the public_id to your backend if needed.
   Future<void> deleteProfileImage(String userId) async {
-    try {
-      final storageRef = _storage.ref().child('profile_images/$userId.jpg');
-      await storageRef.delete();
-    } catch (e) {
-      // Image might not exist, which is fine
-      throw Exception('Failed to delete image: $e');
-    }
+    // Cloudinary deletion should be handled server-side.
+    // Nothing to do here on the client.
   }
 }
 

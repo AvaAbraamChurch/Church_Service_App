@@ -9,7 +9,7 @@ import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/models/user/user_model.dart';
 import '../../core/repositories/users_reopsitory.dart';
-import '../../core/services/image_upload_service.dart';
+import '../../core/services/cloudinary_upload_service.dart';
 import '../../core/styles/colors.dart';
 import '../../core/constants/strings.dart';
 import '../../core/blocs/auth/auth_cubit.dart';
@@ -27,7 +27,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final UsersRepository _usersRepository = UsersRepository();
-  final ImageUploadService _imageUploadService = ImageUploadService();
+  final CloudinaryUploadService _cloudinaryUploadService = CloudinaryUploadService();
   final _formKey = GlobalKey<FormState>();
 
   late final stream;
@@ -193,18 +193,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 75,
-    );
-
+    // Delegates to the service so picker config stays in one place.
+    final XFile? image = await _cloudinaryUploadService.pickProfileImage();
     if (image != null) {
       setState(() {
         _selectedImage = File(image.path);
-        // Clear avatar if user selects image
         _newAvatarSvg = null;
       });
     }
@@ -220,7 +213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Upload new image if selected
       if (_selectedImage != null) {
-        newImageUrl = await _imageUploadService.uploadProfileImage(
+        newImageUrl = await _cloudinaryUploadService.uploadProfileImage(
           _selectedImage!,
           currentUser.id,
         );
