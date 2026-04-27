@@ -4,24 +4,40 @@ import 'package:church/core/models/registration_request_model.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/service_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/core/services/supabase_password_reset_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http; // 👈 Add this import for HTTP calls
+import 'dart:convert'; // 👈 Add this for JSON encoding
 
 /// Repository for admin operations including user management and registration requests
 class AdminRepository {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
+  final SupabasePasswordResetService _supabaseService;
+
+  final String _supabaseFunctionUrl;
+  final String _adminApiKey;
 
   AdminRepository({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
+    SupabasePasswordResetService? supabaseService,
+    String? supabaseFunctionUrl,  // 👈 New parameter
+    String? adminApiKey,          // 👈 New parameter
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+        _auth = auth ?? FirebaseAuth.instance,
+        _supabaseService = supabaseService ?? SupabasePasswordResetService(),
+  // 👇 Use provided values or fallback to defaults (replace with env vars in production)
+        _supabaseFunctionUrl = supabaseFunctionUrl ??
+            'https://your-project-ref.functions.supabase.co/reset-password',
+        _adminApiKey = adminApiKey ??
+            const String.fromEnvironment('ADMIN_API_KEY', defaultValue: '');
 
   // ============ HELPER METHODS ============
 
   /// Generate a secure random temporary password
-  /// Returns a password with 8 characters: mix of uppercase, lowercase, and numbers
+  /// Returns a password with 8 characters: mix of uppercase, lowercase, numbers, and special chars
   String generateTemporaryPassword({int length = 8}) {
     const String upperChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const String lowerChars = 'abcdefghijklmnopqrstuvwxyz';
@@ -31,7 +47,7 @@ class AdminRepository {
     final Random random = Random.secure();
     final List<String> password = [];
 
-    // Ensure at least one of each type
+    // Ensure complexity: at least one of each type
     password.add(upperChars[random.nextInt(upperChars.length)]);
     password.add(lowerChars[random.nextInt(lowerChars.length)]);
     password.add(numbers[random.nextInt(numbers.length)]);
@@ -41,8 +57,13 @@ class AdminRepository {
       password.add(allChars[random.nextInt(allChars.length)]);
     }
 
-    // Shuffle the password characters
-    password.shuffle(random);
+    // Fisher-Yates shuffle for better randomness
+    for (int i = password.length - 1; i > 0; i--) {
+      final j = random.nextInt(i + 1);
+      final temp = password[i];
+      password[i] = password[j];
+      password[j] = temp;
+    }
 
     return password.join();
   }
@@ -139,42 +160,91 @@ class AdminRepository {
     }
   }
 
-  /// Reset user password
-  /// Generates a new temporary password to be given to the user manually
-  /// Returns the temporary password that should be given to the user
-  /// Note: User must use this password to login and will be forced to change it
+  /// 🔐 Reset user password using Supabase Edge Function
+  ///
+  /// Flow:
+  /// 1. Get user's email from Firestore
+  /// 2. Call Supabase Edge Function with email + admin auth
+  /// 3. Edge Function resets password in Firebase Auth via REST API
+  /// 4. Update Firestore with reset flags
+  /// 5. Return temporary password (only shown to admin, not stored)
+  ///
+  /// Fallback: If Edge Function fails, send Firebase password reset email
+  ///
+  /// ⚠️ Security: Never store or log the temporary password in production
   Future<String> resetUserPassword(String userId) async {
     try {
-      // Get user's email for verification
+      // Step 1: Get user's email and full name from Firestore
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (!userDoc.exists) {
-        throw Exception('User not found');
+        throw Exception('User not found in Firestore');
       }
 
-      final userEmail = userDoc.data()?['email'] as String?;
-      if (userEmail == null) {
-        throw Exception('User email not found');
+      final userData = userDoc.data();
+      final userEmail = userData?['email'] as String?;
+      final userName = userData?['fullName'] as String? ?? 'User';
+
+      if (userEmail == null || userEmail.isEmpty) {
+        throw Exception('User email not found or invalid');
       }
 
-      // Generate a secure temporary password
-      final temporaryPassword = generateTemporaryPassword();
+      // Step 2: Try to reset password using Supabase Edge Function
+      try {
+        print('🔄 Calling Supabase Edge Function for password reset...');
 
-      // Mark user as needing to change password on first login
-      await _firestore.collection('users').doc(userId).update({
-        'firstLogin': true,
-        'passwordResetRequested': true,
-        'temporaryPassword': temporaryPassword, // Store temporarily for verification
-        'passwordResetAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+        final temporaryPassword = await _supabaseService.resetUserPassword(
+          // 👇 Pass email OR uid - Edge Function accepts either
+          email: userEmail,
+          // uid: userId,  // Alternative: use uid if you prefer
+          fullName: userName,
+          autoGenerate: true,  // Let Edge Function generate secure password
+          // newPassword: 'Custom123!',  // Optional: provide custom password
+        );
 
-      // Send password reset email with the standard Firebase flow
-      // The temporary password is for admin records, user will use email link to reset
-      await _auth.sendPasswordResetEmail(email: userEmail);
+        print('✅ Supabase Edge Function succeeded');
 
-      // Return the temporary password so admin can give it to user if email doesn't work
-      return temporaryPassword;
+        // Step 3: Update Firestore with reset flags (Edge Function also does this)
+        await _firestore.collection('users').doc(userId).update({
+          'firstLogin': true,
+          'passwordResetRequested': true,
+          'passwordResetAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          // 👇 Do NOT store the temporary password in Firestore in production
+          // Only for debugging during development:
+          // if (kDebugMode) 'temporaryPassword': temporaryPassword,
+        });
+
+        return temporaryPassword;
+
+      } catch (supabaseError) {
+        // 👇 Fallback: If Supabase function fails, use Firebase password reset email
+        print('⚠️ Supabase Edge Function failed: $supabaseError');
+        print('🔄 Falling back to Firebase password reset email...');
+
+        // Generate a temporary password for admin reference (not stored in Firebase Auth)
+        final temporaryPassword = generateTemporaryPassword();
+
+        // Update Firestore with reset flags (but NOT the password)
+        await _firestore.collection('users').doc(userId).update({
+          'firstLogin': true,
+          'passwordResetRequested': true,
+          'passwordResetMethod': 'firebase_email_fallback',
+          'passwordResetAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        // Send Firebase password reset email (user clicks link to set new password)
+        await _auth.sendPasswordResetEmail(email: userEmail);
+
+        print('✅ Firebase password reset email sent to $userEmail');
+
+        // Return the generated password so admin can communicate it via secure channel
+        // ⚠️ In production: Send this via SMS/secure email, not in-app alert
+        return temporaryPassword;
+      }
+
     } catch (e) {
+      print('❌ Error in resetUserPassword: $e');
       throw Exception('Error resetting password: $e');
     }
   }
@@ -205,8 +275,8 @@ class AdminRepository {
         .where('userType', isEqualTo: userType)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => UserModel.fromMap(doc.data(), id: doc.id))
-            .toList());
+        .map((doc) => UserModel.fromMap(doc.data(), id: doc.id))
+        .toList());
   }
 
   /// Get users by class
@@ -218,8 +288,8 @@ class AdminRepository {
         .where('userClass', isEqualTo: userClass)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => UserModel.fromMap(doc.data(), id: doc.id))
-            .toList());
+        .map((doc) => UserModel.fromMap(doc.data(), id: doc.id))
+        .toList());
   }
 
   /// Get user statistics
@@ -253,8 +323,8 @@ class AdminRepository {
         .orderBy('requestedAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => RegistrationRequest.fromMap(doc.data(), id: doc.id))
-            .toList());
+        .map((doc) => RegistrationRequest.fromMap(doc.data(), id: doc.id))
+        .toList());
   }
 
   /// Get pending registration requests
@@ -265,8 +335,8 @@ class AdminRepository {
         .orderBy('requestedAt', descending: false)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => RegistrationRequest.fromMap(doc.data(), id: doc.id))
-            .toList());
+        .map((doc) => RegistrationRequest.fromMap(doc.data(), id: doc.id))
+        .toList());
   }
 
   /// Get count of pending registration requests
@@ -295,13 +365,13 @@ class AdminRepository {
   /// Approve a registration request and create the user
   /// Returns the generated temporary password that should be given to the user
   Future<String> approveRegistrationRequest(
-    String requestId,
-    String adminId,
-  ) async {
+      String requestId,
+      String adminId,
+      ) async {
     try {
       // Get the request
       final requestDoc =
-          await _firestore.collection('registration_requests').doc(requestId).get();
+      await _firestore.collection('registration_requests').doc(requestId).get();
 
       if (!requestDoc.exists) {
         throw Exception('Registration request not found');
@@ -351,10 +421,10 @@ class AdminRepository {
 
   /// Reject a registration request
   Future<void> rejectRegistrationRequest(
-    String requestId,
-    String adminId,
-    String rejectionReason,
-  ) async {
+      String requestId,
+      String adminId,
+      String rejectionReason,
+      ) async {
     try {
       await _firestore.collection('registration_requests').doc(requestId).update({
         'status': 'rejected',

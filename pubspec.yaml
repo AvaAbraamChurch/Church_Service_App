@@ -81,6 +81,10 @@ dependencies:
   # Audio player
   audioplayers: ^6.1.0
   cached_network_image: ^3.4.1
+
+  # Supabase for edge functions
+  supabase_flutter: ^2.10.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

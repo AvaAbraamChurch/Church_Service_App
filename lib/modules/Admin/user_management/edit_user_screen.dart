@@ -942,7 +942,12 @@ class _EditUserScreenState extends State<EditUserScreen> {
           children: [
             Icon(Icons.check_circle, color: Colors.green.shade600),
             const SizedBox(width: 8),
-            const Text('تم إعادة تعيين كلمة المرور'),
+            const Expanded(
+              child: Text(
+                'تم إعادة تعيين كلمة المرور',
+                softWrap: true,
+              ),
+            ),
           ],
         ),
         content: Column(
@@ -979,15 +984,18 @@ class _EditUserScreenState extends State<EditUserScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: SelectableText(
-                        temporaryPassword,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
-                          color: teal900,
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: SelectableText(
+                          temporaryPassword,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2,
+                            color: teal900,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ),
                     const SizedBox(width: 8),

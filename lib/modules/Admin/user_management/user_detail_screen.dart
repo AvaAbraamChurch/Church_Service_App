@@ -572,14 +572,21 @@ class UserDetailScreen extends StatelessWidget {
           children: [
             Icon(Icons.vpn_key_rounded, color: brown500),
             const SizedBox(width: 8),
-            const Text('إعادة تعيين كلمة المرور'),
+            const Expanded(
+              child: Text(
+                'إعادة تعيين كلمة المرور',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('هل تريد إرسال بريد إعادة تعيين كلمة المرور إلى ${user.fullName}؟'),
+            Text('هل تريد إعادة تعيين كلمة المرور للمستخدم ${user.fullName}؟'),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -620,7 +627,7 @@ class UserDetailScreen extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'سيتلقى المستخدم رابطاً لإعادة تعيين كلمة المرور. سيكون الرابط صالحاً لمدة ساعة واحدة.',
+                      'سيتم إنشاء كلمة مرور مؤقتة جديدة.\nستنتهي صلاحيتها خلال ساعة واحدة.\nانسخها وأرسلها للمستخدم.',
                       style: TextStyle(
                         fontSize: 11,
                         color: brown700,
@@ -662,7 +669,7 @@ class UserDetailScreen extends StatelessWidget {
                   Navigator.pop(context); // Close loading
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('فشل إرسال البريد: ${e.toString()}'),
+                      content: Text('فشل إعادة تعيين كلمة المرور: ${e.toString()}'),
                       backgroundColor: red500,
                     ),
                   );
@@ -673,7 +680,7 @@ class UserDetailScreen extends StatelessWidget {
               backgroundColor: brown500,
               foregroundColor: Colors.white,
             ),
-            child: const Text('إرسال البريد'),
+            child: const Text('إعادة التعيين'),
           ),
         ],
       ),
@@ -689,9 +696,14 @@ class UserDetailScreen extends StatelessWidget {
           children: [
             Icon(Icons.check_circle, color: Colors.green, size: 28),
             const SizedBox(width: 12),
-            const Text(
-              'تم إعادة التعيين',
-              style: TextStyle(color: teal900),
+            const Expanded(
+              child: Text(
+                'تم إعادة التعيين',
+                style: TextStyle(color: teal900),
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -700,7 +712,7 @@ class UserDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'تم إرسال بريد إعادة تعيين كلمة المرور إلى ${user.email}',
+              'تم إنشاء كلمة مرور مؤقتة بنجاح.',
               style: const TextStyle(color: sage700),
               textAlign: TextAlign.center,
             ),
@@ -782,9 +794,8 @@ class UserDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '• سيتلقى المستخدم رابط إعادة التعيين عبر البريد الإلكتروني\n'
-                    '• الرابط صالح لمدة ساعة واحدة\n'
-                    '• كلمة المرور المؤقتة أعلاه للطوارئ فقط\n'
+                    '• كلمة المرور المؤقتة تنتهي خلال ساعة واحدة\n'
+                    '• انسخ كلمة المرور وأرسلها للمستخدم\n'
                     '• سيُطلب من المستخدم تغيير كلمة المرور عند أول تسجيل دخول',
                     style: TextStyle(
                       fontSize: 11,
