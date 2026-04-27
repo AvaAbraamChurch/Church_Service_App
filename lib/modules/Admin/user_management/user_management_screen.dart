@@ -10,6 +10,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:church/modules/Admin/user_management/user_detail_screen.dart';
 import 'package:church/modules/Admin/user_management/create_user_screen.dart';
 import 'package:church/modules/Admin/user_management/registration_requests_screen.dart';
+import 'package:church/modules/Admin/user_management/bulk_create_users_screen.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -181,6 +182,21 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildActionButton(
+                    icon: Icons.group_add_rounded,
+                    label: 'إضافة مستخدمين بالجملة',
+                    gradientStart: sage700,
+                    gradientEnd: teal900,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const BulkCreateUsersScreen(),
+                        ),
+                      ).then((_) => _cubit.loadAllUsers());
+                    },
                   ),
                   const SizedBox(height: 16),
                   TextField(

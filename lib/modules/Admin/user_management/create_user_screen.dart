@@ -5,6 +5,7 @@ import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/service_enum.dart';
 import 'package:church/core/utils/classes_mapping.dart';
 import 'package:church/core/models/class_mapping/class_mapping_model.dart';
+import 'package:church/core/services/supabase_bulk_create_users.dart';
 import 'package:flutter/material.dart';
 
 
@@ -34,6 +35,7 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
   bool _storeAdmin = false;
   bool _isActive = true;
   DateTime? _birthday;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -82,6 +84,92 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
     });
 
     return items;
+  }
+
+  Future<void> _createUserWithEdgeFunction() async {
+    if (!_formKey.currentState!.validate() || _isSubmitting) {
+      return;
+    }
+
+    final userInput = BulkUserInput(
+      name: _fullNameController.text.trim(),
+      userType: _selectedUserType.code,
+      gender: _selectedGender.code,
+      userClass: _selectedUserClass,
+      serviceType: _selectedServiceType.key,
+      phoneNumber: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+      address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+      birthday: _birthday,
+    );
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final result = await bulkCreateUsers([userInput]);
+
+      if (!mounted) {
+        return;
+      }
+
+      if (result.successful.isNotEmpty) {
+        final created = result.successful.first;
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('تم إنشاء المستخدم بنجاح'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    'الاسم: ${created.name}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: teal500)
+                ),
+                Text('اسم المستخدم: ${created.username}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: teal500)),
+                Text('البريد الإلكتروني: ${created.email}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: teal500)),
+                Text('كلمة المرور المؤقتة: ${created.password}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: teal500)),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('حسنا'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) {
+          return;
+        }
+        Navigator.pop(context, true);
+        return;
+      }
+
+      final failedMessage = result.failed.isNotEmpty
+          ? result.failed.first.error
+          : 'فشل إنشاء المستخدم من خلال الخدمة';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failedMessage), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('حدث خطأ أثناء إنشاء المستخدم: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -178,6 +266,11 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+              const Text(
+                'سيتم إنشاء البريد الإلكتروني واسم المستخدم وكلمة المرور تلقائيا من خلال Supabase Edge Function.',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _fullNameController,
                 style: const TextStyle(color: Colors.white),
@@ -253,10 +346,7 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'يرجى إدخال البريد الإلكتروني';
-                  }
-                  if (!value.contains('@')) {
+                  if (value != null && value.isNotEmpty && !value.contains('@')) {
                     return 'البريد الإلكتروني غير صحيح';
                   }
                   return null;
@@ -284,10 +374,7 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
                 ),
                 obscureText: true,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'يرجى إدخال كلمة المرور';
-                  }
-                  if (value.length < 6) {
+                  if (value != null && value.isNotEmpty && value.length < 6) {
                     return 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
                   }
                   return null;
@@ -725,18 +812,15 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    // TODO: Implement create user
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('سيتم إضافة وظيفة إنشاء المستخدم قريباً'),
-                      ),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.save_rounded),
-                label: const Text('إنشاء المستخدم'),
+                onPressed: _isSubmitting ? null : _createUserWithEdgeFunction,
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.cloud_upload_rounded),
+                label: Text(_isSubmitting ? 'جار انشاء المستخدم...' : 'إنشاء المستخدم'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: teal500,
                   foregroundColor: Colors.white,
