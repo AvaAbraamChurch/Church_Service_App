@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-
 import '../../core/models/messages/message_model.dart';
 import '../../core/repositories/messages_repository.dart';
 import '../../core/repositories/users_reopsitory.dart';
@@ -10,6 +11,7 @@ import '../../core/styles/colors.dart';
 import '../../core/styles/themeScaffold.dart';
 import '../../core/utils/link_utils.dart';
 import '../../shared/avatar_display_widget.dart';
+import '../../core/services/message_service.dart';
 
 class ChattingScreen extends StatefulWidget {
   final String receiverId;
@@ -57,24 +59,27 @@ class _ChattingScreenState extends State<ChattingScreen> {
     }
   }
 
-  void _sendMessage() {
+  void _sendMessage() async {
     if (_messageController.text.trim().isEmpty || _currentUserId == null) {
       return;
     }
 
+    final messageText = _messageController.text.trim();
+
     final message = MessageModel(
       senderId: _currentUserId!,
       receiverId: widget.receiverId,
-      text: _messageController.text.trim(),
+      text: messageText,
       type: MessageType.text,
       timestamp: DateTime.now(),
       isSeen: false,
     );
 
-    _messagesRepository.sendMessage(message);
+    // 1. Save message to Firestore (existing logic)
+    final messageId = await _messagesRepository.sendMessage(message);
     _messageController.clear();
 
-    // Scroll to bottom after sending
+    // 2. Scroll to bottom (existing logic)
     Future.delayed(const Duration(milliseconds: 300), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -84,7 +89,72 @@ class _ChattingScreenState extends State<ChattingScreen> {
         );
       }
     });
+
+    // 3. 🔔 NEW: Trigger Edge Function to notify recipient
+    //    (Non-blocking, fails silently if Edge Function is unavailable)
+    unawaited(_triggerMessageNotification(
+      messageId: messageId,
+      messagePreview: messageText,
+    ));
   }
+
+  /// Helper: Trigger Edge Function notification (non-blocking)
+  Future<void> _triggerMessageNotification({
+    required String messageId,
+    required String messagePreview,
+  }) async {
+    try {
+      // Get sender name from current user profile (cached or fetched)
+      final senderName = await _usersRepository.getUserById(_currentUserId!)
+          .then((user) => user.fullName)
+          .catchError((_) => 'مستخدم مجهول'); // Fallback name;
+
+      // Initialize notification service with config from environment
+      final notificationService = MessageService(
+        edgeFunctionUrl: const String.fromEnvironment(
+          'SUPABASE_MESSAGE_URL',
+          defaultValue: 'https://pfytemzrsgcptoxqywjs.supabase.co/functions/v1/on-new-message',
+        ),
+        internalKey: const String.fromEnvironment('INTERNAL_TRIGGER_KEY', defaultValue: ''),
+      );
+
+      // Skip if key not configured (development mode)
+      // if (notificationService.internalKey.isEmpty) {
+      //   if (kDebugMode) {
+      //     debugPrint('⚠️ INTERNAL_TRIGGER_KEY not set — skipping Edge Function call');
+      //   }
+      //   return;
+      // }
+
+      // Trigger notification (fire-and-forget)
+      final success = await notificationService.notifyNewMessage(
+        recipientId: widget.receiverId,
+        senderName: senderName,
+        messagePreview: messagePreview,
+        messageId: messageId,
+        conversationId: _getConversationId(),
+      );
+
+      if (kDebugMode && !success) {
+        debugPrint('⚠️ Message notification Edge Function returned false');
+      }
+
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Error in _triggerMessageNotification: $e');
+      }
+      // Never throw — message was already saved successfully
+    }
+  }
+
+
+  /// Generate consistent conversation ID for both users
+  String _getConversationId() {
+    // Sort UIDs to ensure same conversation ID for both directions
+    final ids = [_currentUserId!, widget.receiverId]..sort();
+    return '${ids[0]}_${ids[1]}';
+  }
+
 
   void _copyMessageText(String text) {
     Clipboard.setData(ClipboardData(text: text));

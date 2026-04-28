@@ -17,6 +17,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// - userClass
 /// - serviceType (enum)
 /// - profileImageUrl (optional)
+/// - fcmToken (optional)
 /// - couponPoints
 /// - createdAt
 /// - updatedAt
@@ -37,6 +38,7 @@ class UserModel {
   final ServiceType serviceType;
   final String? profileImageUrl;
   final String? avatar; // SVG string of the avatar
+  final String? fcmToken;
   final int couponPoints;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -59,6 +61,7 @@ class UserModel {
     this.address,
     this.profileImageUrl,
     this.avatar,
+    this.fcmToken,
     this.couponPoints = 0,
     this.createdAt,
     this.updatedAt,
@@ -82,6 +85,7 @@ class UserModel {
     ServiceType? serviceType,
     String? profileImageUrl,
     String? avatar,
+    String? fcmToken,
     int? couponPoints,
     bool? firstLogin,
     DateTime? birthday,
@@ -102,6 +106,7 @@ class UserModel {
       serviceType: serviceType ?? this.serviceType,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       avatar: avatar ?? this.avatar,
+      fcmToken: fcmToken ?? this.fcmToken,
       couponPoints: couponPoints ?? this.couponPoints,
       firstLogin: firstLogin ?? this.firstLogin,
       birthday: birthday ?? this.birthday,
@@ -121,6 +126,7 @@ class UserModel {
       if (address != null) 'address': address,
       if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
       if (avatar != null) 'avatar': avatar,
+      if (fcmToken != null) 'fcm_token': fcmToken,
       'couponPoints': couponPoints,
       // Store enums as short codes for compactness and consistency
       'userType': userType.code, // e.g., 'PR','SS','SV','CH'
@@ -155,6 +161,7 @@ class UserModel {
       address: (data['address'] ?? data['addr'])?.toString(),
       profileImageUrl: (data['profileImageUrl'])?.toString(),
       avatar: (data['avatar'])?.toString(),
+      fcmToken: (data['fcm_token'] ?? data['fcmToken'])?.toString(),
       userType: userTypeFromJson(data['userType']),
       gender: genderFromJson(data['gender']),
       userClass: (data['userClass'] ?? data['class'] ?? '').toString(),
@@ -176,7 +183,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(id: $id, fullName: $fullName, username: $username, email: $email, phoneNumber: ${phoneNumber ?? 'null'}, address: ${address ?? 'null'}, userType: ${userType.code}, gender: ${gender.code}, userClass: $userClass, couponPoints: $couponPoints, profileImageUrl: ${profileImageUrl ?? 'null'}, firstLogin: $firstLogin, birthday: ${birthday ?? 'null'})';
+    return 'UserModel(id: $id, fullName: $fullName, username: $username, email: $email, phoneNumber: ${phoneNumber ?? 'null'}, address: ${address ?? 'null'}, userType: ${userType.code}, gender: ${gender.code}, userClass: $userClass, couponPoints: $couponPoints, profileImageUrl: ${profileImageUrl ?? 'null'}, fcmToken: ${fcmToken ?? 'null'}, firstLogin: $firstLogin, birthday: ${birthday ?? 'null'})';
   }
 
   @override
@@ -194,6 +201,7 @@ class UserModel {
         other.userClass == userClass &&
         other.profileImageUrl == profileImageUrl &&
         other.avatar == avatar &&
+        other.fcmToken == fcmToken &&
         other.couponPoints == couponPoints &&
         other.firstLogin == firstLogin &&
         other.birthday == birthday &&
@@ -215,6 +223,7 @@ class UserModel {
     userClass,
     profileImageUrl,
     couponPoints,
+    fcmToken,
     firstLogin,
     birthday,
     isAdmin,

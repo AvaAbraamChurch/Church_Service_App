@@ -11,16 +11,12 @@ class MessagesRepository {
   MessagesRepository({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  // Send a new message
+  /// Send message and return the Firestore document ID
   Future<String> sendMessage(MessageModel message) async {
-    try {
-      final docRef = await _firestore
-          .collection(_messagesCollection)
-          .add(message.toMap());
-      return docRef.id;
-    } catch (e) {
-      throw Exception('Failed to send message: $e');
-    }
+    final docRef = await FirebaseFirestore.instance
+        .collection('messages')
+        .add(message.toMap());
+    return docRef.id; // 👈 Return the ID
   }
 
   // Get messages between two users (real-time stream)

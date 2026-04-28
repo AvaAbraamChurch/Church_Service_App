@@ -84,6 +84,7 @@ class AdminService {
         userClass: data['class'] ?? '',
         serviceType: data['serviceType'],
         profileImageUrl: data['profileImageUrl'],
+        fcmToken: data['fcm_token'] ?? data['fcmToken'],
         couponPoints: data['couponPoints'] ?? 0,
         firstLogin: data['firstLogin'] ?? true,
         isAdmin: data['isAdmin'] ?? false,
