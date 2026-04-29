@@ -58,4 +58,4 @@ app.*.map.json
 /functions/.env.local
 
 
-/lib/admin/*
+/lib/admin/
