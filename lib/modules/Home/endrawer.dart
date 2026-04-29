@@ -1,3 +1,4 @@
+import 'package:church/admin/migration_screen.dart';
 import 'package:church/core/blocs/auth/auth_cubit.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/services/account_manager_service.dart';
@@ -50,6 +51,17 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
+                    _buildMenuItem(
+                      context: context,
+                      icon: Icons.sports_score_outlined,
+                      title: 'MigrationScreen',
+                      subtitle: 'Debug and data migration',
+                      gradient: [Colors.green[400]!, Colors.green[600]!],
+                      onTap: () {
+                        navigateTo(context, MigrationScreen());
+                      },
+                    ),
+                    const SizedBox(height: 12),
 
                     _buildMenuItem(
                       context: context,

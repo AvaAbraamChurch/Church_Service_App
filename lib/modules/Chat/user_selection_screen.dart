@@ -510,8 +510,18 @@ class _UserSelectionScreenState extends State<UserSelectionScreen> {
         });
 
       case UserType.child:
-        // Children cannot initiate chats - return empty stream
-        return Stream.value([]);
+      // Children can message: (1) Priests, (2) Servants with same userClass
+        return _usersRepository.getUsers().map((usersList) {
+          final all = usersList.map((u) => UserModel.fromJson(u)).toList();
+          return all.where((u) {
+            if (u.id == currentUser.id) return false;
+            if (u.userType == UserType.priest) return true;
+            if (u.userType == UserType.servant && u.userClass == currentUser.userClass) {
+              return true; // Add && u.gender == currentUser.gender if gender restriction applies
+            }
+            return false;
+          }).toList();
+        });
     }
   }
 

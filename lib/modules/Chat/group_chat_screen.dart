@@ -685,48 +685,277 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
+
+
+
+
   void _showDeleteGroupDialog() {
     showDialog(
       context: context,
+      barrierDismissible: false, // Prevent accidental dismiss
       builder: (context) => AlertDialog(
         backgroundColor: sage900,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'حذف المجموعة',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: red500, size: 28),
+            const SizedBox(width: 12),
+            const Text(
+              'حذف المجموعة',
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
-        content: const Text(
-          'هل أنت متأكد من حذف هذه المجموعة؟ لن تتمكن من استرجاعها.',
-          style: TextStyle(color: Colors.white70),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'هل أنت متأكد من حذف هذه المجموعة نهائياً؟',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: red500.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: red500.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: red300, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'سيتم حذف جميع الرسائل والأعضاء ولن يمكن استرجاعها.',
+                      style: TextStyle(color: red300, fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'المجموعة: ${widget.groupName}',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء', style: TextStyle(color: teal300)),
+            child: Text(
+              'إلغاء',
+              style: TextStyle(color: teal300, fontSize: 16, fontWeight: FontWeight.w600),
+            ),
           ),
-          TextButton(
+          ElevatedButton.icon(
             onPressed: () async {
-              try {
-                await _groupChatRepository.deleteGroupChat(widget.groupId);
-                if (mounted) {
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context); // Go back to conversations list
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('حدث خطأ: $e'),
-                      backgroundColor: red500,
-                    ),
-                  );
-                }
-              }
+              Navigator.pop(context); // Close dialog first
+              await _deleteGroup();
             },
-            child: const Text('حذف', style: TextStyle(color: red500)),
+            icon: const Icon(Icons.delete_sweep, size: 18),
+            label: const Text('حذف', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: red500,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
           ),
         ],
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
     );
   }
+
+
+
+  Future<void> _deleteGroup() async {
+    if (_currentUserId == null || !mounted) return;
+
+    // ← Optional: Verify user is group creator (extra safety)
+    try {
+      final group = await _groupChatRepository.getGroupChatById(widget.groupId);
+      if (group?.createdBy != _currentUserId) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('فقط منشئ المجموعة يمكنه حذفها'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      debugPrint('⚠️ Could not verify group creator: $e');
+      // Continue with delete attempt - server rules will enforce
+    }
+
+    // Show loading overlay
+    _showDeleteLoadingOverlay(context);
+
+    try {
+      await _groupChatRepository.deleteGroupChat(widget.groupId);
+
+      if (mounted) {
+        // Close loading overlay (root navigator to avoid dialog stack issues)
+        Navigator.of(context, rootNavigator: true).pop();
+
+        // Success feedback
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'تم حذف المجموعة بنجاح',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: teal700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            duration: const Duration(seconds: 2),
+            elevation: 8,
+          ),
+        );
+
+        // Return to conversations list
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        // Close loading
+        Navigator.of(context, rootNavigator: true).pop();
+
+        // Error feedback with retry
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.error_rounded, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'فشل الحذف: ${e.toString().replaceAll('Exception: ', '')}',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: red500,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            duration: const Duration(seconds: 4),
+            elevation: 8,
+            action: SnackBarAction(
+              label: 'إعادة المحاولة',
+              textColor: Colors.white,
+              onPressed: () => _deleteGroup(),
+            ),
+          ),
+        );
+      }
+
+      // Log for monitoring
+      debugPrint('❌ Delete group error: $e');
+      // Optional: FirebaseCrashlytics.instance.recordError(e, stackTrace);
+    }
+  }
+
+
+  void _showDeleteLoadingOverlay(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      builder: (context) => Center(
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.all(32),
+            constraints: const BoxConstraints(maxWidth: 340),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [sage900.withValues(alpha: 0.95), sage700.withValues(alpha: 0.95)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.delete_sweep_rounded, color: red300, size: 40),
+                ),
+                const SizedBox(height: 24),
+                const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(color: teal300, strokeWidth: 3),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'جاري الحذف',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontFamily: 'Alexandria'),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'يرجى الانتظار',
+                  style: TextStyle(color: teal100.withValues(alpha: 0.7), fontSize: 14, fontFamily: 'Alexandria'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+
 }

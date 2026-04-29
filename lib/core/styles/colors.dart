@@ -2,8 +2,11 @@ import 'dart:ui';
 // Teal/Aqua Group
 
 const Color teal900 = Color(0xFF003844); // Darkest
+const Color teal800 = Color(0xFF004D56); // Dark
 const Color teal700 = Color(0xFF005A69); // Darker
+const Color teal600 = Color(0xFF00707B); // Medium-Dark
 const Color teal500 = Color(0xFF009CA6); // Medium (Main Color)
+const Color teal400 = Color(0xFF00B3B8); // Medium-Light
 const Color teal300 = Color(0xFF75D1CF); // Lighter
 const Color teal100 = Color(0xFFD4FFEE); // Lightest
 const Color teal50 = Color(0xFFEFFDFD); // Extra Light

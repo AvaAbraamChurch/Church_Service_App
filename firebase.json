@@ -58,6 +58,9 @@
     ],
     "runtime": "nodejs18"
   },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "flutter": {
     "platforms": {
       "android": {

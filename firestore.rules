@@ -1,0 +1,285 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUserExists() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function currentUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return currentUserExists() && (
+        currentUserData().isAdmin == true ||
+        currentUserData().userType == 'PR'
+      );
+    }
+
+    function isStoreAdmin() {
+      return currentUserExists() && (
+        currentUserData().storeAdmin == true ||
+        isAdmin()
+      );
+    }
+
+    function isChurchStaff() {
+      return currentUserExists() && (
+        isAdmin() ||
+        currentUserData().userType == 'SS' ||
+        currentUserData().userType == 'SV'
+      );
+    }
+
+    function canReadUser(userId) {
+      return signedIn() && (isSelf(userId) || isChurchStaff() || isAdmin());
+    }
+
+    function canSelfUpdateUser(userId) {
+      return isSelf(userId)
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.userType == resource.data.userType
+        && request.resource.data.isAdmin == resource.data.isAdmin
+        && request.resource.data.storeAdmin == resource.data.storeAdmin
+        && request.resource.data.couponPoints == resource.data.couponPoints
+        && request.resource.data.isActive == resource.data.isActive
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          resource.data.firstLogin == true ||
+          (
+            request.resource.data.userClass == resource.data.userClass &&
+            request.resource.data.gender == resource.data.gender &&
+            request.resource.data.serviceType == resource.data.serviceType &&
+            request.resource.data.firstLogin == resource.data.firstLogin
+          )
+        );
+    }
+
+    function canCreateOwnUser(userId) {
+      return isSelf(userId)
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.isAdmin != true
+        && request.resource.data.storeAdmin != true
+        && (!request.resource.data.keys().hasAny(['couponPoints']) || request.resource.data.couponPoints == 0)
+        && request.resource.data.isActive != false;
+    }
+
+    function isGroupMember(groupId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/groupChats/$(groupId)) &&
+        get(/databases/$(database)/documents/groupChats/$(groupId)).data.memberIds.hasAny([request.auth.uid]);
+    }
+
+    function canJoinGroup(groupId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/groupChats/$(groupId))
+        && request.resource.data.groupName == resource.data.groupName
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.isDefault == resource.data.isDefault
+        && request.resource.data.userClass == resource.data.userClass
+        && request.resource.data.memberIds.hasAll(resource.data.memberIds)
+        && request.resource.data.memberIds.hasAny([request.auth.uid]);
+    }
+
+    // -------------------- users --------------------
+    match /users/{userId} {
+      allow read: if canReadUser(userId) || isChurchStaff() || isAdmin();
+      allow create: if canCreateOwnUser(userId);
+      allow update: if isChurchStaff() || isAdmin() || canSelfUpdateUser(userId);
+      allow delete: if isChurchStaff() || isAdmin();
+    }
+
+    // -------------------- registration requests --------------------
+    match /registration_requests/{requestId} {
+      allow create: if true;
+      allow get: if isAdmin() || (signedIn() && request.auth.token.email == resource.data.email) || !signedIn();
+      allow list: if isChurchStaff() || isAdmin();
+      allow update, delete: if isChurchStaff() || isAdmin();
+    }
+
+    // -------------------- notifications --------------------
+    match /notifications/{notificationId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && (
+          !request.resource.data.keys().hasAny(['userId']) ||
+          request.resource.data.userId == request.auth.uid ||
+          request.resource.data.userId == null
+        );
+      allow update: if signedIn() && (
+        isAdmin() ||
+        request.resource.data.title == resource.data.title &&
+        request.resource.data.body == resource.data.body &&
+        request.resource.data.imageUrl == resource.data.imageUrl &&
+        request.resource.data.data == resource.data.data &&
+        request.resource.data.timestamp == resource.data.timestamp &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.type == resource.data.type &&
+        request.resource.data.actionUrl == resource.data.actionUrl &&
+        (
+          resource.data.userId == request.auth.uid ||
+          resource.data.userId == null
+        )
+      );
+      allow delete: if isAdmin() || (signedIn() && (resource.data.userId == request.auth.uid || resource.data.userId == null));
+    }
+
+    // -------------------- content collections --------------------
+    match /hymns/{hymnId} {
+      allow read: if true;
+      allow write: if isChurchStaff() || isAdmin();
+    }
+
+    match /classes/{classId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /competitions/{competitionId} {
+      allow read: if true;
+      allow write: if isChurchStaff() || isAdmin();
+    }
+
+    match /questions/{questionId} {
+      allow read: if true;
+      allow write: if isChurchStaff() || isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if (
+        settingId == 'store' && (isStoreAdmin() || isAdmin())
+      ) || (
+        settingId != 'store' && (isChurchStaff() || isAdmin())
+      );
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isStoreAdmin() || isAdmin();
+    }
+
+    // -------------------- store / orders --------------------
+    match /orders/{orderId} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isStoreAdmin() || isAdmin());
+      allow update, delete: if isStoreAdmin() || isAdmin();
+    }
+
+    match /pointsTransactions/{transactionId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isChurchStaff() || isAdmin());
+      allow create, update, delete: if isChurchStaff() || isAdmin();
+    }
+
+    // -------------------- messaging --------------------
+    match /messages/{messageId} {
+      allow create: if signedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.participants.hasAny([request.auth.uid]);
+      allow read: if signedIn() && (resource.data.participants.hasAny([request.auth.uid]) || isChurchStaff() || isAdmin());
+      allow update: if signedIn() && (
+        isChurchStaff() ||
+        isAdmin() ||
+        (
+          resource.data.participants.hasAny([request.auth.uid]) &&
+          request.resource.data.senderId == resource.data.senderId &&
+          request.resource.data.receiverId == resource.data.receiverId &&
+          request.resource.data.conversationId == resource.data.conversationId &&
+          request.resource.data.text == resource.data.text &&
+          request.resource.data.timestamp == resource.data.timestamp &&
+          request.resource.data.participants == resource.data.participants &&
+          request.resource.data.isSeen == true
+        )
+      );
+      allow delete: if signedIn() && (resource.data.participants.hasAny([request.auth.uid]) || isChurchStaff() || isAdmin());
+    }
+
+    match /groupChats/{groupId} {
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.memberIds.hasAny([request.auth.uid]);
+      allow read: if signedIn() && (resource.data.memberIds.hasAny([request.auth.uid]) || isChurchStaff() || isAdmin());
+      allow update: if signedIn() && (
+        isChurchStaff() ||
+        isAdmin() ||
+        (
+          canJoinGroup(groupId) ||
+          (
+            isGroupMember(groupId) &&
+            request.resource.data.memberIds == resource.data.memberIds &&
+            request.resource.data.groupName == resource.data.groupName &&
+            request.resource.data.createdBy == resource.data.createdBy &&
+            request.resource.data.isDefault == resource.data.isDefault &&
+            request.resource.data.userClass == resource.data.userClass &&
+            request.resource.data.lastMessageSenderId == request.auth.uid
+          )
+        )
+      );
+      allow delete: if isChurchStaff() || isAdmin();
+    }
+
+    match /groupMessages/{messageId} {
+      allow create: if signedIn() && (isChurchStaff() || isAdmin() || isGroupMember(request.resource.data.groupId));
+      allow read: if signedIn() && (isChurchStaff() || isAdmin() || isGroupMember(resource.data.groupId));
+      allow update: if signedIn() && (
+        isChurchStaff() ||
+        isAdmin() ||
+        (
+          isGroupMember(resource.data.groupId) &&
+          request.resource.data.groupId == resource.data.groupId &&
+          request.resource.data.senderId == resource.data.senderId &&
+          request.resource.data.text == resource.data.text &&
+          request.resource.data.timestamp == resource.data.timestamp &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          request.resource.data.seenBy[request.auth.uid] == true
+        )
+      );
+      allow delete: if isChurchStaff() || isAdmin() || isGroupMember(resource.data.groupId);
+    }
+
+    // -------------------- attendance / visits --------------------
+    match /attendance/{attendanceId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isChurchStaff() || isAdmin());
+      allow create, update, delete: if isChurchStaff() || isAdmin();
+    }
+
+    match /attendance_requests/{requestId} {
+      allow create: if signedIn() && request.resource.data.childId == request.auth.uid;
+      allow read: if signedIn() && (resource.data.childId == request.auth.uid || isChurchStaff() || isAdmin());
+      allow update, delete: if isChurchStaff() || isAdmin();
+    }
+
+    match /visits/{visitId} {
+      allow read: if signedIn() && (resource.data.childId == request.auth.uid || isChurchStaff() || isAdmin());
+      allow create, update, delete: if isChurchStaff() || isAdmin();
+    }
+
+    // -------------------- competitions results --------------------
+    match /competitionResults/{resultId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isChurchStaff() || isAdmin());
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if signedIn() && (
+        isChurchStaff() ||
+        isAdmin() ||
+        resource.data.userId == request.auth.uid
+      );
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+
+
