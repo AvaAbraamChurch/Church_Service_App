@@ -54,18 +54,6 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                     _buildMenuItem(
                       context: context,
                       icon: Icons.sports_score_outlined,
-                      title: 'MigrationScreen',
-                      subtitle: 'Debug and data migration',
-                      gradient: [Colors.green[400]!, Colors.green[600]!],
-                      onTap: () {
-                        navigateTo(context, MigrationScreen());
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    _buildMenuItem(
-                      context: context,
-                      icon: Icons.sports_score_outlined,
                       title: 'مسابقات',
                       subtitle: 'عرض المسابقات المتاحة',
                       gradient: [Colors.green[400]!, Colors.green[600]!],
