@@ -2,15 +2,13 @@ import 'dart:async';
 import 'package:church/core/blocs/attendance/attendance_states.dart';
 import 'package:church/core/constants/strings.dart';
 import 'package:church/core/styles/colors.dart';
+import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/modules/Attendance/child_view.dart';
 import 'package:church/modules/Attendance/priest_view.dart';
-import 'package:church/modules/Attendance/servant_view.dart';
+import 'package:church/modules/Attendance/servant_home_view.dart';
 import 'package:church/modules/Attendance/super_servant_view.dart';
-import 'package:church/modules/Attendance/visits/visit_priest_view.dart';
-import 'package:church/modules/Attendance/visits/visit_super_servant_view.dart';
-import 'package:church/modules/Attendance/visits/visit_servant_view.dart';
 import 'package:church/modules/Attendance/visits/visit_child_view.dart';
 import 'package:church/modules/requests/requests_screen.dart';
 import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';
@@ -36,1162 +34,847 @@ class AttendanceScreen extends StatefulWidget {
   State<AttendanceScreen> createState() => _AttendanceScreenState();
 }
 
-class _AttendanceScreenState extends State<AttendanceScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _AttendanceScreenState extends State<AttendanceScreen> {
   late final AttendanceCubit cubit;
   late final Stream stream;
   StreamSubscription? _currentUserSubscription;
+
+  // ─── Lifecycle ────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
     cubit = AttendanceCubit();
 
-    final userTypeEnum = widget.userType;
-    final genderEnum = widget.gender;
+    bool tabsIsShown = false;
 
-    // Load current user first (subscribe to the stream to set currentUser)
-    _currentUserSubscription = cubit.getCurrentUser(widget.userId).listen((
-      user,
-    ) {
-      // currentUser is updated inside the stream
-    });
+    _currentUserSubscription =
+        cubit.getCurrentUser(widget.userId).listen((_) {});
 
-    if (userTypeEnum == UserType.priest) {
-      // Priest can see all users: superServants, servants, and children
+    if (widget.userType == UserType.priest) {
       stream = cubit.getUsersByTypeForPriest([
         userTypeToJson(UserType.superServant),
         userTypeToJson(UserType.servant),
         userTypeToJson(UserType.child),
       ]);
-    } else if (userTypeEnum == UserType.superServant) {
-      // SuperServant can see servants and children of same gender
-      stream = cubit.getUsersByTypeAndGender([
-        userTypeToJson(UserType.servant),
-        userTypeToJson(UserType.child),
-      ], genderToJson(genderEnum));
-    } else if (userTypeEnum == UserType.servant) {
-      // Servant can see children of same class and gender
-      stream = cubit.getUsersByType(widget.userClass, [
-        userTypeToJson(UserType.child),
-      ], genderToJson(genderEnum));
-    } else if (userTypeEnum == UserType.child) {
-      // Get attendance history for children
+    } else if (widget.userType == UserType.superServant) {
+      stream = cubit.getUsersByTypeAndGender(
+        [userTypeToJson(UserType.servant), userTypeToJson(UserType.child)],
+        genderToJson(widget.gender),
+      );
+    } else if (widget.userType == UserType.servant) {
+      stream = cubit.getUsersByType(
+        widget.userClass,
+        [userTypeToJson(UserType.child)],
+        genderToJson(widget.gender),
+      );
+    } else {
+      tabsIsShown = true;
       stream = cubit.getUserAttendanceHistory(widget.userId);
     }
-    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
   void dispose() {
     _currentUserSubscription?.cancel();
-    _tabController.dispose();
     super.dispose();
   }
+
+  // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: cubit,
       child: BlocConsumer<AttendanceCubit, AttendanceState>(
-        builder: (BuildContext context, state) {
+        listener: _handleStateChanges,
+        builder: (context, state) {
           final cubit = AttendanceCubit.get(context);
-          final userTypeEnum = widget.userType;
-          final genderEnum = widget.gender;
 
           return StreamBuilder(
             stream: stream,
             builder: (context, snapshot) {
-              return Scaffold(
-                appBar: PreferredSize(
-                  preferredSize: Size.fromHeight(
-                    MediaQuery.of(context).size.height * 0.18,
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(60),
-                        bottomRight: Radius.circular(60),
-                      ),
-                      gradient: LinearGradient(
-                        colors: [teal500, teal300],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: teal500.withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: SafeArea(
-                      child: Column(
-                        children: [
-                          // Top toolbar with title and requests button
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                              vertical: 12.0,
-                            ),
-                            child: Row(
-                              children: [
-                                const Spacer(),
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    attendance,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 1.2,
-                                      shadows: [
-                                        Shadow(
-                                          color: Colors.black.withValues(alpha: 0.2),
-                                          blurRadius: 4,
-                                          offset: Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: (userTypeEnum == UserType.servant ||
-                                            userTypeEnum == UserType.superServant ||
-                                            userTypeEnum == UserType.priest)
-                                        ? StreamBuilder(
-                                            stream: userTypeEnum == UserType.priest
-                                                ? cubit.streamPendingAttendanceRequestsForPriest()
-                                                : userTypeEnum == UserType.superServant
-                                                    ? cubit.streamPendingAttendanceRequestsForSuperServant()
-                                                    : cubit.streamPendingAttendanceRequestsForServant(),
-                                            builder: (context, reqSnapshot) {
-                                              final pendingCount = (reqSnapshot.data ?? []).length;
-                                              return Stack(
-                                                children: [
-                                                  Container(
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.white.withValues(alpha: 0.2),
-                                                      borderRadius: BorderRadius.circular(12),
-                                                    ),
-                                                    child: IconButton(
-                                                      icon: const Icon(Icons.receipt_long, color: Colors.white),
-                                                      onPressed: () {
-                                                        Navigator.push(
-                                                          context,
-                                                          MaterialPageRoute(
-                                                            builder: (context) => RequestsScreen(cubit: cubit),
-                                                          ),
-                                                        );
-                                                      },
-                                                      tooltip: 'الطلبات',
-                                                    ),
-                                                  ),
-                                                  if (pendingCount > 0)
-                                                    Positioned(
-                                                      left: 6,
-                                                      top: 6,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.all(4),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.red,
-                                                          shape: BoxShape.circle,
-                                                          border: Border.all(color: Colors.white, width: 2),
-                                                        ),
-                                                        constraints: const BoxConstraints(
-                                                          minWidth: 20,
-                                                          minHeight: 20,
-                                                        ),
-                                                        child: Center(
-                                                          child: Text(
-                                                            pendingCount > 99 ? '99+' : '$pendingCount',
-                                                            style: const TextStyle(
-                                                              color: Colors.white,
-                                                              fontSize: 10,
-                                                              fontWeight: FontWeight.bold,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                ],
-                                              );
-                                            },
-                                          )
-                                        : const SizedBox.shrink(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Modern TabBar
-                          Container(
-                            margin: EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                              vertical: 8.0,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                width: 1,
-                              ),
-                            ),
-                            child: TabBar(
-                              controller: _tabController,
-                              dividerColor: Colors.transparent,
-                              indicator: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.white,
-                                    Colors.white.withValues(alpha: 0.9),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.1),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              indicatorPadding: EdgeInsets.all(4),
-                              labelColor: teal900,
-                              unselectedLabelColor: Colors.white,
-                              labelStyle: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Alexandria',
-                              ),
-                              unselectedLabelStyle: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                fontFamily: 'Alexandria',
-                              ),
-                              isScrollable: true,
-                              tabAlignment: TabAlignment.center,
-                              padding: EdgeInsets.zero,
-                              tabs: [
-                                Tab(
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.church, size: 18),
-                                        SizedBox(width: 6),
-                                        Text(holyMass),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                Tab(
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.auto_stories, size: 18),
-                                        SizedBox(width: 6),
-                                        Text(sunday),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                Tab(
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.music_note, size: 18),
-                                        SizedBox(width: 6),
-                                        Text(hymns),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                Tab(
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.menu_book, size: 18),
-                                        SizedBox(width: 6),
-                                        Text(bibleClass),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                Tab(
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.home_outlined, size: 18),
-                                        SizedBox(width: 6),
-                                        Text(visit),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                backgroundColor: Colors.transparent,
-                body: ConditionalBuilder(
-                  condition:
-                      snapshot.hasData &&
-                      ((userTypeEnum != UserType.child &&
-                              cubit.users != null &&
-                              cubit.users!.isNotEmpty) ||
-                          (userTypeEnum == UserType.child &&
-                              cubit.attendanceHistory != null &&
-                              cubit.attendanceHistory!.isNotEmpty)),
-                  builder: (BuildContext context) {
-                    return TabBarView(
-                      controller: _tabController,
-                      children: [
-                        // Holy Mass tab
-                        Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            children: [
-                              if (userTypeEnum == UserType.priest) ...[
-                                Expanded(
-                                  child: PriestView(cubit, pageIndex: 0),
-                                ),
-                              ] else if (userTypeEnum ==
-                                  UserType.superServant) ...[
-                                Expanded(
-                                  child: SuperServantView(
-                                    cubit,
-                                    gender: genderToJson(genderEnum),
-                                    pageIndex: 0,
-                                  ),
-                                ),
-                              ] else if (userTypeEnum == UserType.servant) ...[
-                                Expanded(
-                                  child: ServantView(
-                                    cubit: cubit,
-                                    pageIndex: 0,
-                                  ),
-                                ),
-                              ] else ...[
-                                Expanded(child: ChildView(cubit, pageIndex: 0)),
-                              ],
-                            ],
-                          ),
-                        ),
-                        // Sunday tab
-                        Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            children: [
-                              if (userTypeEnum == UserType.priest) ...[
-                                Expanded(
-                                  child: PriestView(cubit, pageIndex: 1),
-                                ),
-                              ] else if (userTypeEnum ==
-                                  UserType.superServant) ...[
-                                Expanded(
-                                  child: SuperServantView(
-                                    cubit,
-                                    pageIndex: 1,
-                                    gender: genderToJson(genderEnum),
-                                  ),
-                                ),
-                              ] else if (userTypeEnum == UserType.servant) ...[
-                                Expanded(
-                                  child: ServantView(
-                                    cubit: cubit,
-                                    pageIndex: 1,
-                                  ),
-                                ),
-                              ] else ...[
-                                Expanded(child: ChildView(cubit, pageIndex: 1)),
-                              ],
-                            ],
-                          ),
-                        ),
-                        // Hymns tab
-                        Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            children: [
-                              if (userTypeEnum == UserType.priest) ...[
-                                Expanded(
-                                  child: PriestView(cubit, pageIndex: 2),
-                                ),
-                              ] else if (userTypeEnum ==
-                                  UserType.superServant) ...[
-                                Expanded(
-                                  child: SuperServantView(
-                                    cubit,
-                                    pageIndex: 2,
-                                    gender: genderToJson(genderEnum),
-                                  ),
-                                ),
-                              ] else if (userTypeEnum == UserType.servant) ...[
-                                Expanded(
-                                  child: ServantView(
-                                    cubit: cubit,
-                                    pageIndex: 2,
-                                  ),
-                                ),
-                              ] else ...[
-                                Expanded(child: ChildView(cubit, pageIndex: 2)),
-                              ],
-                            ],
-                          ),
-                        ),
-                        // Bible tab
-                        Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            children: [
-                              if (userTypeEnum == UserType.priest) ...[
-                                Expanded(
-                                  child: PriestView(cubit, pageIndex: 3),
-                                ),
-                              ] else if (userTypeEnum ==
-                                  UserType.superServant) ...[
-                                Expanded(
-                                  child: SuperServantView(
-                                    cubit,
-                                    pageIndex: 3,
-                                    gender: genderToJson(genderEnum),
-                                  ),
-                                ),
-                              ] else if (userTypeEnum == UserType.servant) ...[
-                                Expanded(
-                                  child: ServantView(
-                                    cubit: cubit,
-                                    pageIndex: 3,
-                                  ),
-                                ),
-                              ] else ...[
-                                Expanded(child: ChildView(cubit, pageIndex: 3)),
-                              ],
-                            ],
-                          ),
-                        ),
-                        // Visit tab
-                        Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Builder(
-                            builder: (context) {
-                              if (userTypeEnum == UserType.priest) {
-                                return VisitPriestView(
-                                  users: cubit.users ?? [],
-                                  currentUser: cubit.currentUser!,
-                                  attendanceCubit: cubit,
-                                );
-                              } else if (userTypeEnum ==
-                                  UserType.superServant) {
-                                return VisitSuperServantView(
-                                  users: cubit.users ?? [],
-                                  currentUser: cubit.currentUser!,
-                                  attendanceCubit: cubit,
-                                );
-                              } else if (userTypeEnum == UserType.servant) {
-                                return VisitServantView(
-                                  users: cubit.users ?? [],
-                                  currentUser: cubit.currentUser!,
-                                  attendanceCubit: cubit,
-                                );
-                              } else {
-                                return VisitChildView(
-                                  currentUser: cubit.currentUser!,
-                                  attendanceCubit: cubit,
-                                );
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                  fallback: (BuildContext context) => Center(
-                    child: snapshot.connectionState == ConnectionState.waiting
-                        ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Modern loading indicator with decorative container
-                              Container(
-                                width: 100,
-                                height: 100,
-                                decoration: BoxDecoration(
-                                  color: teal100,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: teal300.withValues(alpha: 0.3),
-                                      blurRadius: 20,
-                                      spreadRadius: 5,
-                                    ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: SizedBox(
-                                    width: 50,
-                                    height: 50,
-                                    child: CircularProgressIndicator(
-                                      color: teal500,
-                                      strokeWidth: 4,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 32),
-                              Text(
-                                'جاري التحميل...',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: teal900,
-                                  fontFamily: 'Alexandria',
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'يرجى الانتظار',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                  fontFamily: 'Alexandria',
-                                ),
-                              ),
-                            ],
-                          )
-                        : snapshot.hasError
-                        ? Container(
-                            margin: const EdgeInsets.all(24.0),
-                            padding: const EdgeInsets.all(24.0),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.red.withValues(alpha: 0.1),
-                                  blurRadius: 20,
-                                  spreadRadius: 2,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withValues(alpha: 0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.error_outline,
-                                    size: 50,
-                                    color: Colors.red[400],
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                Text(
-                                  'حدث خطأ!',
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.red[700],
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'حدث خطأ أثناء تحميل البيانات',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey[700],
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    setState(() {
-                                      // Trigger a rebuild to retry loading
-                                    });
-                                  },
-                                  icon: const Icon(
-                                    Icons.refresh,
-                                    color: Colors.white,
-                                  ),
-                                  label: const Text(
-                                    'إعادة المحاولة',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: teal500,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 32,
-                                      vertical: 16,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 4,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : _buildEmptyState(),
-                  ),
-                ),
-                floatingActionButton: userTypeEnum == UserType.child
-                    ? FloatingActionButton(
-                        backgroundColor: teal500,
-                        onPressed: () async {
-                          final attendanceKey = await showModalBottomSheet<String>(
-                            context: context,
-                            backgroundColor: Colors.transparent,
-                            isScrollControlled: true,
-                            builder: (context) {
-                              return Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [teal500, teal100],
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                  ),
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(30),
-                                    topRight: Radius.circular(30),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: teal500.withValues(alpha: 0.2),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, -5),
-                                    ),
-                                  ],
-                                ),
-                                child: SafeArea(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // Handle bar
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 12, bottom: 8),
-                                        width: 40,
-                                        height: 4,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade300,
-                                          borderRadius: BorderRadius.circular(2),
-                                        ),
-                                      ),
-                                      // Title
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(10),
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  colors: [teal500, teal300],
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                ),
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: const Icon(Icons.event_note, color: Colors.white, size: 24),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Text(
-                                                'اختر نوع الخدمة',
-                                                style: TextStyle(
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: teal900,
-                                                  fontFamily: 'Alexandria',
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const Divider(height: 1),
-                                      const SizedBox(height: 8),
-                                      // Options
-                                      _buildServiceOption(
-                                        context,
-                                        icon: Icons.church,
-                                        title: holyMass,
-                                        color: Colors.purple,
-                                        onTap: () => Navigator.pop(context, 'holy_mass'),
-                                      ),
-                                      _buildServiceOption(
-                                        context,
-                                        icon: Icons.school,
-                                        title: sunday,
-                                        color: Colors.blue,
-                                        onTap: () => Navigator.pop(context, 'sunday_school'),
-                                      ),
-                                      _buildServiceOption(
-                                        context,
-                                        icon: Icons.music_note,
-                                        title: hymns,
-                                        color: Colors.orange,
-                                        onTap: () => Navigator.pop(context, 'hymns'),
-                                      ),
-                                      _buildServiceOption(
-                                        context,
-                                        icon: Icons.menu_book,
-                                        title: bibleClass,
-                                        color: Colors.green,
-                                        onTap: () => Navigator.pop(context, 'bible'),
-                                      ),
-                                      const SizedBox(height: 16),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          );
+              // ── Child role: keep original ChildView + FAB layout ──────────
+              if (widget.userType == UserType.child) {
+                return _buildChildScaffold(context, cubit, snapshot);
+              }
 
-                          if (attendanceKey == null) return;
-
-                          final selectedDate = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime(DateTime.now().year - 1),
-                            lastDate: DateTime.now(),
-                          );
-
-                          if (selectedDate == null) return;
-
-                          await cubit.submitAttendanceRequest(
-                            attendanceKey: attendanceKey,
-                            date: selectedDate,
-                          );
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text(
-                                  'تم إرسال الطلب وسيظهر في السجل كـ قيد المراجعة',
-                                  style: TextStyle(fontFamily: 'Alexandria'),
-                                ),
-                                backgroundColor: teal500,
-                              ),
-                            );
-                          }
-                        },
-                        child: const Icon(Icons.add, color: Colors.white),
-                      )
-                    : null,
-              );
+              // ── Servant / SuperServant / Priest: new home card layout ─────
+              return _buildServantScaffold(context, cubit, snapshot);
             },
           );
-        },
-        listener: (BuildContext context, state) {
-          if (state is takeAttendanceSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.white),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'تم حفظ الحضور بنجاح على الخادم',
-                        style: TextStyle(
-                          fontFamily: 'Alexandria',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                backgroundColor: Colors.green,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                margin: EdgeInsets.all(16),
-                duration: Duration(seconds: 3),
-              ),
-            );
-          } else if (state is takeAttendanceSuccessOffline) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.offline_bolt, color: Colors.white),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'تم حفظ الحضور محلياً',
-                            style: TextStyle(
-                              fontFamily: 'Alexandria',
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'سيتم مزامنة البيانات مع الخادم عند توفر الإنترنت',
-                      style: TextStyle(
-                        fontFamily: 'Alexandria',
-                        fontSize: 14,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                    if (state.pendingCount > 1)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          'عدد السجلات المعلقة: ${state.pendingCount}',
-                          style: TextStyle(
-                            fontFamily: 'Alexandria',
-                            fontSize: 13,
-                            color: Colors.white.withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                backgroundColor: Colors.orange[700],
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                margin: EdgeInsets.all(16),
-                duration: Duration(seconds: 5),
-              ),
-            );
-          } else if (state is SyncComplete) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    Icon(Icons.cloud_done, color: Colors.white),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'تمت المزامنة بنجاح! (${state.syncedCount} سجل)',
-                        style: TextStyle(
-                          fontFamily: 'Alexandria',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                backgroundColor: teal500,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                margin: EdgeInsets.all(16),
-                duration: Duration(seconds: 3),
-              ),
-            );
-          } else if (state is SyncPartiallyComplete) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.warning, color: Colors.white),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'مزامنة جزئية',
-                            style: TextStyle(
-                              fontFamily: 'Alexandria',
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'تم: ${state.syncedCount} • فشل: ${state.failedCount}',
-                      style: TextStyle(
-                        fontFamily: 'Alexandria',
-                        fontSize: 14,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                  ],
-                ),
-                backgroundColor: Colors.orange[800],
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                margin: EdgeInsets.all(16),
-                duration: Duration(seconds: 4),
-              ),
-            );
-          } else if (state is OfflineModeActive) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    Icon(Icons.wifi_off, color: Colors.white),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        state.pendingCount > 0
-                            ? 'وضع عدم الاتصال (${state.pendingCount} معلق)'
-                            : 'وضع عدم الاتصال',
-                        style: TextStyle(
-                          fontFamily: 'Alexandria',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                backgroundColor: Colors.grey[700],
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                margin: EdgeInsets.all(16),
-                duration: Duration(seconds: 3),
-              ),
-            );
-          }
         },
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    if (widget.userType == UserType.child) {
-      return Container(
-        margin: const EdgeInsets.all(24.0),
-        padding: const EdgeInsets.all(32.0),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.white, teal100.withValues(alpha: 0.3)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: teal300.withValues(alpha: 0.2),
-              blurRadius: 20,
-              spreadRadius: 2,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: teal100,
-                shape: BoxShape.circle,
-                border: Border.all(color: teal300, width: 3),
-              ),
-              child: Icon(Icons.history_edu_outlined, size: 50, color: teal700),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'لا توجد سجلات',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: teal900,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'لم يتم العثور على أي سجلات\nلحضورك في هذه الفئة',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      );
-    } else {
-      return Container(
-        margin: const EdgeInsets.all(24.0),
-        padding: const EdgeInsets.all(32.0),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.white, teal100.withValues(alpha: 0.3)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: teal300.withValues(alpha: 0.2),
-              blurRadius: 20,
-              spreadRadius: 2,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: teal100,
-                shape: BoxShape.circle,
-                border: Border.all(color: teal300, width: 3),
-              ),
-              child: Icon(Icons.people_outline, size: 50, color: teal700),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'لا يوجد مستخدمين',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: teal900,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'لم يتم العثور على أي ��ستخدمين\nفي هذه الفئة',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-  }
+  // ─── Servant / SuperServant / Priest scaffold ─────────────────────────────
 
-  Widget _buildServiceOption(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          colors: [Colors.white, color.withValues(alpha: 0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+  Widget _buildServantScaffold(
+      BuildContext context,
+      AttendanceCubit cubit,
+      AsyncSnapshot snapshot,
+      ) {
+    return ThemedScaffold(
+      body: Column(
+        children: [
+          // ── Curved gradient header ────────────────────────────────────────
+          _ServantHeader(
+            cubit: cubit,
+            userType: widget.userType,
+            onRequestsTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => RequestsScreen(cubit: cubit),
+              ),
+            ),
+          ),
+
+          // ── Body content ─────────────────────────────────────────────────
+          Expanded(
+            child: ConditionalBuilder(
+              condition: snapshot.hasData &&
+                  cubit.users != null &&
+                  cubit.users!.isNotEmpty,
+              builder: (_) => ServantHomeView(
+                cubit: cubit,
+                userType: widget.userType,
+                gender: widget.gender,
+              ),
+              fallback: (_) => _buildFallback(snapshot),
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  // ─── Child scaffold (unchanged logic, refreshed visually) ────────────────
+
+  Widget _buildChildScaffold(
+      BuildContext context,
+      AttendanceCubit cubit,
+      AsyncSnapshot snapshot,
+      ) {
+    return ThemedScaffold(
+      body: Column(
+        children: [
+          _ChildHeader(title: attendance),
+          Expanded(
+            child: ConditionalBuilder(
+              condition: snapshot.hasData &&
+                  cubit.attendanceHistory != null &&
+                  cubit.attendanceHistory!.isNotEmpty,
+              builder: (_) => ChildView(cubit, pageIndex: 0),
+              fallback: (_) => _buildFallback(snapshot),
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: _buildChildFab(context, cubit),
+    );
+  }
+
+  // ─── Child FAB ────────────────────────────────────────────────────────────
+
+  Widget _buildChildFab(BuildContext context, AttendanceCubit cubit) {
+    return FloatingActionButton(
+      backgroundColor: teal500,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      onPressed: () async {
+        final key = await _showAttendanceTypeSheet(context);
+        if (key == null || !context.mounted) return;
+
+        final date = await showDatePicker(
+          context: context,
+          initialDate: DateTime.now(),
+          firstDate: DateTime(DateTime.now().year - 1),
+          lastDate: DateTime.now(),
+        );
+        if (date == null || !context.mounted) return;
+
+        await cubit.submitAttendanceRequest(attendanceKey: key, date: date);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'تم إرسال الطلب وسيظهر في السجل كـ قيد المراجعة',
+                style: TextStyle(fontFamily: 'Alexandria'),
+              ),
+              backgroundColor: teal500,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+      },
+      child: const Icon(Icons.add, color: Colors.white),
+    );
+  }
+
+  Future<String?> _showAttendanceTypeSheet(BuildContext context) {
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _AttendanceTypeSheet(),
+    );
+  }
+
+  // ─── Fallback states (loading / error / empty) ────────────────────────────
+
+  Widget _buildFallback(AsyncSnapshot snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return _LoadingState();
+    }
+    if (snapshot.hasError) {
+      return _ErrorState(onRetry: () => setState(() {}));
+    }
+    return _EmptyState(isChild: widget.userType == UserType.child);
+  }
+
+  // ─── BLoC listener ────────────────────────────────────────────────────────
+
+  void _handleStateChanges(BuildContext context, AttendanceState state) {
+    SnackBar? snack;
+
+    if (state is takeAttendanceSuccess) {
+      snack = _snack(
+        icon: Icons.check_circle,
+        message: 'تم حفظ الحضور بنجاح على الخادم',
+        color: Colors.green,
+      );
+    } else if (state is takeAttendanceSuccessOffline) {
+      snack = _snack(
+        icon: Icons.offline_bolt,
+        message:
+        'تم حفظ الحضور محلياً\nسيتم المزامنة عند توفر الإنترنت${state.pendingCount > 1 ? "\nالسجلات المعلقة: ${state.pendingCount}" : ""}',
+        color: Colors.orange[700]!,
+        duration: const Duration(seconds: 5),
+      );
+    } else if (state is SyncComplete) {
+      snack = _snack(
+        icon: Icons.cloud_done,
+        message: 'تمت المزامنة بنجاح! (${state.syncedCount} سجل)',
+        color: teal500,
+      );
+    } else if (state is SyncPartiallyComplete) {
+      snack = _snack(
+        icon: Icons.warning,
+        message: 'مزامنة جزئية — تم: ${state.syncedCount} • فشل: ${state.failedCount}',
+        color: Colors.orange[800]!,
+        duration: const Duration(seconds: 4),
+      );
+    } else if (state is OfflineModeActive) {
+      snack = _snack(
+        icon: Icons.wifi_off,
+        message: state.pendingCount > 0
+            ? 'وضع عدم الاتصال (${state.pendingCount} معلق)'
+            : 'وضع عدم الاتصال',
+        color: Colors.grey[700]!,
+      );
+    }
+
+    if (snack != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(snack);
+    }
+  }
+
+  SnackBar _snack({
+    required IconData icon,
+    required String message,
+    required Color color,
+    Duration duration = const Duration(seconds: 3),
+  }) {
+    return SnackBar(
+      content: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontFamily: 'Alexandria',
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(16),
+      duration: duration,
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Private sub-widgets
+// ════════════════════════════════════════════════════════════════════════════
+
+// ─── Servant / Priest curved header ──────────────────────────────────────────
+
+class _ServantHeader extends StatelessWidget {
+  final AttendanceCubit cubit;
+  final UserType userType;
+  final VoidCallback onRequestsTap;
+
+  const _ServantHeader({
+    required this.cubit,
+    required this.userType,
+    required this.onRequestsTap,
+  });
+
+  Stream get _requestStream {
+    if (userType == UserType.priest) {
+      return cubit.streamPendingAttendanceRequestsForPriest();
+    } else if (userType == UserType.superServant) {
+      return cubit.streamPendingAttendanceRequestsForSuperServant();
+    }
+    return cubit.streamPendingAttendanceRequestsForServant();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [teal600, teal400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: teal500.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Row(
+            children: [
+              // Title
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      attendance,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontFamily: 'Alexandria',
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'اختر نوع الحضور',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontFamily: 'Alexandria',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Requests badge button
+              StreamBuilder(
+                stream: _requestStream,
+                builder: (context, snapshot) {
+                  final count = (snapshot.data ?? []).length as int;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _IconBtn(
+                        icon: Icons.receipt_long_rounded,
+                        onTap: onRequestsTap,
+                        tooltip: 'الطلبات',
+                      ),
+                      if (count > 0)
+                        Positioned(
+                          right: -4,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                              border:
+                              Border.all(color: Colors.white, width: 1.5),
+                            ),
+                            constraints: const BoxConstraints(
+                                minWidth: 18, minHeight: 18),
+                            child: Center(
+                              child: Text(
+                                count > 99 ? '99+' : '$count',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Child header ─────────────────────────────────────────────────────────────
+
+class _ChildHeader extends StatelessWidget {
+  final String title;
+  const _ChildHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [teal600, teal400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: teal500.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white, size: 20),
+                onPressed: () => Navigator.pop(context),
+              ),
+              Expanded(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontFamily: 'Alexandria',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 44),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Reusable icon button ─────────────────────────────────────────────────────
+
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  const _IconBtn({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
       child: Material(
-        color: Colors.transparent,
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: color, size: 28),
+            padding: const EdgeInsets.all(10),
+            child: Icon(icon, color: Colors.white, size: 22),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Loading state ────────────────────────────────────────────────────────────
+
+class _LoadingState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              color: teal100,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: teal300.withValues(alpha: 0.35),
+                  blurRadius: 24,
+                  spreadRadius: 4,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    title,
+              ],
+            ),
+            child: Center(
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: CircularProgressIndicator(color: teal500, strokeWidth: 3),
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          Text(
+            'جاري التحميل...',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: teal900,
+              fontFamily: 'Alexandria',
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'يرجى الانتظار',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[500],
+              fontFamily: 'Alexandria',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Error state ──────────────────────────────────────────────────────────────
+
+class _ErrorState extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _ErrorState({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.red.withValues(alpha: 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.error_outline, size: 40, color: Colors.red[400]),
+            ),
+            const SizedBox(height: 20),
+            Text('حدث خطأ!',
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red[700],
+                    fontFamily: 'Alexandria')),
+            const SizedBox(height: 8),
+            Text('حدث خطأ أثناء تحميل البيانات',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                    fontFamily: 'Alexandria')),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, color: Colors.white, size: 18),
+              label: const Text('إعادة المحاولة',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Alexandria',
+                      fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: teal500,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 28, vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  final bool isChild;
+  const _EmptyState({required this.isChild});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: teal300.withValues(alpha: 0.15),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                color: teal100,
+                shape: BoxShape.circle,
+                border: Border.all(color: teal300, width: 2),
+              ),
+              child: Icon(
+                isChild
+                    ? Icons.history_edu_outlined
+                    : Icons.people_outline_rounded,
+                size: 46,
+                color: teal700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              isChild ? 'لا توجد سجلات' : 'لا يوجد مستخدمين',
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: teal900,
+                  fontFamily: 'Alexandria'),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isChild
+                  ? 'لم يتم العثور على أي سجلات\nلحضورك في هذه الفئة'
+                  : 'لم يتم العثور على أي مستخدمين\nفي هذه الفئة',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                  height: 1.6,
+                  fontFamily: 'Alexandria'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Attendance type bottom sheet (child FAB) ─────────────────────────────────
+
+class _AttendanceTypeSheet extends StatelessWidget {
+  static const _options = [
+    {'key': 'holy_mass', 'icon': Icons.church, 'color': Color(0xFF7C3AED)},
+    {'key': 'sunday_school', 'icon': Icons.school, 'color': Color(0xFF0284C7)},
+    {'key': 'hymns', 'icon': Icons.music_note, 'color': Color(0xFFD97706)},
+    {'key': 'bible', 'icon': Icons.menu_book, 'color': Color(0xFF059669)},
+  ];
+
+  static const _labels = {
+    'holy_mass': 'القداس',
+    'sunday_school': 'مدارس الأحد',
+    'hymns': 'الألحان',
+    'bible': 'درس الكتاب',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Title
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                          colors: [teal500, teal300],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.event_note,
+                        color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'اختر نوع الخدمة',
                     style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                       color: teal900,
                       fontFamily: 'Alexandria',
                     ),
                   ),
-                ),
-                Icon(Icons.arrow_forward_ios, color: color, size: 20),
-              ],
+                ],
+              ),
             ),
+            const Divider(height: 1),
+            const SizedBox(height: 6),
+            ..._options.map(
+                  (o) => _SheetOption(
+                icon: o['icon'] as IconData,
+                label: _labels[o['key']]!,
+                color: o['color'] as Color,
+                onTap: () => Navigator.pop(context, o['key']),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SheetOption({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: teal900,
+                    fontFamily: 'Alexandria',
+                  ),
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios_rounded,
+                  color: Colors.grey[400], size: 16),
+            ],
           ),
         ),
       ),

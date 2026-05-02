@@ -8,6 +8,7 @@ const Color teal600 = Color(0xFF00707B); // Medium-Dark
 const Color teal500 = Color(0xFF009CA6); // Medium (Main Color)
 const Color teal400 = Color(0xFF00B3B8); // Medium-Light
 const Color teal300 = Color(0xFF75D1CF); // Lighter
+const Color teal200 = Color(0xFFB2E6E3); // Light
 const Color teal100 = Color(0xFFD4FFEE); // Lightest
 const Color teal50 = Color(0xFFEFFDFD); // Extra Light
 
