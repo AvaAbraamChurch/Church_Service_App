@@ -6,11 +6,9 @@ import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/modules/Attendance/child_view.dart';
-import 'package:church/modules/Attendance/priest_view.dart';
+import 'package:church/modules/Attendance/priest_home_view.dart';
 import 'package:church/modules/Attendance/servant_home_view.dart';
-import 'package:church/modules/Attendance/super_servant_view.dart';
-import 'package:church/modules/Attendance/visits/visit_child_view.dart';
-import 'package:church/modules/requests/requests_screen.dart';
+import 'package:church/modules/Attendance/super_servant_home_View.dart';
 import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -46,8 +44,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     super.initState();
     cubit = AttendanceCubit();
 
-    bool tabsIsShown = false;
-
     _currentUserSubscription =
         cubit.getCurrentUser(widget.userId).listen((_) {});
 
@@ -69,7 +65,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         genderToJson(widget.gender),
       );
     } else {
-      tabsIsShown = true;
       stream = cubit.getUserAttendanceHistory(widget.userId);
     }
   }
@@ -109,42 +104,33 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   // ─── Servant / SuperServant / Priest scaffold ─────────────────────────────
-
   Widget _buildServantScaffold(
       BuildContext context,
       AttendanceCubit cubit,
       AsyncSnapshot snapshot,
       ) {
     return ThemedScaffold(
-      body: Column(
-        children: [
-          // ── Curved gradient header ────────────────────────────────────────
-          _ServantHeader(
-            cubit: cubit,
-            userType: widget.userType,
-            onRequestsTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => RequestsScreen(cubit: cubit),
-              ),
-            ),
-          ),
-
-          // ── Body content ─────────────────────────────────────────────────
-          Expanded(
-            child: ConditionalBuilder(
-              condition: snapshot.hasData &&
-                  cubit.users != null &&
-                  cubit.users!.isNotEmpty,
-              builder: (_) => ServantHomeView(
+      body: ConditionalBuilder(
+        condition: snapshot.hasData && cubit.users != null && cubit.users!.isNotEmpty,
+        builder: (_) {
+          switch (widget.userType) {
+            case UserType.priest:
+              return PriestHomeView(cubit: cubit, userType: widget.userType);
+            case UserType.superServant:
+              return SuperServantHomeView(
                 cubit: cubit,
                 userType: widget.userType,
                 gender: widget.gender,
-              ),
-              fallback: (_) => _buildFallback(snapshot),
-            ),
-          ),
-        ],
+              );
+            default:
+              return ServantHomeView(
+                cubit: cubit,
+                userType: widget.userType,
+                gender: widget.gender,
+              );
+          }
+        },
+        fallback: (_) => _buildFallback(snapshot),
       ),
     );
   }
@@ -320,133 +306,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 // Private sub-widgets
 // ════════════════════════════════════════════════════════════════════════════
 
-// ─── Servant / Priest curved header ──────────────────────────────────────────
-
-class _ServantHeader extends StatelessWidget {
-  final AttendanceCubit cubit;
-  final UserType userType;
-  final VoidCallback onRequestsTap;
-
-  const _ServantHeader({
-    required this.cubit,
-    required this.userType,
-    required this.onRequestsTap,
-  });
-
-  Stream get _requestStream {
-    if (userType == UserType.priest) {
-      return cubit.streamPendingAttendanceRequestsForPriest();
-    } else if (userType == UserType.superServant) {
-      return cubit.streamPendingAttendanceRequestsForSuperServant();
-    }
-    return cubit.streamPendingAttendanceRequestsForServant();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [teal600, teal400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(40),
-          bottomRight: Radius.circular(40),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: teal500.withValues(alpha: 0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Row(
-            children: [
-              // Title
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      attendance,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontFamily: 'Alexandria',
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'اختر نوع الحضور',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontFamily: 'Alexandria',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Requests badge button
-              StreamBuilder(
-                stream: _requestStream,
-                builder: (context, snapshot) {
-                  final count = (snapshot.data ?? []).length as int;
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      _IconBtn(
-                        icon: Icons.receipt_long_rounded,
-                        onTap: onRequestsTap,
-                        tooltip: 'الطلبات',
-                      ),
-                      if (count > 0)
-                        Positioned(
-                          right: -4,
-                          top: -4,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                              border:
-                              Border.all(color: Colors.white, width: 1.5),
-                            ),
-                            constraints: const BoxConstraints(
-                                minWidth: 18, minHeight: 18),
-                            child: Center(
-                              child: Text(
-                                count > 99 ? '99+' : '$count',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ─── Child header ─────────────────────────────────────────────────────────────
 
@@ -500,39 +359,6 @@ class _ChildHeader extends StatelessWidget {
               ),
               const SizedBox(width: 44),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Reusable icon button ─────────────────────────────────────────────────────
-
-class _IconBtn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  const _IconBtn({
-    required this.icon,
-    required this.onTap,
-    required this.tooltip,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Icon(icon, color: Colors.white, size: 22),
           ),
         ),
       ),
@@ -880,4 +706,6 @@ class _SheetOption extends StatelessWidget {
       ),
     );
   }
+
 }
+

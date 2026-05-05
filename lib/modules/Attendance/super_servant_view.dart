@@ -1,72 +1,62 @@
 import 'package:church/core/blocs/attendance/attendance_cubit.dart';
-import 'package:church/core/constants/functions.dart';
 import 'package:church/core/constants/strings.dart';
 import 'package:church/core/models/attendance/attendance_model.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/attendance_enum.dart';
-import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/shared/avatar_display_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../requests/requests_screen.dart';
 
-import '../../core/repositories/attendance_defaults_repository.dart';
-import '../../core/services/coupon_points_service.dart';
-import '../../shared/points_sync_widget.dart';
-
+/// Priest attendance screen — 2-step internal flow:
+///   Step 1 — User type        (خدام · مخدومين)
+///   Step 2 — Attendance list  (4-status cards)
+///
+/// The attendance type (pageIndex) is passed from [SuperServantView].
 class SuperServantView extends StatefulWidget {
   final AttendanceCubit cubit;
   final int pageIndex;
-  final String gender;
 
-  const SuperServantView(
-    this.cubit, {
-    super.key,
-    required this.gender,
-    required this.pageIndex,
-  });
+  const SuperServantView(this.cubit, {super.key, this.pageIndex = -1});
 
   @override
   State<SuperServantView> createState() => _SuperServantViewState();
 }
 
 class _SuperServantViewState extends State<SuperServantView> {
-  String? selectedUserType;
+  // ─── Step state ───────────────────────────────────────────────────────────
+
+  String? selectedUserType; // Arabic label: superServant / servant / child
+
+  // ─── Step 2 state ─────────────────────────────────────────────────────────
   final Map<String, AttendanceStatus> attendanceMap = {};
-  final Map<String, int> userPointsMap = {};
+  List<UserModel> filteredUsers       = [];
+  List<UserModel> selectedGroupUsers  = [];
+  List<UserModel> servants            = [];
+  List<UserModel> children            = [];
+  final searchController              = TextEditingController();
+  bool isSubmitting                   = false;
 
-  List<UserModel> _loadedUsers = [];
-  List<UserModel> filteredUsers = [];
-  List<UserModel> servantsList = [];
-  List<UserModel> chidrenList = [];
-  final searchController = TextEditingController();
-  bool isSubmitting = false;
-  final CouponPointsService _pointsService = CouponPointsService();
-  final AttendanceDefaultsRepository _defaultsRepo =
-      AttendanceDefaultsRepository();
-
-  bool isLoadingUsers = false;
-
+  // Filters
   String? selectedClass;
-  String? selectedGender;
   List<String> availableClasses = [];
 
+  // ─── Attendance type definitions ──────────────────────────────────────────
+  static const List<_AttendanceTypeDef> _attendanceTypes = [
+    _AttendanceTypeDef(key: 'holy_mass',     label: 'القداس',       icon: Icons.church_rounded,      index: 0, gradient: [Color(0xFF0D9488), Color(0xFF0F766E)]),
+    _AttendanceTypeDef(key: 'sunday_school', label: 'مدارس الأحد',  icon: Icons.auto_stories_rounded, index: 1, gradient: [Color(0xFF0EA5E9), Color(0xFF0284C7)]),
+    _AttendanceTypeDef(key: 'hymns',         label: 'الألحان',      icon: Icons.music_note_rounded,   index: 2, gradient: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+    _AttendanceTypeDef(key: 'bible',         label: 'درس الكتاب',  icon: Icons.menu_book_rounded,    index: 3, gradient: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+    _AttendanceTypeDef(key: 'visit',         label: 'الافتقاد',    icon: Icons.home_rounded,         index: 4, gradient: [Color(0xFF10B981), Color(0xFF059669)]),
+  ];
+
+  // ─── Lifecycle ────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
     searchController.addListener(_filterUsers);
-
-    servantsList =
-        widget.cubit.users
-            ?.where((u) => u.userType.code == UserType.servant.code)
-            .toList() ??
-        [];
-    chidrenList =
-        widget.cubit.users
-            ?.where((u) => u.userType.code == UserType.child.code)
-            .toList() ??
-        [];
+    _refreshLists();
   }
 
   @override
@@ -75,118 +65,57 @@ class _SuperServantViewState extends State<SuperServantView> {
     super.dispose();
   }
 
-  void _initializeAttendanceFrom(List<UserModel> users) {
+  void _refreshLists() {
+    servants      = widget.cubit.users?.where((u) => u.userType.code == UserType.servant.code).toList()      ?? [];
+    children      = widget.cubit.users?.where((u) => u.userType.code == UserType.child.code).toList()        ?? [];
+  }
+
+  void _initializeAttendance() {
     attendanceMap.clear();
-    userPointsMap.clear();
-    for (var user in users) {
-      attendanceMap[user.id] = AttendanceStatus.absent;
-      userPointsMap[user.id] = user.couponPoints;
+    final List<UserModel> baseList;
+    if (selectedUserType == servant) {
+      baseList = servants;
+    } else {
+      baseList = children;
     }
-    _loadedUsers = List<UserModel>.from(users);
+    for (final user in baseList) {
+      attendanceMap[user.id] = AttendanceStatus.absent;
+    }
+    selectedGroupUsers = List.from(baseList);
+    filteredUsers      = List.from(baseList);
 
-    final classes = users.map((u) => u.userClass).toSet().toList();
-    classes.sort();
+    final classes = baseList.map((u) => u.userClass).toSet().toList()..sort();
     availableClasses = ['الكل', ...classes];
-
-    selectedClass = 'الكل';
-    selectedGender = 'الكل';
-
-    filteredUsers = List<UserModel>.from(users);
+    selectedClass  = 'الكل';
   }
 
   void _filterUsers() {
-    final query = normalizeArabic(searchController.text.toLowerCase());
     setState(() {
-      final sourceList = selectedUserType == UserType.servant.code
-          ? servantsList
-          : chidrenList;
-
-      List<UserModel> tempFiltered = List.from(sourceList);
-
-      if (selectedClass != null && selectedClass != 'الكل') {
-        tempFiltered = tempFiltered
-            .where((user) => user.userClass == selectedClass)
-            .toList();
-      }
-
-      if (selectedGender != null && selectedGender != 'الكل') {
-        final genderCode = selectedGender == 'ذكر' ? 'M' : 'F';
-        tempFiltered = tempFiltered
-            .where((user) => user.gender.code == genderCode)
-            .toList();
-      }
-
-      if (query.isEmpty) {
-        filteredUsers = tempFiltered;
-      } else {
-        filteredUsers = tempFiltered
-            .where(
-              (user) =>
-                  normalizeArabic(user.fullName.toLowerCase()).contains(query),
-            )
-            .toList();
-      }
+      List<UserModel> tmp = List.from(selectedGroupUsers);
+      if (selectedClass  != null && selectedClass  != 'الكل') tmp = tmp.where((u) => u.userClass  == selectedClass).toList();
     });
   }
 
-  String _getAttendanceTypeFromIndex(int index) {
+  _AttendanceTypeDef get _currentTypeDef =>
+      _attendanceTypes.firstWhere((t) => t.index == widget.pageIndex,
+          orElse: () => _attendanceTypes[0]);
+
+  String _attendanceTypeString(int index) {
     switch (index) {
-      case 0:
-        return holyMass;
-      case 1:
-        return sunday;
-      case 2:
-        return hymns;
-      case 3:
-        return bibleClass;
-      case 4:
-        return visit;
-      default:
-        return '';
+      case 0: return holyMass;
+      case 1: return sunday;
+      case 2: return hymns;
+      case 3: return bibleClass;
+      case 4: return visit;
+      default: return '';
     }
   }
 
-  String _getAttendanceTypeName() {
-    switch (widget.pageIndex) {
-      case 0:
-        return 'القداس';
-      case 1:
-        return 'مدارس الأحد';
-      case 2:
-        return 'الالحان';
-      case 3:
-        return 'درس الكتاب';
-      case 4:
-        return 'الافتقاد';
-      default:
-        return '';
-    }
-  }
-
-  int _getDefaultPointsForType(Map<String, int> defaults) {
-    switch (widget.pageIndex) {
-      case 0:
-        return defaults['holy_mass'] ?? 1;
-      case 1:
-        return defaults['sunday_school'] ?? 1;
-      case 2:
-        return defaults['hymns'] ?? 1;
-      case 3:
-        return defaults['bible'] ?? 1;
-      case 4:
-        return 1;
-      default:
-        return 1;
-    }
-  }
-
+  // ─── Submit ───────────────────────────────────────────────────────────────
   Future<void> _submitAttendance() async {
-    if (isSubmitting) {
-      return;
-    }
+    if (isSubmitting) return;
 
-    // Show date picker first
-    final selectedDate = await showDatePicker(
+    final date = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(DateTime.now().year - 1),
@@ -194,424 +123,118 @@ class _SuperServantViewState extends State<SuperServantView> {
       helpText: 'اختر تاريخ الحضور',
       cancelText: 'إلغاء',
       confirmText: 'تأكيد',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: teal500,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: teal900,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.light(primary: _currentTypeDef.gradient[0], onPrimary: Colors.white, surface: Colors.white, onSurface: teal900),
+        ),
+        child: child!,
+      ),
     );
+    if (date == null || !mounted) return;
 
-    // If user cancelled date selection, return
-    if (selectedDate == null) {
-      return;
-    }
-
-    setState(() {
-      isSubmitting = true;
-    });
-
+    setState(() => isSubmitting = true);
     try {
-      final now = DateTime.now();
-      final attendanceDate = DateTime(
-        selectedDate.year,
-        selectedDate.month,
-        selectedDate.day,
-      );
+      final now  = DateTime.now();
+      final attendanceDate = DateTime(date.year, date.month, date.day);
 
-      final attendanceList = attendanceMap.entries.map((entry) {
-        final user = _loadedUsers.firstWhere((u) => u.id == entry.key);
-
+      final list = attendanceMap.entries.map((e) {
+        final user = selectedGroupUsers.firstWhere((u) => u.id == e.key);
         return AttendanceModel(
           id: '',
           userId: user.id,
           userName: user.fullName,
           userType: user.userType,
           date: attendanceDate,
-          attendanceType: _getAttendanceTypeFromIndex(widget.pageIndex),
-          status: entry.value,
-          checkInTime: entry.value == AttendanceStatus.present
-              ? now
-              : entry.value == AttendanceStatus.late
-              ? now
-              : null,
+          attendanceType: _attendanceTypeString(widget.pageIndex),
+          status: e.value,
+          checkInTime: (e.value == AttendanceStatus.present || e.value == AttendanceStatus.late) ? now : null,
           createdAt: now,
         );
       }).toList();
 
-      await widget.cubit.batchTakeAttendance(attendanceList);
-
-      // Add points automatically for present children
-      final defaults = await _defaultsRepo.getDefaults();
-      final defaultPoints = _getDefaultPointsForType(defaults);
-
-      final presentChildren = attendanceMap.entries
-          .where((entry) => entry.value == AttendanceStatus.present)
-          .map((entry) => entry.key)
-          .where((userId) {
-            final user = _loadedUsers.firstWhere((u) => u.id == userId);
-            return user.userType.code == UserType.child.code;
-          })
-          .toList();
-
-      if (presentChildren.isNotEmpty) {
-        final result = await _pointsService.bulkSetPoints(
-          presentChildren,
-          defaultPoints,
-          'حضور - ${_getAttendanceTypeName()}',
-          widget.cubit.currentUser?.id ?? 'system',
-        );
-      }
+      await widget.cubit.batchTakeAttendance(list);
 
       if (mounted) {
         setState(() {
           attendanceMap.clear();
-          selectedUserType = null;
-          _loadedUsers = [];
-          filteredUsers = [];
+          selectedUserType   = null;
+          selectedGroupUsers = [];
+          filteredUsers      = [];
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              presentChildren.isNotEmpty
-                  ? 'تم تسجيل الحضور وإضافة $defaultPoints نقطة لـ ${presentChildren.length} مخدوم'
-                  : 'تم تسجيل الحضور بنجاح',
-              style: const TextStyle(fontFamily: 'Alexandria'),
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
+        _showSnack('تم حفظ الحضور بنجاح ✓');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في تسجيل الحضور: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
+      _showSnack('خطأ في تسجيل الحضور: $e', error: true);
     } finally {
-      if (mounted) {
-        setState(() {
-          isSubmitting = false;
-        });
-      }
+      if (mounted) setState(() => isSubmitting = false);
     }
   }
 
-  void _showIndividualPointsDialog(UserModel user) {
-    final TextEditingController pointsController = TextEditingController();
-    final TextEditingController reasonController = TextEditingController(
-      text: 'تعديل يدوي',
-    );
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: teal100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.person, color: teal700, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.fullName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'النقاط الحالية: ${userPointsMap[user.id] ?? user.couponPoints}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: pointsController,
-                keyboardType: TextInputType.numberWithOptions(signed: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^-?\d*')),
-                ],
-                decoration: InputDecoration(
-                  labelText: 'عدد النقاط',
-                  hintText: 'أدخل عدد النقاط (موجب أو سالب)',
-                  prefixIcon: Icon(Icons.add_circle_outline, color: teal500),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: teal500, width: 2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: reasonController,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  labelText: 'السبب',
-                  hintText: 'سبب التعديل',
-                  prefixIcon: Icon(Icons.notes, color: teal500),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: teal500, width: 2),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final pointsText = pointsController.text.trim();
-              final reason = reasonController.text.trim();
-
-              if (pointsText.isEmpty || reason.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('الرجاء ملء جميع الحقول'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
-              final points = int.tryParse(pointsText);
-              if (points == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('الرجاء إدخال رقم صحيح'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
-              Navigator.pop(context);
-              await _applyIndividualPoints(user.id, points, reason);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: teal500,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: const Text(
-              'تطبيق',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
+  void _showSnack(String msg, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: const TextStyle(fontFamily: 'Alexandria', fontSize: 14)),
+      backgroundColor: error ? Colors.red[600] : Colors.green[600],
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(16),
+    ));
   }
 
-  Future<void> _applyIndividualPoints(
-    String userId,
-    int points,
-    String reason,
-  ) async {
-    try {
-      setState(() => isSubmitting = true);
-
-      await _pointsService.setPoints(
-        userId,
-        points,
-        reason,
-        widget.cubit.currentUser?.id ?? 'system',
-      );
-
-      final currentPoints = await _pointsService.getUserPoints(userId);
-      setState(() {
-        userPointsMap[userId] = currentPoints;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم ${points >= 0 ? 'إضافة' : 'خصم'} ${points.abs()} نقطة بنجاح',
-              style: const TextStyle(fontFamily: 'Alexandria'),
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في تطبيق النقاط: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => isSubmitting = false);
-      }
-    }
-  }
-
+  // ─── Router ───────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    if (selectedUserType == null) {
-      return _buildUserTypeSelection();
-    }
-
-    return _buildAttendanceTaking(
-      selectedUserType == UserType.servant.code
-          ? UserType.servant
-          : UserType.child,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF1F5F9),
+      body: selectedUserType == null ? _buildUserTypeStep() : _buildAttendanceStep(),
     );
   }
 
-  Widget _buildUserTypeSelection() {
+  // ══════════════════════════════════════════════════════════════════════════
+  // STEP 1 — User type selection
+  // ══════════════════════════════════════════════════════════════════════════
+  Widget _buildUserTypeStep() {
+    final typeDef = _currentTypeDef;
     return Column(
       children: [
-        const PointsSyncStatusWidget(),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [teal500, teal300],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: teal500.withValues(alpha: 0.3),
-                blurRadius: 15,
-                spreadRadius: 2,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.how_to_reg,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'تسجيل الحضور',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'اختر نوع المستخدمين',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        // Curved gradient header
+        _CurvedHeader(
+          icon: typeDef.icon,
+          title: 'حضور ${typeDef.label}',
+          subtitle: 'اختر نوع المستخدمين',
+          gradient: typeDef.gradient,
+          onBack: () => Navigator.pop(context),
         ),
-        const SizedBox(height: 30),
-
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
             children: [
-              _buildUserTypeCard(
+              _UserTypeCard(
                 title: 'الخدام',
                 subtitle: 'تسجيل حضور الخدام',
-                icon: Icons.people,
+                icon: Icons.people_alt_rounded,
                 color: red500,
-                userType: UserType.servant.code,
-                count:
-                    widget.cubit.users
-                        ?.where((u) => u.userType.code == UserType.servant.code)
-                        .length ??
-                    0,
+                count: servants.length,
+                onTap: () {
+                  setState(() {
+                    selectedUserType = servant;
+                    _initializeAttendance();
+                  });
+                },
               ),
-              const SizedBox(height: 16),
-              _buildUserTypeCard(
+              const SizedBox(height: 14),
+              _UserTypeCard(
                 title: 'المخدومين',
                 subtitle: 'تسجيل حضور المخدومين',
-                icon: Icons.child_care,
+                icon: Icons.child_care_rounded,
                 color: sage500,
-                userType: UserType.child.code,
-                count:
-                    widget.cubit.users
-                        ?.where((u) => u.userType.code == UserType.child.code)
-                        .length ??
-                    0,
+                count: children.length,
+                onTap: () {
+                  setState(() {
+                    selectedUserType = child;
+                    _initializeAttendance();
+                  });
+                },
               ),
             ],
           ),
@@ -620,483 +243,89 @@ class _SuperServantViewState extends State<SuperServantView> {
     );
   }
 
-  Widget _buildUserTypeCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required String userType,
-    required int count,
-  }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          colors: [Colors.white, color.withValues(alpha: 0.1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.2),
-            blurRadius: 10,
-            spreadRadius: 1,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () async {
-            setState(() {
-              selectedUserType = userType;
-              servantsList =
-                  widget.cubit.users
-                      ?.where((u) => u.userType.code == UserType.servant.code)
-                      .toList() ??
-                  [];
-              chidrenList =
-                  widget.cubit.users
-                      ?.where((u) => u.userType.code == UserType.child.code)
-                      .toList() ??
-                  [];
-              isLoadingUsers = true;
-            });
+  // ══════════════════════════════════════════════════════════════════════════
+  // STEP 2 — Attendance taking
+  // ══════════════════════════════════════════════════════════════════════════
+  Widget _buildAttendanceStep() {
+    final typeDef   = _currentTypeDef;
+    final userLabel = selectedUserType == superServant
+        ? 'أمناء الخدمة'
+        : selectedUserType == servant
+        ? 'الخدام'
+        : 'المخدومين';
 
-            try {
-              if (!mounted) return;
-              _initializeAttendanceFrom(
-                selectedUserType == UserType.servant.code
-                    ? servantsList
-                    : chidrenList,
-              );
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('تعذر تحميل المستخدمين: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            } finally {
-              if (mounted) {
-                setState(() {
-                  isLoadingUsers = false;
-                });
-              }
-            }
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: color.withValues(alpha: 0.3),
-                      width: 2,
-                    ),
-                  ),
-                  child: Icon(icon, color: color, size: 35),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: teal900,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        subtitle,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '$count مستخدم',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: color,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios, color: color, size: 24),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAttendanceTaking(UserType userType) {
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (context, _) {
         final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
-
         return Column(
           children: [
-            const PointsSyncStatusWidget(),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: teal100,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  if (!keyboardVisible)
-                    IconButton(
-                      onPressed: () {
-                        setState(() {
-                          selectedUserType = null;
-                          attendanceMap.clear();
-                          searchController.clear();
-                          _loadedUsers = [];
-                          filteredUsers = [];
-                          servantsList = [];
-                          chidrenList = [];
-                          selectedClass = null;
-                          selectedGender = null;
-                          availableClasses = [];
-                        });
-                      },
-                      icon: const Icon(Icons.arrow_back, color: teal900),
-                    ),
-                  Expanded(
-                    child: Text(
-                      selectedUserType == UserType.servant.code
-                          ? 'الخدام'
-                          : 'المخدومين',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: teal900,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: teal300,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      searchController.text.isEmpty
-                          ? '${selectedUserType == UserType.servant.code ? servantsList.length : chidrenList.length} مستخدم'
-                          : '${filteredUsers.length} من ${selectedUserType == UserType.servant.code ? servantsList.length : chidrenList.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            // Compact header
+            _ListHeader(
+              title: '${typeDef.label} · $userLabel',
+              gradient: typeDef.gradient,
+              icon: typeDef.icon,
+              filteredCount: filteredUsers.length,
+              totalCount: selectedGroupUsers.length,
+              searchEmpty: searchController.text.isEmpty,
+              onBack: () => setState(() {
+                selectedUserType = null;
+                attendanceMap.clear();
+                searchController.clear();
+                filteredUsers = [];
+                selectedGroupUsers = [];
+              }),
+              keyboardVisible: keyboardVisible,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
 
+            // Search bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: TextField(
-                  controller: searchController,
-                  enabled: !isLoadingUsers,
-                  decoration: InputDecoration(
-                    hintText: 'بحث...',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    prefixIcon: Icon(Icons.search, color: teal500),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                  ),
-                ),
-              ),
+              child: _SearchBar(controller: searchController, primaryColor: typeDef.gradient[0]),
             ),
-            const SizedBox(height: 12),
-
-            if (!isLoadingUsers && availableClasses.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (availableClasses.length > 1) ...[
-                      Row(
-                        children: [
-                          Icon(Icons.class_, color: teal700, size: 18),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'الفصل:',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 40,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: availableClasses.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(width: 8),
-                          itemBuilder: (context, index) {
-                            final className = availableClasses[index];
-                            final isSelected = selectedClass == className;
-                            return FilterChip(
-                              label: Text(className),
-                              selected: isSelected,
-                              onSelected: (selected) {
-                                setState(() {
-                                  selectedClass = className;
-                                  _filterUsers();
-                                });
-                              },
-                              backgroundColor: Colors.white,
-                              selectedColor: teal300,
-                              checkmarkColor: Colors.white,
-                              labelStyle: TextStyle(
-                                color: isSelected ? Colors.white : teal900,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                              side: BorderSide(
-                                color: isSelected ? teal500 : Colors.grey[300]!,
-                                width: 1.5,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    if (widget.cubit.currentUser?.userType.code ==
-                        UserType.priest.code) ...[
-                      Row(
-                        children: [
-                          Icon(Icons.wc, color: teal700, size: 18),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'النوع:',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 40,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            for (final gender in ['الكل', 'ذكر', 'أنثى']) ...[
-                              FilterChip(
-                                label: Text(gender),
-                                selected: selectedGender == gender,
-                                onSelected: (selected) {
-                                  setState(() {
-                                    selectedGender = gender;
-                                    _filterUsers();
-                                  });
-                                },
-                                backgroundColor: Colors.white,
-                                selectedColor: teal300,
-                                checkmarkColor: Colors.white,
-                                labelStyle: TextStyle(
-                                  color: selectedGender == gender
-                                      ? Colors.white
-                                      : teal900,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                                side: BorderSide(
-                                  color: selectedGender == gender
-                                      ? teal500
-                                      : Colors.grey[300]!,
-                                  width: 1.5,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ],
-                ),
-              ),
             const SizedBox(height: 8),
 
-            Flexible(
-              child: isLoadingUsers
-                  ? const Center(
-                      child: SizedBox(
-                        height: 32,
-                        width: 32,
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  : filteredUsers.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.search_off,
-                            size: 64,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'لا توجد نتائج',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: filteredUsers.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final user = filteredUsers[index];
-                        final userId = user.id;
-                        final status =
-                            attendanceMap[userId] ?? AttendanceStatus.absent;
+            // Filters
+            if (availableClasses.length > 1) ...[
+              _FilterRow(
+                label: classroom, icon: Icons.class_, chips: availableClasses,
+                selected: selectedClass ?? 'الكل',
+                onSelect: (v) => setState(() { selectedClass = v; _filterUsers(); }),
+              ),
+              const SizedBox(height: 15),
+            ],
 
-                        return _buildUserAttendanceCard(user, status);
-                      },
-                    ),
+
+            // User list
+            Flexible(
+              child: filteredUsers.isEmpty
+                  ? _EmptySearch()
+                  : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                itemCount: filteredUsers.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, i) {
+                  final user   = filteredUsers[i];
+                  final status = attendanceMap[user.id] ?? AttendanceStatus.absent;
+                  return _AttendanceCard(
+                    user: user,
+                    status: status,
+                    accentColor: typeDef.gradient[0],
+                    onStatusChanged: (s) => setState(() => attendanceMap[user.id] = s),
+                  );
+                },
+              ),
             ),
 
+            // Submit + requests buttons
             if (!keyboardVisible)
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      colors: (isSubmitting || isLoadingUsers)
-                          ? [Colors.grey, Colors.grey[400]!]
-                          : [teal700, teal300],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isSubmitting || isLoadingUsers)
-                            ? Colors.black.withValues(alpha: 0.2)
-                            : teal500.withValues(alpha: 0.5),
-                        spreadRadius: 1,
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: (isSubmitting || isLoadingUsers)
-                          ? null
-                          : _submitAttendance,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        height: 56,
-                        alignment: Alignment.center,
-                        child: isSubmitting
-                            ? const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 3,
-                                ),
-                              )
-                            : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.check_circle_outline,
-                                    color: Colors.white,
-                                    size: 24,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'حفظ الحضور وإضافة النقاط',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                      letterSpacing: 1,
-                                      fontFamily: 'Alexandria',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
-                    ),
-                  ),
+              _BottomBar(
+                cubit: widget.cubit,
+                isSubmitting: isSubmitting,
+                onSubmit: _submitAttendance,
+                onRequests: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => RequestsScreen(cubit: widget.cubit)),
                 ),
               ),
           ],
@@ -1104,205 +333,63 @@ class _SuperServantViewState extends State<SuperServantView> {
       },
     );
   }
+}
 
-  Widget _buildUserAttendanceCard(UserModel user, AttendanceStatus status) {
-    Color statusColor;
-    IconData statusIcon;
-    String statusText;
+// ════════════════════════════════════════════════════════════════════════════
+// Data class
+// ════════════════════════════════════════════════════════════════════════════
 
-    switch (status) {
-      case AttendanceStatus.present:
-        statusColor = Colors.green;
-        statusIcon = Icons.check_circle;
-        statusText = 'حاضر';
-        break;
-      case AttendanceStatus.absent:
-        statusColor = Colors.red;
-        statusIcon = Icons.cancel;
-        statusText = 'غائب';
-        break;
-      case AttendanceStatus.late:
-        statusColor = Colors.orange;
-        statusIcon = Icons.access_time;
-        statusText = 'متأخر';
-        break;
-      case AttendanceStatus.excused:
-        statusColor = Colors.blue;
-        statusIcon = Icons.info;
-        statusText = 'معتذر';
-        break;
-    }
+class _AttendanceTypeDef {
+  final String key, label;
+  final IconData icon;
+  final int index;
+  final List<Color> gradient;
+  const _AttendanceTypeDef({required this.key, required this.label, required this.icon, required this.index, required this.gradient});
+}
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+// ════════════════════════════════════════════════════════════════════════════
+// Sub-widgets — all shared with the same design language
+// ════════════════════════════════════════════════════════════════════════════
+
+// ─── Curved gradient header (Step 1) ─────────────────────────────────────────
+
+class _CurvedHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<Color> gradient;
+  final VoidCallback? onBack;
+  const _CurvedHeader({required this.icon, required this.title, required this.subtitle, required this.gradient, this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          colors: [Colors.white, statusColor.withValues(alpha: 0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: statusColor.withValues(alpha: 0.15),
-            blurRadius: 8,
-            spreadRadius: 0,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        gradient: LinearGradient(colors: gradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(36), bottomRight: Radius.circular(36)),
+        boxShadow: [BoxShadow(color: gradient[0].withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 6))],
       ),
-      child: Material(
-        color: Colors.transparent,
+      child: SafeArea(
+        bottom: false,
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+          padding: const EdgeInsets.fromLTRB(8, 4, 20, 24),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: statusColor, width: 2),
-                    ),
-                    child: AvatarDisplayWidget(
-                      user: user,
-                      size: 56,
-                      showBorder: false,
-                      borderWidth: 0,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user.fullName,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: teal900,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(statusIcon, size: 14, color: statusColor),
-                              const SizedBox(width: 4),
-                              Text(
-                                statusText,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: statusColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (user.userType.code == UserType.child.code) ...[
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.card_giftcard,
-                                size: 14,
-                                color: teal500,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${userPointsMap[user.id] ?? user.couponPoints} نقطة',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: teal700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (user.userType.code == UserType.child.code)
-                    IconButton(
-                      onPressed: () => _showIndividualPointsDialog(user),
-                      icon: Icon(Icons.edit, color: teal500, size: 20),
-                      tooltip: 'تعديل النقاط',
-                    ),
-                ],
+              if (onBack != null)
+                IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20), onPressed: onBack)
+              else
+                const SizedBox(width: 16),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(14)),
+                child: Icon(icon, color: Colors.white, size: 22),
               ),
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatusButton(
-                      label: 'حاضر',
-                      icon: Icons.check_circle,
-                      color: Colors.green,
-                      isSelected: status == AttendanceStatus.present,
-                      onTap: () {
-                        setState(() {
-                          attendanceMap[user.id] = AttendanceStatus.present;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildStatusButton(
-                      label: 'غائب',
-                      icon: Icons.cancel,
-                      color: Colors.red,
-                      isSelected: status == AttendanceStatus.absent,
-                      onTap: () {
-                        setState(() {
-                          attendanceMap[user.id] = AttendanceStatus.absent;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildStatusButton(
-                      label: 'متأخر',
-                      icon: Icons.access_time,
-                      color: Colors.orange,
-                      isSelected: status == AttendanceStatus.late,
-                      onTap: () {
-                        setState(() {
-                          attendanceMap[user.id] = AttendanceStatus.late;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildStatusButton(
-                      label: 'معتذر',
-                      icon: Icons.info,
-                      color: Colors.blue,
-                      isSelected: status == AttendanceStatus.excused,
-                      onTap: () {
-                        setState(() {
-                          attendanceMap[user.id] = AttendanceStatus.excused;
-                        });
-                      },
-                    ),
-                  ),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title,    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold,  color: Colors.white, fontFamily: 'Alexandria')),
+                  Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.85), fontFamily: 'Alexandria')),
+                ]),
               ),
             ],
           ),
@@ -1310,14 +397,226 @@ class _SuperServantViewState extends State<SuperServantView> {
       ),
     );
   }
+}
 
-  Widget _buildStatusButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
+// ─── Compact list header (Step 2) ─────────────────────────────────────────────
+
+class _ListHeader extends StatelessWidget {
+  final String title;
+  final List<Color> gradient;
+  final IconData icon;
+  final int filteredCount, totalCount;
+  final bool searchEmpty, keyboardVisible;
+  final VoidCallback onBack;
+  const _ListHeader({required this.title, required this.gradient, required this.icon, required this.filteredCount, required this.totalCount, required this.searchEmpty, required this.onBack, required this.keyboardVisible});
+
+  @override
+  Widget build(BuildContext context) {
+    final countText = searchEmpty ? '$totalCount مستخدم' : '$filteredCount من $totalCount';
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: gradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
+        boxShadow: [BoxShadow(color: gradient[0].withValues(alpha: 0.3), blurRadius: 14, offset: const Offset(0, 5))],
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 16, 16),
+          child: Row(
+            children: [
+              if (!keyboardVisible)
+                IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20), onPressed: onBack),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+                child: Icon(icon, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Alexandria'))),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
+                child: Text(countText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'Alexandria')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── User type card ───────────────────────────────────────────────────────────
+
+class _UserTypeCard extends StatelessWidget {
+  final String title, subtitle;
+  final IconData icon;
+  final Color color;
+  final int count;
+  final VoidCallback onTap;
+  const _UserTypeCard({required this.title, required this.subtitle, required this.icon, required this.color, required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.15), blurRadius: 14, offset: const Offset(0, 4))],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: color.withValues(alpha: 0.3), width: 2),
+                  ),
+                  child: Icon(icon, color: color, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: teal900, fontFamily: 'Alexandria')),
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey[600], fontFamily: 'Alexandria')),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+                      child: Text('$count مستخدم', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color, fontFamily: 'Alexandria')),
+                    ),
+                  ]),
+                ),
+                Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: Icon(Icons.arrow_forward_ios_rounded, color: color, size: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Attendance card ──────────────────────────────────────────────────────────
+
+class _AttendanceCard extends StatelessWidget {
+  final UserModel user;
+  final AttendanceStatus status;
+  final Color accentColor;
+  final ValueChanged<AttendanceStatus> onStatusChanged;
+  const _AttendanceCard({required this.user, required this.status, required this.accentColor, required this.onStatusChanged});
+
+  Color get _statusColor {
+    switch (status) {
+      case AttendanceStatus.present: return Colors.green;
+      case AttendanceStatus.absent:  return Colors.red;
+      case AttendanceStatus.late:    return Colors.orange;
+      case AttendanceStatus.excused: return Colors.blue;
+    }
+  }
+
+  IconData get _statusIcon {
+    switch (status) {
+      case AttendanceStatus.present: return Icons.check_circle;
+      case AttendanceStatus.absent:  return Icons.cancel;
+      case AttendanceStatus.late:    return Icons.access_time;
+      case AttendanceStatus.excused: return Icons.info;
+    }
+  }
+
+  String get _statusText {
+    switch (status) {
+      case AttendanceStatus.present: return 'حاضر';
+      case AttendanceStatus.absent:  return 'غائب';
+      case AttendanceStatus.late:    return 'متأخر';
+      case AttendanceStatus.excused: return 'معتذر';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(colors: [Colors.white, _statusColor.withValues(alpha: 0.05)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        boxShadow: [BoxShadow(color: _statusColor.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 4))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            // User info row
+            Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _statusColor, width: 2)),
+                  child: AvatarDisplayWidget(user: user, size: 52, showBorder: false, borderWidth: 0),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(user.fullName, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: teal900, fontFamily: 'Alexandria')),
+                    const SizedBox(height: 5),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(color: _statusColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(_statusIcon, size: 13, color: _statusColor),
+                        const SizedBox(width: 4),
+                        Text(_statusText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _statusColor, fontFamily: 'Alexandria')),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            // Status buttons
+            Row(
+              children: [
+                Expanded(child: _StatusBtn(label: 'حاضر',  icon: Icons.check_circle,  color: Colors.green,  isSelected: status == AttendanceStatus.present, onTap: () => onStatusChanged(AttendanceStatus.present))),
+                const SizedBox(width: 6),
+                Expanded(child: _StatusBtn(label: 'غائب',  icon: Icons.cancel,        color: Colors.red,    isSelected: status == AttendanceStatus.absent,  onTap: () => onStatusChanged(AttendanceStatus.absent))),
+                const SizedBox(width: 6),
+                Expanded(child: _StatusBtn(label: 'متأخر', icon: Icons.access_time,   color: Colors.orange, isSelected: status == AttendanceStatus.late,    onTap: () => onStatusChanged(AttendanceStatus.late))),
+                const SizedBox(width: 6),
+                Expanded(child: _StatusBtn(label: 'معتذر', icon: Icons.info,          color: Colors.blue,   isSelected: status == AttendanceStatus.excused, onTap: () => onStatusChanged(AttendanceStatus.excused))),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Status button ────────────────────────────────────────────────────────────
+
+class _StatusBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+  const _StatusBtn({required this.label, required this.icon, required this.color, required this.isSelected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       child: Material(
@@ -1329,29 +628,225 @@ class _SuperServantViewState extends State<SuperServantView> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              border: Border.all(
-                color: isSelected ? color : color.withValues(alpha: 0.3),
-                width: 2,
-              ),
+              border: Border.all(color: isSelected ? color : color.withValues(alpha: 0.3), width: 2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
-              children: [
-                Icon(icon, color: isSelected ? Colors.white : color, size: 20),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : color,
-                  ),
-                ),
-              ],
-            ),
+            child: Column(children: [
+              Icon(icon, color: isSelected ? Colors.white : color, size: 20),
+              const SizedBox(height: 3),
+              Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : color, fontFamily: 'Alexandria')),
+            ]),
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─── Search bar ───────────────────────────────────────────────────────────────
+
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final Color primaryColor;
+  const _SearchBar({required this.controller, required this.primaryColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 10, offset: const Offset(0, 3))],
+      ),
+      child: TextField(
+        controller: controller,
+        textAlignVertical: TextAlignVertical.center,
+        style: const TextStyle(fontFamily: 'Alexandria', fontSize: 14),
+        decoration: InputDecoration(
+          hintText: 'ابحث عن مستخدم...',
+          hintStyle: TextStyle(color: Colors.grey[400], fontFamily: 'Alexandria', fontSize: 14),
+          prefixIcon: Icon(Icons.search_rounded, color: primaryColor, size: 20),
+          suffixIcon: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (_, val, __) => val.text.isNotEmpty
+                ? IconButton(icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF94A3B8)), onPressed: controller.clear)
+                : const SizedBox.shrink(),
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Filter row ───────────────────────────────────────────────────────────────
+
+class _FilterRow extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final List<String> chips;
+  final String selected;
+  final ValueChanged<String> onSelect;
+  const _FilterRow({required this.label, required this.icon, required this.chips, required this.selected, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Icon(icon, color: teal700, size: 16),
+          const SizedBox(width: 6),
+          Text('$label:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: teal900, fontFamily: 'Alexandria')),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SizedBox(
+              height: 36,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: chips.map((c) {
+                  final isSel = selected == c;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(c),
+                      selected: isSel,
+                      onSelected: (_) => onSelect(c),
+                      backgroundColor: Colors.white,
+                      selectedColor: teal400,
+                      checkmarkColor: Colors.white,
+                      labelStyle: TextStyle(color: isSel ? Colors.white : teal900, fontWeight: FontWeight.w600, fontSize: 12, fontFamily: 'Alexandria'),
+                      side: BorderSide(color: isSel ? teal500 : Colors.grey[300]!, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomBar extends StatelessWidget {
+  final AttendanceCubit cubit;
+  final bool isSubmitting;
+  final VoidCallback onSubmit;
+  final VoidCallback onRequests;
+  const _BottomBar({required this.cubit, required this.isSubmitting, required this.onSubmit, required this.onRequests});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 16, offset: const Offset(0, -4))],
+      ),
+      child: Row(
+        children: [
+          // Submit button
+          Expanded(
+            flex: 3,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              height: 54,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: isSubmitting
+                    ? LinearGradient(colors: [Colors.grey[300]!, Colors.grey[400]!])
+                    : const LinearGradient(colors: [Color(0xFF0D9488), Color(0xFF0F766E)], begin: Alignment.centerRight, end: Alignment.centerLeft),
+                boxShadow: isSubmitting ? [] : [BoxShadow(color: teal500.withValues(alpha: 0.4), blurRadius: 14, offset: const Offset(0, 5))],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: isSubmitting ? null : onSubmit,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Center(
+                    child: isSubmitting
+                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                        : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text('حفظ الحضور', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Alexandria')),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Requests button with badge
+          StreamBuilder<List<dynamic>>(
+            stream: cubit.streamPendingAttendanceRequestsForPriest(),
+            builder: (context, snapshot) {
+              final count = (snapshot.data ?? []).length;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    height: 54, width: 54,
+                    decoration: BoxDecoration(
+                      color: teal100,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: teal300, width: 1.5),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onRequests,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Icon(Icons.request_page_rounded, color: teal700, size: 24),
+                      ),
+                    ),
+                  ),
+                  if (count > 0)
+                    Positioned(
+                      right: -8,
+                      top: -8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                        child: Center(
+                          child: Text(
+                            count > 99 ? '99+' : '$count',
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Empty search ─────────────────────────────────────────────────────────────
+
+class _EmptySearch extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.search_off_rounded, size: 64, color: Colors.grey[300]),
+        const SizedBox(height: 14),
+        Text('لا توجد نتائج', style: TextStyle(fontSize: 16, color: Colors.grey[500], fontFamily: 'Alexandria')),
+      ]),
     );
   }
 }
