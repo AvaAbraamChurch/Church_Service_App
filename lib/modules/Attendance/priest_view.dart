@@ -7,6 +7,7 @@ import 'package:church/core/utils/attendance_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/shared/avatar_display_widget.dart';
 import 'package:flutter/material.dart';
+import '../../core/styles/themeScaffold.dart';
 import '../requests/requests_screen.dart';
 
 /// Priest attendance screen — 2-step internal flow:
@@ -188,8 +189,7 @@ class _PriestViewState extends State<PriestView> {
   // ─── Router ───────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+    return ThemedScaffold(
       body: selectedUserType == null ? _buildUserTypeStep() : _buildAttendanceStep(),
     );
   }
@@ -715,9 +715,9 @@ class _FilterRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Icon(icon, color: teal700, size: 16),
+          Icon(icon, color: teal300, size: 16),
           const SizedBox(width: 6),
-          Text('$label:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: teal900, fontFamily: 'Alexandria')),
+          Text('$label:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, fontFamily: 'Alexandria')),
           const SizedBox(width: 8),
           Expanded(
             child: SizedBox(

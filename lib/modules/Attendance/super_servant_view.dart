@@ -3,6 +3,7 @@ import 'package:church/core/constants/strings.dart';
 import 'package:church/core/models/attendance/attendance_model.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/styles/colors.dart';
+import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/attendance_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/shared/avatar_display_widget.dart';
@@ -184,8 +185,7 @@ class _SuperServantViewState extends State<SuperServantView> {
   // ─── Router ───────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+    return ThemedScaffold(
       body: selectedUserType == null ? _buildUserTypeStep() : _buildAttendanceStep(),
     );
   }
@@ -248,9 +248,7 @@ class _SuperServantViewState extends State<SuperServantView> {
   // ══════════════════════════════════════════════════════════════════════════
   Widget _buildAttendanceStep() {
     final typeDef   = _currentTypeDef;
-    final userLabel = selectedUserType == superServant
-        ? 'أمناء الخدمة'
-        : selectedUserType == servant
+    final userLabel = selectedUserType == servant
         ? 'الخدام'
         : 'المخدومين';
 
@@ -697,9 +695,9 @@ class _FilterRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Icon(icon, color: teal700, size: 16),
+          Icon(icon, color: teal300, size: 16),
           const SizedBox(width: 6),
-          Text('$label:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: teal900, fontFamily: 'Alexandria')),
+          Text('$label:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white, fontFamily: 'Alexandria')),
           const SizedBox(width: 8),
           Expanded(
             child: SizedBox(
