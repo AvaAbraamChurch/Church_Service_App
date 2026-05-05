@@ -782,7 +782,7 @@ class _BottomBar extends StatelessWidget {
           const SizedBox(width: 10),
           // Requests button with badge
           StreamBuilder<List<dynamic>>(
-            stream: cubit.streamPendingAttendanceRequestsForPriest(),
+            stream: cubit.streamPendingAttendanceRequestsForSuperServant(),
             builder: (context, snapshot) {
               final count = (snapshot.data ?? []).length;
               return Stack(
