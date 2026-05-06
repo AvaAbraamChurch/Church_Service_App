@@ -3,6 +3,8 @@ import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/Attendance/attendance_type_screen.dart';
+import 'package:church/modules/Attendance/visits/visit_servant_view.dart';
+import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 
 /// Vertical list of attendance-type cards.
@@ -103,6 +105,14 @@ class ServantHomeView extends StatelessWidget {
   }
 
   void _navigate(BuildContext context, _AttendanceTypeDef type) {
+    if (type.pageIndex == 4) {
+      navigateTo(context, VisitServantView(
+        attendanceCubit: cubit,
+        currentUser: cubit.currentUser,
+        users: cubit.users!,
+      ));
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(

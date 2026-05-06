@@ -178,9 +178,9 @@ class SupportScreen extends StatelessWidget {
             _buildContactCard(
               icon: Icons.phone_rounded,
               title: 'اتصل بنا',
-              subtitle: '01285928101',
+              subtitle: '01270464705',
               color: Colors.green,
-              onTap: () => _openWhatsApp(),
+              onTap: () => _openWhatsApp('01270464705'),
             ),
             const SizedBox(height: 12),
             _buildContactCard(
@@ -318,7 +318,7 @@ class SupportScreen extends StatelessWidget {
                 image: 'assets/images/youtube.png',
                 label: 'يوتيوب',
                 color: const Color(0xFFFF0000),
-                onTap: () => _openUrl('https://youtube.com'),
+                onTap: () => _openUrl('https://youtu.be/h7FipiSG_p4'),
               ),
             ],
           ),
@@ -335,35 +335,57 @@ class SupportScreen extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return Opacity(
-      opacity: 0.5,
-      child: Column(
-        children: [
-          if (emoji != null) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(emoji, style: const TextStyle(fontSize: 28)),
-            ),
-          ] else if (icon != null) ...[
-            Icon(icon, color: color, size: 32),
-          ] else if (image != null) ...[
-            Image.asset(image, width: 32, height: 32),
-          ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            children: [
+              if (emoji != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                ),
+              ] else if (icon != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 32),
+                ),
+              ] else if (image != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Image.asset(image, width: 32, height: 32),
+                ),
+              ],
 
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: brown700,
-              fontFamily: 'Alexandria',
-            ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: brown700,
+                  fontFamily: 'Alexandria',
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -591,8 +613,8 @@ class SupportScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _openWhatsApp() async {
-    const phoneNumber = '201285928101';
+  Future<void> _openWhatsApp(phoneNumber) async {
+     phoneNumber = '2$phoneNumber';
     const message = 'مرحباً، أحتاج للمساعدة في برنامج أبناء الملك';
 
     // Try WhatsApp app scheme first

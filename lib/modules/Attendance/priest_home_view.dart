@@ -2,6 +2,8 @@ import 'package:church/core/blocs/attendance/attendance_cubit.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/Attendance/priest_view.dart';
+import 'package:church/modules/Attendance/visits/visit_priest_view.dart';
+import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 
 class PriestHomeView extends StatelessWidget {
@@ -87,12 +89,25 @@ class PriestHomeView extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 14),
             child: _AttendanceCard(
               type: t,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PriestView(cubit, pageIndex: t.pageIndex),
-                ),
-              ),
+              onTap: () {
+                if (t.pageIndex == 4) {
+                  navigateTo(
+                    context,
+                    VisitPriestView(
+                      users: cubit.users!,
+                      currentUser: cubit.currentUser,
+                      attendanceCubit: cubit,
+                    ),
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PriestView(cubit, pageIndex: t.pageIndex),
+                    ),
+                  );
+                }
+              },
             ),
           ),
         ),
@@ -127,7 +142,7 @@ class _GreetingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = cubit.currentUser?.fullName ?? 'الأب الكاهن';
+    final name = cubit.currentUser?.fullName;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(

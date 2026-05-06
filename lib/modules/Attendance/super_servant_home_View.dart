@@ -3,6 +3,8 @@ import 'package:church/core/styles/colors.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/Attendance/super_servant_view.dart';
+import 'package:church/modules/Attendance/visits/visit_super_servant_view.dart';
+import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 
 class SuperServantHomeView extends StatelessWidget {
@@ -90,15 +92,25 @@ class SuperServantHomeView extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 14),
             child: _AttendanceCard(
               type: t,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SuperServantView(
-                    cubit,
-                    pageIndex: t.pageIndex,
-                  ),
-                ),
-              ),
+              onTap: () {
+                if (t.pageIndex == 4) {
+                  navigateTo(context, VisitSuperServantView(
+                    currentUser: cubit.currentUser!,
+                    attendanceCubit: cubit,
+                    users: cubit.users!,
+                  ));
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SuperServantView(
+                        cubit,
+                        pageIndex: t.pageIndex,
+                      ),
+                    ),
+                  );
+                }
+              },
             ),
           ),
         ),
