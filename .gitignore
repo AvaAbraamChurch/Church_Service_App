@@ -60,3 +60,5 @@ app.*.map.json
 
 /lib/admin
 /lib/admin/migration_screen.dart
+
+.env.supabase

@@ -1,19 +1,14 @@
 import 'dart:io';
-
 import 'package:church/core/models/competitions/competition_model.dart';
 import 'package:church/core/repositories/competitions_repository.dart';
 import 'package:church/core/repositories/questions_repository.dart';
 import 'package:church/core/services/cloudinary_upload_service.dart';
 import 'package:church/core/services/coupon_points_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import '../../services/notification_service.dart';
 import 'competitions_states.dart';
 
-// FIX: removed unused `firebase_storage` import and the dead
-//      `FirebaseStorage _storage` field.  The only place it was used was
-//      `_deleteCompetitionImage`, which already guards against non-Firebase
-//      URLs.  If you still need legacy Firebase-Storage deletion just
-//      re-add the import and the field – nothing else changes.
+final service = NotificationService();
 
 class CompetitionsCubit extends Cubit<CompetitionsState> {
   final CompetitionsRepository competitionsRepository;
@@ -74,8 +69,8 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   Future<void> loadOngoingCompetitions() async {
     try {
       emit(LoadCompetitionsLoading());
-      activeCompetitions =
-          await competitionsRepository.getOngoingCompetitions();
+      activeCompetitions = await competitionsRepository
+          .getOngoingCompetitions();
       emit(LoadCompetitionsSuccess());
     } catch (e) {
       emit(LoadCompetitionsError(e.toString()));
@@ -86,8 +81,8 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   Future<void> loadUpcomingCompetitions() async {
     try {
       emit(LoadCompetitionsLoading());
-      activeCompetitions =
-          await competitionsRepository.getUpcomingCompetitions();
+      activeCompetitions = await competitionsRepository
+          .getUpcomingCompetitions();
       emit(LoadCompetitionsSuccess());
     } catch (e) {
       emit(LoadCompetitionsError(e.toString()));
@@ -112,8 +107,9 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   Future<void> loadCompetitionById(String competitionId) async {
     try {
       emit(LoadCompetitionLoading());
-      currentCompetition =
-          await competitionsRepository.getCompetitionById(competitionId);
+      currentCompetition = await competitionsRepository.getCompetitionById(
+        competitionId,
+      );
       if (currentCompetition != null) {
         emit(LoadCompetitionSuccess());
       } else {
@@ -138,8 +134,9 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     try {
       emit(LoadCompetitionsLoading());
       // Results go into `activeCompetitions` so `displayList` returns them.
-      activeCompetitions =
-          await competitionsRepository.getCompetitionsByClass(userClassName);
+      activeCompetitions = await competitionsRepository.getCompetitionsByClass(
+        userClassName,
+      );
       emit(LoadCompetitionsSuccess());
     } catch (e) {
       emit(LoadCompetitionsError(e.toString()));
@@ -187,12 +184,28 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
         createdAt: DateTime.now(),
       );
 
-      final competitionId =
-          await competitionsRepository.addCompetition(competitionWithImage);
+      final competitionId = await competitionsRepository.addCompetition(
+        competitionWithImage,
+      );
 
       await loadAllCompetitions();
 
       emit(CreateCompetitionSuccess(competitionId));
+
+      // service.createNotificationViaEdge(
+      //   title: 'مسابقة جديدة: ${competition.competitionName}',
+      //   body: 'تم إضافة مسابقة جديدة!',
+      //   sendPush: true,
+      // );
+
+      service.createUserNotification(
+        userId: 'ZWlvd2Zr1Mg6p9E4e6hVgWCpxiy2',
+        title: 'مسابقة جديدة: ${competition.competitionName}',
+        body: 'تم إضافة مسابقة جديدة!',
+        sendPush: true,
+        actionUrl: '/competitions/$competitionId',
+      );
+
       return competitionId;
     } catch (e) {
       emit(CreateCompetitionError(e.toString()));
@@ -203,8 +216,9 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
   Future<String> _uploadCompetitionImage(File imageFile) async {
     try {
       emit(UploadImageLoading());
-      final imageUrl =
-          await _cloudinaryUploadService.uploadCompetitionImage(imageFile);
+      final imageUrl = await _cloudinaryUploadService.uploadCompetitionImage(
+        imageFile,
+      );
       emit(UploadImageSuccess(imageUrl));
       return imageUrl;
     } catch (e) {
@@ -293,7 +307,6 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     }
   }
 
-
   Future<void> batchDeleteCompetitions(List<String> competitionIds) async {
     try {
       emit(DeleteCompetitionLoading());
@@ -314,8 +327,8 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
       if (query.isEmpty) {
         filteredCompetitions = activeCompetitions;
       } else {
-        filteredCompetitions =
-            await competitionsRepository.searchCompetitionsByName(query);
+        filteredCompetitions = await competitionsRepository
+            .searchCompetitionsByName(query);
       }
       emit(SearchCompetitionsSuccess());
     } catch (e) {
@@ -369,8 +382,9 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
     try {
       emit(SubmitAnswersLoading());
 
-      final competition =
-          await competitionsRepository.getCompetitionById(competitionId);
+      final competition = await competitionsRepository.getCompetitionById(
+        competitionId,
+      );
       if (competition == null) {
         emit(SubmitAnswersError('Competition not found'));
         return null;
@@ -461,11 +475,7 @@ class CompetitionsCubit extends Cubit<CompetitionsState> {
       );
 
       if (score > 0) {
-        await _pointsService.addPoints(
-          userId,
-          score.ceil(),
-          orderId: resultId,
-        );
+        await _pointsService.addPoints(userId, score.ceil(), orderId: resultId);
       }
 
       emit(SubmitAnswersSuccess(score, totalQuestions * 10));
