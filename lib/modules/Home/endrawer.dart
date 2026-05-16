@@ -638,7 +638,7 @@ Widget _buildFooter() {
         ),
         const SizedBox(height: 4),
         Text(
-          'الإصدار 0.0.2',
+          'الإصدار 0.1.0',
           style: TextStyle(
             fontSize: 11,
             color: Colors.white.withValues(alpha: 0.6),

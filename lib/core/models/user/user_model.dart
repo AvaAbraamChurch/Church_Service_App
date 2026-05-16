@@ -27,6 +27,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// - isActive boolean for account enabled/disabled status
 class UserModel {
   final String id;
+  final String shortId;
   final String fullName;
   final String username;
   final String email;
@@ -40,6 +41,8 @@ class UserModel {
   final String? avatar; // SVG string of the avatar
   final String? fcmToken;
   final int couponPoints;
+  final int clubCoins; // New field for club coins
+  final String cardStatus; // New field for card status
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool firstLogin;
@@ -50,6 +53,7 @@ class UserModel {
 
   const UserModel({
     required this.id,
+    required this.shortId,
     required this.fullName,
     required this.username,
     required this.email,
@@ -63,6 +67,8 @@ class UserModel {
     this.avatar,
     this.fcmToken,
     this.couponPoints = 0,
+    this.clubCoins = 0,
+    this.cardStatus = 'active', // Default to 'active' for new users
     this.createdAt,
     this.updatedAt,
     this.firstLogin = true,
@@ -74,6 +80,7 @@ class UserModel {
 
   UserModel copyWith({
     String? id,
+    String? shortId,
     String? fullName,
     String? username,
     String? email,
@@ -87,6 +94,8 @@ class UserModel {
     String? avatar,
     String? fcmToken,
     int? couponPoints,
+    int? clubCoins,
+    String? cardStatus,
     bool? firstLogin,
     DateTime? birthday,
     bool? isAdmin,
@@ -95,6 +104,7 @@ class UserModel {
   }) {
     return UserModel(
       id: id ?? this.id,
+      shortId: shortId ?? this.shortId,
       fullName: fullName ?? this.fullName,
       username: username ?? this.username,
       email: email ?? this.email,
@@ -108,6 +118,8 @@ class UserModel {
       avatar: avatar ?? this.avatar,
       fcmToken: fcmToken ?? this.fcmToken,
       couponPoints: couponPoints ?? this.couponPoints,
+      clubCoins: clubCoins ?? this.clubCoins,
+      cardStatus: cardStatus ?? this.cardStatus,
       firstLogin: firstLogin ?? this.firstLogin,
       birthday: birthday ?? this.birthday,
       isAdmin: isAdmin ?? this.isAdmin,
@@ -128,6 +140,8 @@ class UserModel {
       if (avatar != null) 'avatar': avatar,
       if (fcmToken != null) 'fcm_token': fcmToken,
       'couponPoints': couponPoints,
+      'clubCoins': clubCoins,
+      'cardStatus': cardStatus,
       // Store enums as short codes for compactness and consistency
       'userType': userType.code, // e.g., 'PR','SS','SV','CH'
       'gender': gender.code, // 'M' or 'F'
@@ -154,6 +168,7 @@ class UserModel {
     }
     return UserModel(
       id: id,
+      shortId: id.length > 6 ? id.substring(0, 6) : id,
       fullName: (data['fullName'] ?? data['name'] ?? '').toString(),
       username: (data['username'] ?? '').toString(),
       email: (data['email'] ?? '').toString(),
@@ -167,6 +182,8 @@ class UserModel {
       userClass: (data['userClass'] ?? data['class'] ?? '').toString(),
       serviceType: serviceTypeFromJson(data['serviceType']),
       couponPoints: (data['couponPoints'] ?? 0) as int,
+      clubCoins: (data['clubCoins'] ?? 0) as int,
+      cardStatus: (data['cardStatus'] ?? 'active').toString(),
       firstLogin: (data['firstLogin'] ?? true) as bool,
       birthday: birthdayValue,
       isAdmin: (data['isAdmin'] ?? false) as bool,
@@ -183,7 +200,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(id: $id, fullName: $fullName, username: $username, email: $email, phoneNumber: ${phoneNumber ?? 'null'}, address: ${address ?? 'null'}, userType: ${userType.code}, gender: ${gender.code}, userClass: $userClass, couponPoints: $couponPoints, profileImageUrl: ${profileImageUrl ?? 'null'}, fcmToken: ${fcmToken ?? 'null'}, firstLogin: $firstLogin, birthday: ${birthday ?? 'null'})';
+    return 'UserModel(id: $id, shortId: $shortId, fullName: $fullName, username: $username, email: $email, phoneNumber: ${phoneNumber ?? 'null'}, address: ${address ?? 'null'}, userType: ${userType.code}, gender: ${gender.code}, userClass: $userClass, couponPoints: $couponPoints, clubCoins: $clubCoins, cardStatus: $cardStatus, profileImageUrl: ${profileImageUrl ?? 'null'}, fcmToken: ${fcmToken ?? 'null'}, firstLogin: $firstLogin, birthday: ${birthday ?? 'null'})';
   }
 
   @override
@@ -191,6 +208,7 @@ class UserModel {
     if (identical(this, other)) return true;
     return other is UserModel &&
         other.id == id &&
+        other.shortId == shortId &&
         other.fullName == fullName &&
         other.username == username &&
         other.email == email &&
@@ -203,6 +221,8 @@ class UserModel {
         other.avatar == avatar &&
         other.fcmToken == fcmToken &&
         other.couponPoints == couponPoints &&
+        other.clubCoins == clubCoins &&
+        other.cardStatus == cardStatus &&
         other.firstLogin == firstLogin &&
         other.birthday == birthday &&
         other.isAdmin == isAdmin &&
@@ -213,6 +233,7 @@ class UserModel {
   @override
   int get hashCode => Object.hash(
     id,
+    shortId,
     fullName,
     username,
     email,
@@ -223,6 +244,8 @@ class UserModel {
     userClass,
     profileImageUrl,
     couponPoints,
+    clubCoins,
+    cardStatus,
     fcmToken,
     firstLogin,
     birthday,

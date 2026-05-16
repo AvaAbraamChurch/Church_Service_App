@@ -6,15 +6,18 @@ import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/blocs/admin_user/admin_user_cubit.dart';
 import 'package:church/core/blocs/admin_user/admin_user_states.dart';
+import 'package:church/core/services/qr_code_service.dart';
 import 'package:church/modules/Admin/user_management/edit_user_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class UserDetailScreen extends StatelessWidget {
   final UserModel user;
+  final _qrKey = GlobalKey();
 
-  const UserDetailScreen({super.key, required this.user});
+  UserDetailScreen({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -108,181 +111,236 @@ class UserDetailScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        body: Stack(
           children: [
-            // Profile Image
-            Center(
-              child: CircleAvatar(
-                radius: 60,
-                backgroundColor: teal300,
-                backgroundImage: user.profileImageUrl != null
-                    ? NetworkImage(user.profileImageUrl!)
-                    : null,
-                child: user.profileImageUrl == null
-                    ? Text(
-                        user.fullName
-                            .split(' ')
-                            .map((e) => e[0])
-                            .take(2)
-                            .join(),
-                        style: const TextStyle(
-                          fontSize: 40,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              user.fullName,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: teal900,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              user.email,
-              style: const TextStyle(fontSize: 16, color: sage700),
-            ),
-            const SizedBox(height: 24),
-            // User Information Cards
-            _buildInfoCard('المعلومات الشخصية', Icons.person_outline, [
-              _buildInfoRow('الاسم الكامل', user.fullName),
-              _buildInfoRow('اسم المستخدم', user.username),
-              _buildInfoRow('البريد الإلكتروني', user.email),
-              if (user.phoneNumber != null)
-                _buildInfoRow('رقم الهاتف', user.phoneNumber!),
-              if (user.address != null) _buildInfoRow('العنوان', user.address!),
-            ]),
-            const SizedBox(height: 16),
-            _buildInfoCard('معلومات الخدمة', Icons.church_outlined, [
-              _buildInfoRow('نوع المستخدم', user.userType.label),
-              _buildInfoRow('الفصل', user.userClass),
-              _buildInfoRow('نوع الخدمة', user.serviceType.displayName),
-              _buildInfoRow('الجنس', user.gender.label),
-            ]),
-            const SizedBox(height: 16),
-            _buildInfoCard('معلومات أخرى', Icons.info_outline, [
-              _buildInfoRow('نقاط الكوبون', user.couponPoints.toString()),
-              _buildInfoRow('أول تسجيل دخول', user.firstLogin ? 'نعم' : 'لا'),
-              if (user.birthday != null)
-                _buildInfoRow(
-                  'تاريخ الميلاد',
-                  '${user.birthday!.day}/${user.birthday!.month}/${user.birthday!.year}',
-                ),
-            ]),
-            const SizedBox(height: 16),
-            _buildInfoCard('الصلاحيات', Icons.admin_panel_settings_outlined, [
-              _buildInfoRow('مسؤول النظام', user.isAdmin ? 'نعم' : 'لا'),
-              _buildInfoRow('مسؤول المتجر', user.storeAdmin ? 'نعم' : 'لا'),
-              _buildInfoRow('حالة الحساب', user.isActive ? 'نشط' : 'معطل'),
-            ]),
-            const SizedBox(height: 24),
-            // Action Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => EditUserScreen(user: user),
-                        ),
-                      );
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Profile Image
+                  Center(
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundColor: teal300,
+                      backgroundImage: user.profileImageUrl != null
+                          ? NetworkImage(user.profileImageUrl!)
+                          : null,
+                      child: user.profileImageUrl == null
+                          ? Text(
+                              user.fullName
+                                  .split(' ')
+                                  .map((e) => e[0])
+                                  .take(2)
+                                  .join(),
+                              style: const TextStyle(
+                                fontSize: 40,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    user.fullName,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: teal900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    user.email,
+                    style: const TextStyle(fontSize: 16, color: sage700),
+                  ),
+                  const SizedBox(height: 24),
+                  // User Information Cards
+                  _buildInfoCard('المعلومات الشخصية', Icons.person_outline, [
+                    _buildInfoRow('الاسم الكامل', user.fullName),
+                    _buildInfoRow('اسم المستخدم', user.username),
+                    _buildInfoRow('البريد الإلكتروني', user.email),
+                    if (user.phoneNumber != null)
+                      _buildInfoRow('رقم الهاتف', user.phoneNumber!),
+                    if (user.address != null) _buildInfoRow('العنوان', user.address!),
+                  ]),
+                  const SizedBox(height: 16),
+                  _buildInfoCard('معلومات الخدمة', Icons.church_outlined, [
+                    _buildInfoRow('نوع المستخدم', user.userType.label),
+                    _buildInfoRow('الفصل', user.userClass),
+                    _buildInfoRow('نوع الخدمة', user.serviceType.displayName),
+                    _buildInfoRow('الجنس', user.gender.label),
+                  ]),
+                  const SizedBox(height: 16),
+                  _buildInfoCard('معلومات أخرى', Icons.info_outline, [
+                    _buildInfoRow('نقاط الكوبون', user.couponPoints.toString()),
+                    _buildInfoRow('أول تسجيل دخول', user.firstLogin ? 'نعم' : 'لا'),
+                    if (user.birthday != null)
+                      _buildInfoRow(
+                        'تاريخ الميلاد',
+                        '${user.birthday!.day}/${user.birthday!.month}/${user.birthday!.year}',
+                      ),
+                  ]),
+                  const SizedBox(height: 16),
+                  _buildInfoCard('الصلاحيات', Icons.admin_panel_settings_outlined, [
+                    _buildInfoRow('مسؤول النظام', user.isAdmin ? 'نعم' : 'لا'),
+                    _buildInfoRow('مسؤول المتجر', user.storeAdmin ? 'نعم' : 'لا'),
+                    _buildInfoRow('حالة الحساب', user.isActive ? 'نشط' : 'معطل'),
+                  ]),
+                  const SizedBox(height: 24),
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditUserScreen(user: user),
+                              ),
+                            );
 
-                      // If edit was successful, go back to refresh the list
-                      if (result == true && context.mounted) {
-                        Navigator.pop(context, true);
-                      }
-                    },
-                    icon: const Icon(Icons.edit_rounded),
-                    label: const Text('تعديل'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: teal500,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                            // If edit was successful, go back to refresh the list
+                            if (result == true && context.mounted) {
+                              Navigator.pop(context, true);
+                            }
+                          },
+                          icon: const Icon(Icons.edit_rounded),
+                          label: const Text('تعديل'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: teal500,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            _exportQRCode(context);
+                          },
+                          icon: const Icon(Icons.qr_code_2_rounded),
+                          label: const Text('طباعة QR'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: teal700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            _showDisableEnableConfirmation(context);
+                          },
+                          icon: Icon(
+                            user.isActive
+                                ? Icons.block_rounded
+                                : Icons.check_circle_rounded,
+                          ),
+                          label: Text(user.isActive ? 'تعطيل' : 'تفعيل'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: user.isActive ? brown500 : Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _showDeleteConfirmation(context);
+                      },
+                      icon: const Icon(Icons.delete_rounded),
+                      label: const Text('حذف الحساب نهائياً'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: red500,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      _showDisableEnableConfirmation(context);
-                    },
-                    icon: Icon(
-                      user.isActive
-                          ? Icons.block_rounded
-                          : Icons.check_circle_rounded,
-                    ),
-                    label: Text(user.isActive ? 'تعطيل' : 'تفعيل'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: user.isActive ? brown500 : Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  // Show "Get Temporary Password" button if firstLogin is true
+                  if (user.firstLogin) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          _showGeneratePasswordDialog(context);
+                        },
+                        icon: const Icon(Icons.vpn_key_rounded),
+                        label: const Text('إنشاء كلمة مرور مؤقتة جديدة'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: brown500,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  _showDeleteConfirmation(context);
-                },
-                icon: const Icon(Icons.delete_rounded),
-                label: const Text('حذف الحساب نهائياً'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: red500,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                  ],
+                ],
               ),
             ),
-            // Show "Get Temporary Password" button if firstLogin is true
-            if (user.firstLogin) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    _showGeneratePasswordDialog(context);
-                  },
-                  icon: const Icon(Icons.vpn_key_rounded),
-                  label: const Text('إنشاء كلمة مرور مؤقتة جديدة'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: brown500,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+            // Hidden QR card for capturing
+            Positioned(
+              left: -9999,
+              top: -9999,
+              child: Container(
+                key: _qrKey,
+                color: Colors.white,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    QrImageView(
+                      data: user.id,
+                      version: QrVersions.auto,
+                      size: 300,
+                      errorCorrectionLevel: QrErrorCorrectLevel.M,
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    Text(
+                      user.fullName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ],
         ),
-      ),
       ),
     );
   }
@@ -816,5 +874,48 @@ class UserDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _exportQRCode(BuildContext context) async {
+    try {
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Wait a moment to ensure dialog is rendered
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Export single QR code
+      await QrExportService.exportSingle(_qrKey, user);
+
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('تم تصدير رمز QR للمستخدم ${user.fullName}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل تصدير رمز QR: ${e.toString()}'),
+            backgroundColor: red500,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 }

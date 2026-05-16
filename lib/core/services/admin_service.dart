@@ -74,6 +74,7 @@ class AdminService {
       // Use UserModel.fromFirestore if available, otherwise construct manually
       return UserModel(
         id: currentUser.uid,
+        shortId: currentUser.uid.length > 6 ? currentUser.uid.substring(0, 6) : currentUser.uid,
         fullName: data['fullName'] ?? '',
         username: data['username'] ?? '',
         email: data['email'] ?? '',
