@@ -1,7 +1,11 @@
+import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/repositories/users_reopsitory.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
+import 'package:church/modules/Club/club_screen.dart';
 import 'package:circle_nav_bar/circle_nav_bar.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../core/styles/colors.dart';
 import '../modules/Chat/conversations_list_screen.dart';
@@ -40,6 +44,7 @@ class _HomeLayoutState extends State<HomeLayout>
   // Home ---> 2
   // Events ---> 3
   // Notifications ---> 4
+  // Club ---> 5
 
   // We build icons dynamically in build() using the unread count stream.
 
@@ -108,10 +113,13 @@ class _HomeLayoutState extends State<HomeLayout>
     );
   }
 
+  late Future<UserModel> _currentUserFuture;
+
   @override
   void initState() {
     super.initState();
     pageController = PageController(initialPage: _tabIndex);
+    _currentUserFuture = UsersRepository().getUserById(widget.userId);
   }
 
   @override
@@ -145,6 +153,7 @@ class _HomeLayoutState extends State<HomeLayout>
           const Icon(Icons.home, color: Colors.white),
           const Icon(Icons.list, color: Colors.white),
           const Icon(Icons.notifications, color: Colors.white),
+          const Icon(Icons.sports_esports, color: Colors.white),
         ];
 
     List<Widget> buildInactiveIcons(int unreadCount) => [
@@ -163,6 +172,7 @@ class _HomeLayoutState extends State<HomeLayout>
           const Icon(Icons.home, color: teal900),
           const Icon(Icons.list, color: teal900),
           const Icon(Icons.notifications, color: teal900),
+          const Icon(Icons.sports_esports, color: teal900),
         ];
 
     return ThemedScaffold(
@@ -208,10 +218,25 @@ class _HomeLayoutState extends State<HomeLayout>
           ConversationsListScreen(),
           ProfileScreen(),
           HomeScreen(userId: widget.userId),
-          AttendanceScreen(userId: widget.userId, userType: widget.userType, userClass: widget.userClass, gender: widget.gender,),
+          AttendanceScreen(
+            userId: widget.userId,
+            userType: widget.userType,
+            userClass: widget.userClass,
+            gender: widget.gender,
+          ),
           NotificationsScreen(),
-
-
+          FutureBuilder<UserModel>(
+            future: _currentUserFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError || !snapshot.hasData) {
+                return const Center(child: Text('تعذر تحميل بيانات المستخدم'));
+              }
+              return ClubScreen(user: snapshot.data!);
+            },
+          ),
         ],
       ),
     );
