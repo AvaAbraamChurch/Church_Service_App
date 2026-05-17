@@ -1,6 +1,7 @@
 // lib/core/services/notification_service.dart
 import 'dart:async';
 import 'dart:convert';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -89,6 +90,10 @@ class NotificationService {
   final String _edgeFunctionUrl;
   final String _adminApiKey;
 
+  // Audio player for notification SFX
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  static const String _sfxPath = 'sfx/on_message.mp3';
+
   NotificationService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
@@ -114,6 +119,33 @@ class NotificationService {
 
   // ============ Helper: Current User ID ============
   String? get _currentUserId => _auth.currentUser?.uid;
+
+  // ============ 🔊 SFX: Play notification sound ============
+
+  /// Plays the notification SFX from assets.
+  /// Safe to call from foreground and background (when isolate has Flutter engine).
+  Future<void> _playSfx() async {
+    try {
+      await _audioPlayer.play(AssetSource(_sfxPath));
+      print('🔊 Notification SFX played');
+    } catch (e) {
+      // Never let audio errors break notification flow
+      print('⚠️ Failed to play notification SFX: $e');
+    }
+  }
+
+  /// Call this from your FCM foreground listener in main.dart:
+  ///
+  /// ```dart
+  /// FirebaseMessaging.onMessage.listen((message) {
+  ///   notificationService.handleForegroundMessage(message);
+  /// });
+  /// ```
+  Future<void> handleForegroundMessage(RemoteMessage message) async {
+    print('📬 Foreground FCM message received: ${message.messageId}');
+    await _playSfx();
+    await saveNotificationFromRemoteMessage(message);
+  }
 
   // ============ 🔔 READ: Existing Firestore Methods (Preserved) ============
 
@@ -234,11 +266,16 @@ class NotificationService {
     }
   }
 
-  /// Save a Firebase RemoteMessage to Firestore notifications collection
-  /// Used by background FCM handler in main.dart
+  /// Save a Firebase RemoteMessage to Firestore notifications collection.
+  /// Also plays SFX when called directly (e.g. from background handler).
+  /// Used by background FCM handler in main.dart.
   Future<void> saveNotificationFromRemoteMessage(RemoteMessage message) async {
     final userId = _auth.currentUser?.uid;
     if (userId == null) return;
+
+    // Play SFX — called here for background/terminated app scenarios.
+    // For foreground, prefer handleForegroundMessage() to avoid double-play.
+    await _playSfx();
 
     try {
       await _notificationsCollection.add({
@@ -263,9 +300,9 @@ class NotificationService {
   // ============ ✨ WRITE: Edge Function Integration (New) ============
 
   /// Create notification via Supabase Edge Function
-  /// 
+  ///
   /// Saves to Firestore AND optionally sends FCM push notification.
-  /// 
+  ///
   /// Usage:
   /// ```dart
   /// final result = await notificationService.createNotificationViaEdge(
@@ -277,7 +314,7 @@ class NotificationService {
   ///   sendPush: true,
   ///   data: {'screen': 'announcements', 'id': '123'},
   /// );
-  /// 
+  ///
   /// if (result.success) {
   ///   print('✅ Notification created: ${result.notificationId}');
   ///   print('📱 Push sent to ${result.pushSent} devices');
@@ -466,5 +503,10 @@ class NotificationService {
       print('   ADMIN_API_KEY set: ${_adminApiKey.isNotEmpty}');
       print('   Current user: ${_currentUserId ?? "none"}');
     }
+  }
+
+  /// Dispose audio resources when service is no longer needed
+  Future<void> dispose() async {
+    await _audioPlayer.dispose();
   }
 }
