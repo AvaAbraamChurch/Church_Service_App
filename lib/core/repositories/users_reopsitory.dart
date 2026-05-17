@@ -1,4 +1,5 @@
 import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/utils/gender_enum.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UsersRepository {
@@ -142,4 +143,26 @@ class UsersRepository {
               : null,
         );
   }
+
+
+  Stream<List<UserModel>> getServantsByClassStream(String userClass) {
+    return _firestore
+        .collection('users')
+        .where('userClass', isEqualTo: userClass)
+        .orderBy('fullName')
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+          .map(
+            (doc) => UserModel.fromJson(
+          doc.data()..putIfAbsent('id', () => doc.id),
+        ),
+      )
+          .toList(),
+    );
+  }
+
+
+
+
 }

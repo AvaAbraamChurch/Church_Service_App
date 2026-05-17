@@ -4,6 +4,7 @@ import 'package:church/core/utils/gender_enum.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:church/modules/Attendance/attendance_type_screen.dart';
 import 'package:church/modules/Attendance/visits/visit_servant_view.dart';
+import 'package:church/modules/requests/requests_screen.dart';
 import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
 
@@ -74,6 +75,37 @@ class ServantHomeView extends StatelessWidget {
         // Greeting banner
         _GreetingBanner(cubit: cubit),
         const SizedBox(height: 24),
+
+        // Requests section
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14, right: 4),
+          child: Text(
+            'طلبات الحضور',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: teal900,
+              fontFamily: 'Alexandria',
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+        StreamBuilder<List<dynamic>>(
+          stream: cubit.streamPendingAttendanceRequestsForServant(),
+          builder: (context, snapshot) {
+            final count = (snapshot.data ?? []).length;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 22),
+              child: _RequestsCard(
+                pendingCount: count,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => RequestsScreen(cubit: cubit)),
+                ),
+              ),
+            );
+          },
+        ),
 
         // Section label
         Padding(
@@ -324,6 +356,124 @@ class _AttendanceCard extends StatelessWidget {
                     color: type.gradient[0],
                     size: 15,
                   ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestsCard extends StatelessWidget {
+  final int pendingCount;
+  final VoidCallback onTap;
+
+  const _RequestsCard({required this.pendingCount, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: teal100,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: teal300, width: 1.5),
+                  ),
+                  child: Icon(Icons.request_page_rounded, color: teal700, size: 26),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'طلبات حضور الأطفال',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Alexandria',
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        pendingCount > 0
+                            ? 'لديك $pendingCount طلبات معلقة'
+                            : 'لا توجد طلبات معلقة حالياً',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                          fontFamily: 'Alexandria',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: teal100,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: teal700,
+                        size: 15,
+                      ),
+                    ),
+                    if (pendingCount > 0)
+                      Positioned(
+                        right: -8,
+                        top: -8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                          child: Center(
+                            child: Text(
+                              pendingCount > 99 ? '99+' : '$pendingCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),

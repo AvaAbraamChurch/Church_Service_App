@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:church/core/blocs/attendance/attendance_states.dart';
 import 'package:church/core/constants/strings.dart';
+import 'package:church/core/repositories/users_reopsitory.dart';
+import 'package:church/core/services/notification_service.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
@@ -182,6 +184,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         await cubit.submitAttendanceRequest(attendanceKey: key, date: date);
 
         if (context.mounted) {
+          final userRepo = UsersRepository();
+          final notify = NotificationService();
+
+          final servants = await userRepo
+              .getServantsByClassStream(widget.userClass)
+              .first;
+          final targets = servants.where((s) => s.userType == UserType.servant);
+
+          await Future.wait(
+            targets.map(
+              (servant) => notify.createUserNotification(
+                userId: servant.id,
+                title: 'طلب حضور جديد',
+                body: 'قام ${cubit.currentUser?.fullName ?? "أحد الأطفال"} بطلب حضور جديد في ${_AttendanceTypeSheet._labels[key] ?? "خدمة"} بتاريخ ${date.day}/${date.month}/${date.year}',
+              ),
+            ),
+          );
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text(
@@ -340,11 +360,6 @@ class _ChildHeader extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white, size: 20),
-                onPressed: () => Navigator.pop(context),
-              ),
               Expanded(
                 child: Text(
                   title,
@@ -708,4 +723,3 @@ class _SheetOption extends StatelessWidget {
   }
 
 }
-
