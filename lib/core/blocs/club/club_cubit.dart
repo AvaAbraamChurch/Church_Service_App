@@ -6,17 +6,19 @@ import '../../models/club/coin_transaction_model.dart';
 import '../../models/club/game_model.dart';
 import '../../models/club/playing_child_model.dart';
 import '../../repositories/club_repository.dart';
-
+import '../../services/supabase_end_all_games_service.dart';
 
 part 'club_state.dart';
 
 class ClubCubit extends Cubit<ClubState> {
   final ClubRepository _repo;
+  final SupabaseEndAllGamesService _endAllGamesService;
   final String userId;
 
   StreamSubscription? _gamesSub;
   StreamSubscription? _txSub;
   StreamSubscription? _servicesSub;
+  Timer? _autoEndTimer;
 
   List<GameModel> _games = [];
   List<CoinTransaction> _transactions = [];
@@ -31,7 +33,9 @@ class ClubCubit extends Cubit<ClubState> {
     required int initialCoins,
     required String initialCardStatus,
     required bool isChild,
+    SupabaseEndAllGamesService? endAllGamesService,
   })  : _repo = repository,
+        _endAllGamesService = endAllGamesService ?? SupabaseEndAllGamesService(),
         _clubCoins = initialCoins,
         _cardStatus = initialCardStatus,
         _isChild = isChild,
@@ -42,6 +46,33 @@ class ClubCubit extends Cubit<ClubState> {
       _initChildStreams();
     } else {
       _initServantStreams();
+    }
+    _scheduleAutoEndAtTwoPm();
+  }
+
+  void _scheduleAutoEndAtTwoPm() {
+    _autoEndTimer?.cancel();
+    final now = DateTime.now();
+    final todayAtTwo = DateTime(now.year, now.month, now.day, 14);
+    final nextRun = now.isAfter(todayAtTwo)
+        ? todayAtTwo.add(const Duration(days: 1))
+        : todayAtTwo;
+    final delay = nextRun.difference(now);
+    _autoEndTimer = Timer(delay, () async {
+      await _endAllGamesAtTwoPm();
+      _scheduleAutoEndAtTwoPm();
+    });
+  }
+
+  Future<void> _endAllGamesAtTwoPm() async {
+    try {
+      await _endAllGamesService.endAllGames();
+    } catch (_) {
+      try {
+        await _repo.endAllGames();
+      } catch (_) {
+        // Keep silent to avoid user-facing errors for a background job.
+      }
     }
   }
 
@@ -166,6 +197,22 @@ class ClubCubit extends Cubit<ClubState> {
       _emitServant();
     } catch (e) {
       emit(ClubError('فشل إعادة التشغيل: $e'));
+    }
+  }
+
+  Future<void> endAllGamesNow() async {
+    try {
+      await _endAllGamesService.endAllGames();
+      emit(ClubActionSuccess('تم إنهاء جميع الألعاب'));
+      _emitServant();
+    } catch (e) {
+      try {
+        await _repo.endAllGames();
+        emit(ClubActionSuccess('تم إنهاء جميع الألعاب'));
+        _emitServant();
+      } catch (inner) {
+        emit(ClubError('فشل إنهاء جميع الألعاب: $inner'));
+      }
     }
   }
 
@@ -331,6 +378,7 @@ class ClubCubit extends Cubit<ClubState> {
     _gamesSub?.cancel();
     _txSub?.cancel();
     _servicesSub?.cancel();
+    _autoEndTimer?.cancel();
     return super.close();
   }
 }

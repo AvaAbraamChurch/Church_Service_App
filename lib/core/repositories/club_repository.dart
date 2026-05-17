@@ -86,6 +86,28 @@ class ClubRepository {
     await batch.commit();
   }
 
+  Future<void> endAllGames() async {
+    final snapshot = await _db.collection('club_games').get();
+
+    final statusBatch = _db.batch();
+    for (final doc in snapshot.docs) {
+      statusBatch.update(doc.reference, {'status': 'active'});
+    }
+    await statusBatch.commit();
+
+    for (final gameDoc in snapshot.docs) {
+      final playingSnap = await gameDoc.reference
+          .collection('playing_children')
+          .get();
+      if (playingSnap.docs.isEmpty) continue;
+      final playingBatch = _db.batch();
+      for (final childDoc in playingSnap.docs) {
+        playingBatch.delete(childDoc.reference);
+      }
+      await playingBatch.commit();
+    }
+  }
+
   // ── Coin Transactions ────────────────────────────────────────────────────
 
   Stream<List<CoinTransaction>> coinTransactionsStream(String userId) {

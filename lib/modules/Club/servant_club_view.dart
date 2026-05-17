@@ -8,6 +8,7 @@ import '../../core/blocs/club/club_cubit.dart';
 import '../../core/models/club/attendance_service_model.dart';
 import '../../core/models/club/game_model.dart';
 import '../../core/models/user/user_model.dart';
+import '../../core/utils/userType_enum.dart';
 import 'game_card.dart';
 import 'game_details_screen.dart';
 import 'manage_games_sheet.dart';
@@ -137,7 +138,7 @@ class _ServantContent extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: _ServantFAB(state: state),
+      floatingActionButton: _ServantFAB(state: state, user: user),
     );
   }
 }
@@ -417,7 +418,8 @@ class _AttendanceServiceCard extends StatelessWidget {
 
 class _ServantFAB extends StatelessWidget {
   final ClubServantLoaded state;
-  const _ServantFAB({required this.state});
+  final UserModel user;
+  const _ServantFAB({required this.state, required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -437,7 +439,7 @@ class _ServantFAB extends StatelessWidget {
       ),
       builder: (_) => BlocProvider.value(
         value: cubit,
-        child: _ManagementMenu(state: state),
+        child: _ManagementMenu(state: state, user: user),
       ),
     );
   }
@@ -445,12 +447,14 @@ class _ServantFAB extends StatelessWidget {
 
 class _ManagementMenu extends StatelessWidget {
   final ClubServantLoaded state;
-  const _ManagementMenu({required this.state});
+  final UserModel user;
+  const _ManagementMenu({required this.state, required this.user});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isAdmin = user.isAdmin || user.userType == UserType.priest;
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -503,9 +507,52 @@ class _ManagementMenu extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          if (isAdmin) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _confirmEndAllGames(context),
+                icon: const Icon(Icons.power_settings_new_rounded),
+                label: const Text('إنهاء جميع الألعاب الآن'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _confirmEndAllGames(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تأكيد إنهاء الألعاب'),
+        content: const Text('سيتم إنهاء جميع الألعاب الحالية. هل أنت متأكد؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('إنهاء الآن'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      Navigator.pop(context);
+      context.read<ClubCubit>().endAllGamesNow();
+    }
   }
 }
 

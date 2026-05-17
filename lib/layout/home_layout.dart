@@ -20,7 +20,9 @@ class HomeLayout extends StatefulWidget {
   final UserType userType;
   final String userClass;
   final Gender gender;
-  const HomeLayout({super.key, required this.userId, required this.userType, required this.userClass, required this.gender});
+
+  const HomeLayout(
+      {super.key, required this.userId, required this.userType, required this.userClass, required this.gender});
 
   @override
   State<HomeLayout> createState() => _HomeLayoutState();
@@ -67,7 +69,8 @@ class _HomeLayoutState extends State<HomeLayout>
               return Transform.scale(
                 scale: scale,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFFFF6B6B), Color(0xFFEE5A6F)],
@@ -85,7 +88,8 @@ class _HomeLayoutState extends State<HomeLayout>
                       ),
                     ],
                   ),
-                  constraints: const BoxConstraints(minWidth: 22, minHeight: 18),
+                  constraints: const BoxConstraints(
+                      minWidth: 22, minHeight: 18),
                   child: Center(
                     child: Text(
                       badgeText,
@@ -127,10 +131,12 @@ class _HomeLayoutState extends State<HomeLayout>
     final MessagesRepository messagesRepo = MessagesRepository();
 
     // Stream for unread messages count for this user
-    final Stream<int> unreadStream = messagesRepo.getUnreadMessageCount(widget.userId);
+    final Stream<int> unreadStream = messagesRepo.getUnreadMessageCount(
+        widget.userId);
 
     // Icon builders that depend on current unread count
-    List<Widget> buildActiveIcons(int unreadCount) => [
+    List<Widget> buildActiveIcons(int unreadCount) =>
+        [
           _iconWithBadge(
             Center(
               child: Icon(
@@ -153,10 +159,13 @@ class _HomeLayoutState extends State<HomeLayout>
           const Icon(Icons.home, color: Colors.white),
           const Icon(Icons.list, color: Colors.white),
           const Icon(Icons.notifications, color: Colors.white),
-          const Icon(Icons.sports_esports, color: Colors.white),
+          if (widget.gender == Gender.male) ...[
+            const Icon(Icons.sports_esports, color: Colors.white),
+          ]
         ];
 
-    List<Widget> buildInactiveIcons(int unreadCount) => [
+    List<Widget> buildInactiveIcons(int unreadCount) =>
+        [
           _iconWithBadge(
             Center(
               child: Icon(
@@ -172,7 +181,9 @@ class _HomeLayoutState extends State<HomeLayout>
           const Icon(Icons.home, color: teal900),
           const Icon(Icons.list, color: teal900),
           const Icon(Icons.notifications, color: teal900),
-          const Icon(Icons.sports_esports, color: teal900),
+          if (widget.gender == Gender.male) ...[
+            const Icon(Icons.sports_esports, color: teal900),
+          ]
         ];
 
     return ThemedScaffold(
@@ -186,8 +197,14 @@ class _HomeLayoutState extends State<HomeLayout>
             builder: (context, snapshot) {
               final unread = snapshot.data ?? 0;
               return CircleNavBar(
-                height: MediaQuery.of(context).size.height * 0.06,
-                circleWidth: MediaQuery.of(context).size.height * 0.06,
+                height: MediaQuery
+                    .of(context)
+                    .size
+                    .height * 0.06,
+                circleWidth: MediaQuery
+                    .of(context)
+                    .size
+                    .height * 0.06,
                 shadowColor: Colors.black54,
                 circleColor: teal500,
                 activeIndex: tabIndex,
@@ -213,7 +230,7 @@ class _HomeLayoutState extends State<HomeLayout>
         reverse: true,
         onPageChanged: (index) {
           tabIndex = index;
-          },
+        },
         children: [
           ConversationsListScreen(),
           ProfileScreen(),
