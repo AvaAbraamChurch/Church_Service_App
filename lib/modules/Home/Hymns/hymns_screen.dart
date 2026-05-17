@@ -7,9 +7,11 @@ import 'package:church/core/styles/themeScaffold.dart';
 import 'package:church/core/utils/userType_enum.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart' as youtube;
 
 import '../../../core/services/audio_player_service.dart';
 import '../../../core/services/hymns_service.dart';
+import '../../../core/services/video_player_service.dart';
 import '../../../core/styles/colors.dart';
 import 'add_hymn_screen.dart';
 import 'edit_hymn_screen.dart';
@@ -28,6 +30,7 @@ class _HymnsScreenState extends State<HymnsScreen> {
   final ScrollController _scrollController = ScrollController();
   static const String _copticFontFamily = 'Athanasius';
   HymnModel? _selectedHymn;
+  youtube.YoutubePlayerController? _videoPlayerController;
   bool _showDropdown = true;
   double _lastScrollOffset = 0.0;
   String? _currentUserClass;
@@ -64,6 +67,28 @@ class _HymnsScreenState extends State<HymnsScreen> {
     }
   }
 
+  /// Initialize or update the video player controller for the selected hymn
+  void _initializeVideoPlayer(HymnModel hymn) {
+    // Dispose old controller if it exists
+    if (_videoPlayerController != null) {
+      VideoPlayerService.dispose(_videoPlayerController!);
+    }
+
+    // Create new controller if hymn has video URL
+    if (hymn.videoUrl != null && hymn.videoUrl!.isNotEmpty) {
+      final videoId = VideoPlayerService.extractVideoId(hymn.videoUrl!);
+      if (videoId.isNotEmpty) {
+        _videoPlayerController = VideoPlayerService.createController(
+          videoId: videoId,
+          autoPlay: false,
+          mute: false,
+        );
+      }
+    } else {
+      _videoPlayerController = null;
+    }
+  }
+
   /// Check if current user can manage hymns (servant, superServant, or priest)
   bool get _canManageHymns {
     if (_currentUser == null) return false;
@@ -77,6 +102,9 @@ class _HymnsScreenState extends State<HymnsScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _audioPlayerService.stop();
+    if (_videoPlayerController != null) {
+      VideoPlayerService.dispose(_videoPlayerController!);
+    }
     super.dispose();
   }
 
@@ -266,6 +294,7 @@ class _HymnsScreenState extends State<HymnsScreen> {
                                 if (selected == null) return;
                                 setState(() {
                                   _selectedHymn = selected;
+                                  _initializeVideoPlayer(selected);
                                 });
                               },
                             ),
@@ -375,24 +404,75 @@ class _HymnsScreenState extends State<HymnsScreen> {
                       context,
                     ).textTheme.titleMedium?.copyWith(color: Colors.grey[700]),
                   ),
-                // Occasion Chip
+                // Occasion title
                 if (_selectedHymn!.occasion != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12.0),
-                    child: Chip(
-                      label: Text(_selectedHymn!.occasion!),
-                      backgroundColor: Theme.of(
+                  SizedBox(height: 5,),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: Theme.of(
                         context,
                       ).primaryColor.withValues(alpha: 0.2),
-                      labelStyle: TextStyle(
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(15.0),
+                      child: Text(_selectedHymn!.occasion ?? '', style: TextStyle(
+                        fontSize: 14,
                         color: teal500,
-                        fontWeight: FontWeight.w600,
+                        fontStyle: FontStyle.italic,
+                      )),
+                    ),
+                  )
+
+
+          ],
+              ),
+          ),
+          const SizedBox(height: 20),
+
+          // Video Player Section (if available)
+          if (_selectedHymn!.videoUrl != null &&
+              _selectedHymn!.videoUrl!.isNotEmpty &&
+              _videoPlayerController != null)
+            Container(
+              padding: const EdgeInsets.all(20.0),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'الفيديو',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: teal900,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    height: 2,
+                    width: 50,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.teal[600]!, Colors.transparent],
                       ),
                     ),
                   ),
-              ],
+                  const SizedBox(height: 16),
+                  _buildModernVideoPlayer(),
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: 20),
 
           // 3-Column Book-Style Layout
@@ -648,6 +728,199 @@ class _HymnsScreenState extends State<HymnsScreen> {
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
+  }
+
+  // Build modern video player with enhanced controls
+  Widget _buildModernVideoPlayer() {
+    if (_videoPlayerController == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        // Video player container with rounded corners
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: VideoPlayerService.buildPlayer(
+            controller: _videoPlayerController!,
+            showProgressIndicator: true,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Modern control panel
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          child: Column(
+            children: [
+              // Video info row
+              Row(
+                children: [
+                  Icon(Icons.video_library, color: teal600, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _selectedHymn!.arabicTitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: teal900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Play/Pause and Fullscreen buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Play/Pause button
+                  _buildVideoControlButton(
+                    icon: Icons.play_arrow,
+                    label: 'تشغيل',
+                    onPressed: () {
+                      _videoPlayerController!.play();
+                    },
+                  ),
+
+                  // Pause button
+                  _buildVideoControlButton(
+                    icon: Icons.pause,
+                    label: 'إيقاف مؤقت',
+                    onPressed: () {
+                      _videoPlayerController!.pause();
+                    },
+                  ),
+
+                  // Replay button
+                  _buildVideoControlButton(
+                    icon: Icons.replay,
+                    label: 'إعادة',
+                    onPressed: () {
+                      _videoPlayerController!.seekTo(Duration.zero);
+                    },
+                  ),
+
+                  // Fullscreen button
+                  _buildVideoControlButton(
+                    icon: Icons.fullscreen,
+                    label: 'ملء الشاشة',
+                    onPressed: () {
+                      _videoPlayerController!.toggleFullScreenMode();
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Info row with icons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'اضغط على الفيديو للتحكم',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.hd,
+                        size: 16,
+                        color: teal600,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'HD',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: teal600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Build individual video control button
+  Widget _buildVideoControlButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: teal500.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: teal600,
+                size: 24,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: teal700,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // Build floating audio player bar at the bottom
@@ -968,7 +1241,7 @@ class _HymnsScreenState extends State<HymnsScreen> {
   void _showAddHymnDialog() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const AddHymnScreen()),
+      MaterialPageRoute(builder: (context) => AddHymnScreen(currentUser: _currentUser!)),
     );
 
     if (result == true && mounted) {

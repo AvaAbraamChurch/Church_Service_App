@@ -188,12 +188,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           final notify = NotificationService();
 
           final servants = await userRepo
-              .getServantsByClassStream(widget.userClass)
+              .getUsersByClassAndTypeStream([widget.userClass], [UserType.servant.code])
               .first;
-          final targets = servants.where((s) => s.userType == UserType.servant);
 
           await Future.wait(
-            targets.map(
+            servants.map(
               (servant) => notify.createUserNotification(
                 userId: servant.id,
                 title: 'طلب حضور جديد',

@@ -145,10 +145,11 @@ class UsersRepository {
   }
 
 
-  Stream<List<UserModel>> getServantsByClassStream(String userClass) {
+  Stream<List<UserModel>> getUsersByClassAndTypeStream(List<String> userClass, List<String> userType) {
     return _firestore
         .collection('users')
-        .where('userClass', isEqualTo: userClass)
+        .where('userType', whereIn: userType)
+        .where('userClass', whereIn: userClass)
         .orderBy('fullName')
         .snapshots()
         .map(

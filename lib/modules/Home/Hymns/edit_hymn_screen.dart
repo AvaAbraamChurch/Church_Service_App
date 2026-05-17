@@ -36,18 +36,7 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
   final _audioUrlController = TextEditingController();
   final _videoUrlController = TextEditingController();
   final _orderController = TextEditingController();
-
-  String? _selectedOccasion;
-  final List<String> _occasions = [
-    'General',
-    'Sunday',
-    'Lent',
-    'Feast',
-    'Christmas',
-    'Easter',
-    'Resurrection',
-    'Pascha',
-  ];
+  final _occasionController = TextEditingController();
 
   List<String> _availableUserClasses = [];
   final Set<String> _selectedUserClasses = {};
@@ -145,6 +134,7 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
     _audioUrlController.dispose();
     _videoUrlController.dispose();
     _orderController.dispose();
+    _occasionController.dispose();
     super.dispose();
   }
 
@@ -160,7 +150,7 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
       _audioUrlController.text = hymn.audioUrl ?? '';
       _videoUrlController.text = hymn.videoUrl ?? '';
       _orderController.text = hymn.order.toString();
-      _selectedOccasion = hymn.occasion;
+      _occasionController.text = hymn.occasion ?? '';
       _selectedUserClasses.clear();
       _selectedUserClasses.addAll(hymn.userClasses);
     });
@@ -214,7 +204,9 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
         videoUrl: _videoUrlController.text.trim().isEmpty
             ? null
             : _videoUrlController.text.trim(),
-        occasion: _selectedOccasion,
+        occasion: _occasionController.text.trim().isEmpty
+            ? null
+            : _occasionController.text.trim(),
         userClasses: _selectedUserClasses.toList(),
         order: int.tryParse(_orderController.text) ?? 0,
         createdAt: _selectedHymn!.createdAt,
@@ -506,7 +498,7 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'تعديل: ${_selectedHymn!.arabicTitle}',
+                                    ' تعديل: ${_selectedHymn!.arabicTitle}',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -609,26 +601,10 @@ class _EditHymnScreenState extends State<EditHymnScreen> {
 
                           // Occasion and Order Section
                           _buildSectionHeader('التصنيف'),
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedOccasion,
-                            decoration: InputDecoration(
-                              labelText: 'المناسبة',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              filled: true,
-                              fillColor: Colors.white.withValues(alpha: 0.9),
-                            ),
-                            hint: const Text('اختر المناسبة'),
-                            items: _occasions.map((occasion) {
-                              return DropdownMenuItem(
-                                value: occasion,
-                                child: Text(occasion),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() => _selectedOccasion = value);
-                            },
+                          _buildTextField(
+                            controller: _occasionController,
+                            label: 'المناسبة',
+                            hint: 'اكتب المناسبة (مثال: Easter)',
                           ),
                           const SizedBox(height: 16),
                           _buildTextField(

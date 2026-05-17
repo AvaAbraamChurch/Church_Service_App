@@ -1,12 +1,19 @@
 import 'package:church/core/models/class_mapping/class_mapping_model.dart';
 import 'package:church/core/models/hymn_model.dart';
+import 'package:church/core/models/user/user_model.dart';
+import 'package:church/core/repositories/users_reopsitory.dart';
 import 'package:church/core/services/hymns_service.dart';
+import 'package:church/core/services/notification_service.dart';
 import 'package:church/core/styles/colors.dart';
 import 'package:church/core/styles/themeScaffold.dart';
+import 'package:church/core/utils/userType_enum.dart';
 import 'package:flutter/material.dart';
 
 class AddHymnScreen extends StatefulWidget {
-  const AddHymnScreen({super.key});
+
+  final UserModel currentUser;
+
+  const AddHymnScreen({super.key, required this.currentUser});
 
   @override
   State<AddHymnScreen> createState() => _AddHymnScreenState();
@@ -26,18 +33,7 @@ class _AddHymnScreenState extends State<AddHymnScreen> {
   final _audioUrlController = TextEditingController();
   final _videoUrlController = TextEditingController();
   final _orderController = TextEditingController(text: '0');
-
-  String? _selectedOccasion;
-  final List<String> _occasions = [
-    'General',
-    'Sunday',
-    'Lent',
-    'Feast',
-    'Christmas',
-    'Easter',
-    'Resurrection',
-    'Pascha',
-  ];
+  final _occasionController = TextEditingController();
 
   List<String> _availableUserClasses = [];
   final Set<String> _selectedUserClasses = {};
@@ -105,6 +101,7 @@ class _AddHymnScreenState extends State<AddHymnScreen> {
     _audioUrlController.dispose();
     _videoUrlController.dispose();
     _orderController.dispose();
+    _occasionController.dispose();
     super.dispose();
   }
 
@@ -146,7 +143,9 @@ class _AddHymnScreenState extends State<AddHymnScreen> {
         videoUrl: _videoUrlController.text.trim().isEmpty
             ? null
             : _videoUrlController.text.trim(),
-        occasion: _selectedOccasion,
+        occasion: _occasionController.text.trim().isEmpty
+            ? null
+            : _occasionController.text.trim(),
         userClasses: _selectedUserClasses.toList(),
         order: int.tryParse(_orderController.text) ?? 0,
       );
@@ -154,6 +153,27 @@ class _AddHymnScreenState extends State<AddHymnScreen> {
       final hymnId = await _hymnsService.addHymn(hymn);
 
       if (hymnId != null && mounted) {
+
+        final classUsers = await UsersRepository().getUsersByClassAndTypeStream(_selectedUserClasses.toList(), [UserType.child.code, UserType.servant.code, UserType.superServant.code, UserType.priest.code]).first;
+
+        final notify = NotificationService();
+
+        await Future.wait(
+          classUsers.map(
+                (users) => notify.createUserNotification(
+                  userId: users.id,
+                  title: 'لحن جديد: ${hymn.arabicTitle}',
+                  body: 'تم إضافة لحن جديد بعنوان "${hymn.arabicTitle}" إلى التطبيق. تحقق منه الآن!',
+                  data: {'hymnId': hymnId},
+                  sendPush: true,
+                  actionUrl: 'hymnDetails?id=$hymnId',
+                )
+          ),
+        );
+
+
+
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('تم إضافة اللحن بنجاح'),
@@ -290,26 +310,10 @@ class _AddHymnScreenState extends State<AddHymnScreen> {
 
                   // Occasion and Order Section
                   _buildSectionHeader('التصنيف'),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedOccasion,
-                    decoration: InputDecoration(
-                      labelText: 'المناسبة',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.9),
-                    ),
-                    hint: const Text('اختر المناسبة'),
-                    items: _occasions.map((occasion) {
-                      return DropdownMenuItem(
-                        value: occasion,
-                        child: Text(occasion),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedOccasion = value);
-                    },
+                  _buildTextField(
+                    controller: _occasionController,
+                    label: 'المناسبة',
+                    hint: 'اكتب المناسبة (مثال: Easter)',
                   ),
                   const SizedBox(height: 16),
                   _buildTextField(
