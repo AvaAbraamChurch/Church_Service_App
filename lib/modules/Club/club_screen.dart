@@ -40,7 +40,8 @@ class _ClubScreenState extends State<ClubScreen> {
             builder: (context, snapshot) {
               return ThemedScaffold(
                 appBar: AppBar(
-                  title: const Text('نادي صيف 2026'),
+                  backgroundColor: Colors.transparent,
+                  title: const Text('نادي صيف 2026', style: TextStyle(color: Colors.white),),
                   centerTitle: true,
                 ),
                 body: switch (widget.user.userType) {

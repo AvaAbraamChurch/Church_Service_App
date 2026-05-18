@@ -62,7 +62,9 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
       builder: (context, snapshot) {
         final game = _resolveGame(snapshot.data);
         return ThemedScaffold(
-          appBar: AppBar(title: Text(game.nameAr), centerTitle: true),
+          appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              title: Text(game.nameAr, style: TextStyle(color: Colors.white),), centerTitle: true),
           body: SingleChildScrollView(
             child: Column(
               children: [
