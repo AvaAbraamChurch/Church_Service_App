@@ -4,9 +4,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../models/club/attendance_service_model.dart';
 import '../../models/club/coin_transaction_model.dart';
 import '../../models/club/game_model.dart';
+import '../../models/club/game_match_model.dart';
 import '../../models/club/playing_child_model.dart';
+import '../../models/user/user_model.dart';
 import '../../repositories/club_repository.dart';
 import '../../services/supabase_end_all_games_service.dart';
+import '../../utils/gender_enum.dart';
 
 part 'club_state.dart';
 
@@ -14,6 +17,7 @@ class ClubCubit extends Cubit<ClubState> {
   final ClubRepository _repo;
   final SupabaseEndAllGamesService _endAllGamesService;
   final String userId;
+  final Gender userGender;
 
   StreamSubscription? _gamesSub;
   StreamSubscription? _txSub;
@@ -30,6 +34,7 @@ class ClubCubit extends Cubit<ClubState> {
   ClubCubit({
     required ClubRepository repository,
     required this.userId,
+    required this.userGender,
     required int initialCoins,
     required String initialCardStatus,
     required bool isChild,
@@ -81,7 +86,9 @@ class ClubCubit extends Cubit<ClubState> {
   void _initChildStreams() {
     emit(ClubLoading());
 
-    _gamesSub = _repo.gamesStream().listen((games) {
+    _gamesSub = _repo
+        .gamesStream(genderCode: _genderFilterCode())
+        .listen((games) {
       _games = games;
       _emitChild();
     });
@@ -111,7 +118,9 @@ class ClubCubit extends Cubit<ClubState> {
   void _initServantStreams() {
     emit(ClubLoading());
 
-    _gamesSub = _repo.gamesStream().listen((games) {
+    _gamesSub = _repo
+        .gamesStream(genderCode: _genderFilterCode())
+        .listen((games) {
       _games = games;
       _emitServant();
     });
@@ -127,6 +136,10 @@ class ClubCubit extends Cubit<ClubState> {
       games: _games,
       attendanceServices: _attendanceServices,
     ));
+  }
+
+  String? _genderFilterCode() {
+    return userGender == Gender.female ? Gender.female.code : null;
   }
 
   // ── Games management ─────────────────────────────────────────────────────
@@ -166,6 +179,7 @@ class ClubCubit extends Cubit<ClubState> {
           id: gameId,
           nameAr: '',
           name: '',
+          gender: Gender.male,
           coins: 0,
           icon: '',
           status: status,
@@ -176,6 +190,7 @@ class ClubCubit extends Cubit<ClubState> {
         id: game.id,
         nameAr: game.nameAr,
         name: game.name,
+        gender: game.gender,
         coins: game.coins,
         icon: game.icon,
         status: status,
@@ -257,6 +272,119 @@ class ClubCubit extends Cubit<ClubState> {
 
   Stream<List<PlayingChild>> playingChildrenStream(String gameId) {
     return _repo.playingChildrenStream(gameId);
+  }
+
+  Stream<List<GameMatch>> matchesStream(String gameId) {
+    return _repo.matchesStream(gameId);
+  }
+
+  Future<List<dynamic>> findUsersByIds(List<String> ids) {
+    return _repo.findUsersByIds(ids);
+  }
+
+  Future<UserModel?> findChildByShortId(String shortId) {
+    return _repo.findChildByShortId(shortId);
+  }
+
+  Future<void> createMatch({
+    required String gameId,
+    required GameMatch match,
+  }) async {
+    try {
+      await _repo.createMatch(gameId: gameId, match: match);
+      emit(ClubActionSuccess('تم إنشاء المباراة'));
+      _emitServant();
+    } catch (e) {
+      emit(ClubError('فشل إنشاء المباراة: $e'));
+      _emitServant();
+    }
+  }
+
+  Future<void> submitMatchResult({
+    required String gameId,
+    required GameMatch match,
+    required int scoreA,
+    required int scoreB,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final startedAt = match.startedAt;
+      final extra = (!match.isRunning || startedAt == null)
+          ? 0
+          : now.difference(startedAt).inSeconds;
+      final updated = match.copyWith(
+        scoreA: scoreA,
+        scoreB: scoreB,
+        status: MatchStatus.finished,
+        isRunning: false,
+        startedAt: null,
+        elapsedSeconds: match.elapsedSeconds + extra,
+        updatedAt: DateTime.now(),
+      );
+      await _repo.updateMatch(gameId: gameId, match: updated);
+      emit(ClubActionSuccess('تم حفظ نتيجة المباراة'));
+      _emitServant();
+    } catch (e) {
+      emit(ClubError('فشل حفظ النتيجة: $e'));
+      _emitServant();
+    }
+  }
+
+  Future<void> startMatchTimer({
+    required String gameId,
+    required GameMatch match,
+  }) async {
+    try {
+      final updated = match.copyWith(
+        isRunning: true,
+        startedAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await _repo.updateMatch(gameId: gameId, match: updated);
+    } catch (e) {
+      emit(ClubError('فشل تشغيل المؤقت: $e'));
+      _emitServant();
+    }
+  }
+
+  Future<void> stopMatchTimer({
+    required String gameId,
+    required GameMatch match,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final startedAt = match.startedAt;
+      final extra = startedAt == null
+          ? 0
+          : now.difference(startedAt).inSeconds;
+      final updated = match.copyWith(
+        isRunning: false,
+        startedAt: null,
+        elapsedSeconds: match.elapsedSeconds + extra,
+        updatedAt: DateTime.now(),
+      );
+      await _repo.updateMatch(gameId: gameId, match: updated);
+    } catch (e) {
+      emit(ClubError('فشل إيقاف المؤقت: $e'));
+      _emitServant();
+    }
+  }
+
+  Future<void> addMatchExtraTime({
+    required String gameId,
+    required GameMatch match,
+    required int extraSeconds,
+  }) async {
+    try {
+      final updated = match.copyWith(
+        durationSeconds: match.durationSeconds + extraSeconds,
+        updatedAt: DateTime.now(),
+      );
+      await _repo.updateMatch(gameId: gameId, match: updated);
+    } catch (e) {
+      emit(ClubError('فشل إضافة وقت إضافي: $e'));
+      _emitServant();
+    }
   }
 
   Future<void> removePlayingChild({

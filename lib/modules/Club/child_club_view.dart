@@ -79,7 +79,7 @@ class _ChildContent extends StatelessWidget {
             child: _CoinsHeader(
               coins: state.clubCoins,
               cardStatus: state.cardStatus,
-              userName: user.fullName ?? '',
+              userName: user.fullName,
             ),
           ),
         ),
@@ -96,7 +96,7 @@ class _ChildContent extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 Text(
@@ -104,8 +104,7 @@ class _ChildContent extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white
-                  ),
+                      color: colorScheme.onSurface.withAlpha(179)),
                 ),
               ],
             ),

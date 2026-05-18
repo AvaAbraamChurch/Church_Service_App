@@ -43,7 +43,7 @@ class GameCard extends StatelessWidget {
       duration: const Duration(milliseconds: 300),
       decoration: BoxDecoration(
         color: isLocked
-            ? colorScheme.surfaceVariant
+            ? colorScheme.surfaceContainerHighest
             : colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(

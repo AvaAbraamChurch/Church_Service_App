@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/blocs/club/club_cubit.dart';
 import '../../core/models/club/game_model.dart';
+import '../../core/utils/gender_enum.dart';
 
 void showManageGamesSheet(BuildContext context, List<GameModel> games) {
   final cubit = context.read<ClubCubit>();
@@ -194,6 +195,7 @@ class _GameFormDialogState extends State<_GameFormDialog> {
   late TextEditingController _coinsCtrl;
   late TextEditingController _iconCtrl;
   late bool _allowBooking;
+  late Gender _gender;
 
   @override
   void initState() {
@@ -206,6 +208,7 @@ class _GameFormDialogState extends State<_GameFormDialog> {
     _iconCtrl =
         TextEditingController(text: widget.existingGame?.icon ?? '🎮');
     _allowBooking = widget.existingGame?.allowBooking ?? false;
+    _gender = widget.existingGame?.gender ?? Gender.male;
   }
 
   @override
@@ -223,6 +226,7 @@ class _GameFormDialogState extends State<_GameFormDialog> {
       id: widget.existingGame?.id ?? '',
       nameAr: _nameArCtrl.text.trim(),
       name: _nameCtrl.text.trim(),
+      gender: _gender,
       coins: int.parse(_coinsCtrl.text.trim()),
       icon: _iconCtrl.text.trim(),
       status: widget.existingGame?.status ?? CardStatus.active,
@@ -273,6 +277,20 @@ class _GameFormDialogState extends State<_GameFormDialog> {
             TextFormField(
               controller: _nameCtrl,
               decoration: const InputDecoration(labelText: 'الاسم بالإنجليزية'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<Gender>(
+              initialValue: _gender,
+              decoration: const InputDecoration(labelText: 'النوع'),
+              items: GenderLists.selectable
+                  .map(
+                    (g) => DropdownMenuItem(
+                      value: g,
+                      child: Text(g.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (val) => setState(() => _gender = val ?? _gender),
             ),
             const SizedBox(height: 12),
             TextFormField(

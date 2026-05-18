@@ -26,8 +26,9 @@ class _ClubScreenState extends State<ClubScreen> {
       create: (_) => ClubCubit(
         repository: ClubRepository(),
         userId: widget.user.id,
-        initialCoins: widget.user.clubCoins ?? 0,
-        initialCardStatus: widget.user.cardStatus ?? 'active',
+        userGender: widget.user.gender,
+        initialCoins: widget.user.clubCoins,
+        initialCardStatus: widget.user.cardStatus,
         isChild: isChild,
       )..init(),
       child: Builder(

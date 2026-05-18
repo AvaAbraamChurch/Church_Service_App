@@ -1,11 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../utils/gender_enum.dart';
+
 enum CardStatus { active, busy }
 
 class GameModel {
   final String id;
   final String name;
   final String nameAr;
+  final Gender gender;
   final int coins;
   final String icon;
   final CardStatus status;
@@ -21,6 +24,7 @@ class GameModel {
     required this.id,
     required this.name,
     required this.nameAr,
+    required this.gender,
     required this.coins,
     required this.icon,
     this.status = CardStatus.active,
@@ -34,6 +38,7 @@ class GameModel {
       id: doc.id,
       name: data['name'] ?? '',
       nameAr: data['nameAr'] ?? '',
+      gender: genderFromJson(data['gender']),
       coins: (data['coins'] as num?)?.toInt() ?? 0,
       icon: data['icon'] ?? '🎮',
       status: (data['status'] == 'busy') ? CardStatus.busy : CardStatus.active,
@@ -45,6 +50,7 @@ class GameModel {
   Map<String, dynamic> toMap() => {
         'name': name,
         'nameAr': nameAr,
+        'gender': gender.code,
         'coins': coins,
         'icon': icon,
         'status': status == CardStatus.busy ? 'busy' : 'active',
@@ -56,6 +62,7 @@ class GameModel {
     String? id,
     String? name,
     String? nameAr,
+    Gender? gender,
     int? coins,
     String? icon,
     CardStatus? status,
@@ -66,6 +73,7 @@ class GameModel {
         id: id ?? this.id,
         name: name ?? this.name,
         nameAr: nameAr ?? this.nameAr,
+        gender: gender ?? this.gender,
         coins: coins ?? this.coins,
         icon: icon ?? this.icon,
         status: status ?? this.status,

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/club/attendance_service_model.dart';
 import '../models/club/coin_transaction_model.dart';
 import '../models/club/game_model.dart';
+import '../models/club/game_match_model.dart';
 import '../models/club/playing_child_model.dart';
 import '../models/user/user_model.dart';
 
@@ -12,9 +13,11 @@ class ClubRepository {
 
   // ── Games ────────────────────────────────────────────────────────────────
 
-  Stream<List<GameModel>> gamesStream() {
-    return _db
-        .collection('club_games')
+  Stream<List<GameModel>> gamesStream({String? genderCode}) {
+    final query = genderCode == null
+        ? _db.collection('club_games')
+        : _db.collection('club_games').where('gender', isEqualTo: genderCode);
+    return query
         .snapshots()
         .map((s) => s.docs.map(GameModel.fromFirestore).toList());
   }
@@ -184,6 +187,16 @@ class ClubRepository {
     return UserModel.fromDocumentSnapshot(q.docs.first);
   }
 
+  Future<List<dynamic>> findUsersByIds(List<String> ids) async {
+    if (ids.isEmpty) return [];
+    final futures = ids.map((id) => _db.collection('users').doc(id).get());
+    final snaps = await Future.wait(futures);
+    return snaps
+        .where((s) => s.exists)
+        .map((s) => UserModel.fromDocumentSnapshot(s))
+        .toList();
+  }
+
   // ── Booking queue ────────────────────────────────────────────────────────
 
   /// Adds [childUserId] to the game's booking queue.
@@ -249,5 +262,42 @@ class ClubRepository {
       batch.delete(doc.reference);
     }
     await batch.commit();
+  }
+
+  // ── Matches & Teams ──────────────────────────────────────────────────────
+
+  Stream<List<GameMatch>> matchesStream(String gameId) {
+    return _db
+        .collection('club_games')
+        .doc(gameId)
+        .collection('matches')
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map((s) => s.docs.map(GameMatch.fromFirestore).toList());
+  }
+
+  Future<void> createMatch({
+    required String gameId,
+    required GameMatch match,
+  }) async {
+    final data = match.toMap();
+    data['createdAt'] = FieldValue.serverTimestamp();
+    await _db
+        .collection('club_games')
+        .doc(gameId)
+        .collection('matches')
+        .add(data);
+  }
+
+  Future<void> updateMatch({
+    required String gameId,
+    required GameMatch match,
+  }) async {
+    await _db
+        .collection('club_games')
+        .doc(gameId)
+        .collection('matches')
+        .doc(match.id)
+        .update(match.toMap());
   }
 }

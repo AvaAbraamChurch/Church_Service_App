@@ -161,19 +161,19 @@ class _DateTimeHeader extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            colorScheme.secondary,
-            colorScheme.secondary.withAlpha(191),
+            colorScheme.primary,
+            colorScheme.primary.withAlpha(191),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: colorScheme.secondary.withAlpha(77),
+          color: colorScheme.primary.withAlpha(77),
         ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.secondary.withAlpha(38),
+            color: colorScheme.primary.withAlpha(38),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -190,7 +190,7 @@ class _DateTimeHeader extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w900,
-                  color: colorScheme.onSecondary,
+                  color: colorScheme.onPrimary,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
@@ -198,7 +198,7 @@ class _DateTimeHeader extends StatelessWidget {
                 dateStr,
                 style: TextStyle(
                   fontSize: 13,
-                  color: colorScheme.onSecondary.withAlpha(204),
+                  color: colorScheme.onPrimary.withAlpha(204),
                 ),
               ),
             ],
@@ -206,7 +206,7 @@ class _DateTimeHeader extends StatelessWidget {
           Icon(
             Icons.access_time_rounded,
             size: 40,
-            color: colorScheme.onSecondary.withAlpha(128),
+            color: colorScheme.onPrimary.withAlpha(153),
           ),
         ],
       ),
@@ -363,7 +363,7 @@ class _AttendanceServiceCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text('+${service.coinsValue} عملة 🪙',
                         style: TextStyle(
-                            color: Colors.green.shade600,
+                            color: colorScheme.tertiary,
                             fontWeight: FontWeight.w600,
                             fontSize: 13)),
                   ],
