@@ -148,13 +148,13 @@ class UserDetailScreen extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: teal900,
+                      color: teal200,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     user.email,
-                    style: const TextStyle(fontSize: 16, color: sage700),
+                    style: const TextStyle(fontSize: 16, color: sage600),
                   ),
                   const SizedBox(height: 24),
                   // User Information Cards
@@ -176,6 +176,7 @@ class UserDetailScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   _buildInfoCard('معلومات أخرى', Icons.info_outline, [
                     _buildInfoRow('نقاط الكوبون', user.couponPoints.toString()),
+                    _buildInfoRow('نقاط النادي', user.clubCoins.toString()),
                     _buildInfoRow('أول تسجيل دخول', user.firstLogin ? 'نعم' : 'لا'),
                     if (user.birthday != null)
                       _buildInfoRow(

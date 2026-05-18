@@ -29,6 +29,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
   late TextEditingController _couponPointsController;
+  late TextEditingController _clubCoinsController;
 
   final ClassesRepository _classesRepository = ClassesRepository();
 
@@ -50,6 +51,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _phoneController = TextEditingController(text: widget.user.phoneNumber ?? '');
     _addressController = TextEditingController(text: widget.user.address ?? '');
     _couponPointsController = TextEditingController(text: widget.user.couponPoints.toString());
+    _clubCoinsController = TextEditingController(text: widget.user.clubCoins.toString());
 
     _selectedUserType = widget.user.userType;
     _selectedGender = widget.user.gender;
@@ -69,6 +71,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _phoneController.dispose();
     _addressController.dispose();
     _couponPointsController.dispose();
+    _clubCoinsController.dispose();
     super.dispose();
   }
 
@@ -176,7 +179,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                  color: teal900,
+                  color: teal200,
                 ),
               ),
               const SizedBox(height: 16),
@@ -319,7 +322,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: teal900,
+                  color: teal200,
                 ),
               ),
               const SizedBox(height: 16),
@@ -608,6 +611,37 @@ class _EditUserScreenState extends State<EditUserScreen> {
                   return null;
                 },
               ),
+                const SizedBox(height: 16),
+              TextFormField(
+                controller: _clubCoinsController,
+                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
+                decoration: InputDecoration(
+                  labelText: 'نقاط النادي',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  prefixIcon: const Icon(Icons.sports_esports_outlined, color: Colors.white70),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white70),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white70),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white, width: 2),
+                  ),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value != null && value.isNotEmpty) {
+                    if (int.tryParse(value) == null) {
+                      return 'يرجى إدخال رقم صحيح';
+                    }
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 16),
               SwitchListTile(
                 title: const Text('أول تسجيل دخول', style: TextStyle(color: Colors.white)),
@@ -630,7 +664,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: teal900,
+                  color: teal200,
                 ),
               ),
               const SizedBox(height: 16),
@@ -671,7 +705,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: teal900,
+                  color: teal200,
                 ),
               ),
               const SizedBox(height: 16),
