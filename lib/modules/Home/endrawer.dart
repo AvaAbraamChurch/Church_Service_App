@@ -1,4 +1,3 @@
-import 'package:church/admin/migration_screen.dart';
 import 'package:church/core/blocs/auth/auth_cubit.dart';
 import 'package:church/core/models/user/user_model.dart';
 import 'package:church/core/services/account_manager_service.dart';
@@ -9,9 +8,10 @@ import 'package:church/modules/Admin/navigation_screen.dart';
 import 'package:church/modules/Auth/login/login_screen.dart';
 import 'package:church/modules/Birthdays/birthdays_screen.dart';
 import 'package:church/modules/Competitions/competitions_screen.dart';
-import 'package:church/shared/widgets.dart';
 import 'package:church/shared/attendance_defaults_dialog.dart';
+import 'package:church/shared/widgets.dart';
 import 'package:flutter/material.dart';
+
 import '../../core/styles/colors.dart';
 import '../Classes/manage_classes_screen.dart';
 import '../Support/support_screen.dart';
@@ -58,11 +58,19 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                       subtitle: 'عرض المسابقات المتاحة',
                       gradient: [Colors.green[400]!, Colors.green[600]!],
                       onTap: () {
-                        navigateTo(context, CompetitionsScreen(user: userData, isAdmin: userData.isAdmin,type: userData.userType));
+                        navigateTo(
+                          context,
+                          CompetitionsScreen(
+                            user: userData,
+                            isAdmin: userData.isAdmin,
+                            type: userData.userType,
+                          ),
+                        );
                       },
                     ),
 
-                    if (userData.userType == UserType.priest || userData.userType == UserType.superServant) ...[
+                    if (userData.userType == UserType.priest ||
+                        userData.userType == UserType.superServant) ...[
                       const SizedBox(height: 12),
                       _buildMenuItem(
                         context: context,
@@ -87,15 +95,17 @@ Widget drawer(BuildContext context, UserModel userData) => Drawer(
                         subtitle: 'عرض أعياد الميلاد القادمة',
                         gradient: [tawny, red500],
                         onTap: () {
-                          navigateTo(context, BirthdaysScreen(userGender: userData.gender.code,));
+                          navigateTo(
+                            context,
+                            BirthdaysScreen(userGender: userData.gender.code),
+                          );
                         },
                       ),
                     ],
 
                     // Admin Dashboard - Only for admins (priests or users with isAdmin flag)
                     if (userData.isAdmin ||
-                        userData.userType == UserType.priest
-                        ) ...[
+                        userData.userType == UserType.priest) ...[
                       const SizedBox(height: 12),
 
                       _buildMenuItem(
@@ -247,7 +257,9 @@ Widget _buildModernHeader(BuildContext context, UserModel userData) {
                 ],
               ),
               child: ClipOval(
-                child: (userData.profileImageUrl != null && userData.profileImageUrl!.isNotEmpty)
+                child:
+                    (userData.profileImageUrl != null &&
+                        userData.profileImageUrl!.isNotEmpty)
                     ? Image.network(
                         userData.profileImageUrl!,
                         fit: BoxFit.cover,
@@ -438,7 +450,9 @@ Widget _buildAccountSwitcherButton(BuildContext context) {
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(colors: [Colors.blue[400]!, Colors.blue[600]!]),
+          gradient: LinearGradient(
+            colors: [Colors.blue[400]!, Colors.blue[600]!],
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.blue.withValues(alpha: 0.4),
@@ -463,7 +477,11 @@ Widget _buildAccountSwitcherButton(BuildContext context) {
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 24),
+                      const Icon(
+                        Icons.swap_horiz_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                       if (accountCount > 1)
                         Positioned(
                           top: -4,
@@ -638,7 +656,7 @@ Widget _buildFooter() {
         ),
         const SizedBox(height: 4),
         Text(
-          'الإصدار 0.1.0',
+          'الإصدار 0.1.1',
           style: TextStyle(
             fontSize: 11,
             color: Colors.white.withValues(alpha: 0.6),
