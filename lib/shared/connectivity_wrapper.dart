@@ -22,11 +22,18 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> {
   bool _showNoInternet = false;
   Timer? _checkTimer;
   StreamSubscription? _connectivitySubscription;
+  ScaffoldMessengerState? _messenger;
 
   @override
   void initState() {
     super.initState();
     _initializeConnectivity();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _messenger = ScaffoldMessenger.maybeOf(context);
   }
 
   Future<void> _initializeConnectivity() async {
@@ -50,7 +57,7 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> {
 
         // If reconnected, show a brief success message
         if (isConnected && _showNoInternet == false) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _messenger?.showSnackBar(
             SnackBar(
               content: Row(
                 children: [
@@ -96,7 +103,7 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> {
 
       if (!isConnected) {
         // Show error message if still not connected
-        ScaffoldMessenger.of(context).showSnackBar(
+        _messenger?.showSnackBar(
           SnackBar(
             content: Row(
               children: [
@@ -143,4 +150,3 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> {
     return widget.child;
   }
 }
-

@@ -1,835 +1,411 @@
-import 'package:church/core/styles/themeScaffold.dart';
-import 'package:church/core/styles/colors.dart';
-import 'package:church/core/utils/userType_enum.dart';
-import 'package:church/core/utils/gender_enum.dart';
-import 'package:church/core/utils/service_enum.dart';
-import 'package:church/core/utils/classes_mapping.dart';
+import 'package:church/core/blocs/admin_user/admin_user_cubit.dart';
+import 'package:church/core/blocs/admin_user/admin_user_states.dart';
 import 'package:church/core/models/class_mapping/class_mapping_model.dart';
-import 'package:church/core/services/supabase_bulk_create_users.dart';
+import 'package:church/core/repositories/admin_repository.dart';
+import 'package:church/core/styles/colors.dart';
+import 'package:church/core/styles/themeScaffold.dart';
+import 'package:church/core/utils/gender_enum.dart';
+import 'package:church/core/utils/userType_enum.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-
-class CreateUserScreen extends StatefulWidget {
+class CreateUserScreen extends StatelessWidget {
   const CreateUserScreen({super.key});
 
   @override
-  State<CreateUserScreen> createState() => _CreateUserScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => AdminUserCubit(adminRepository: AdminRepository()),
+      child: const _CreateUserBody(),
+    );
+  }
 }
 
-class _CreateUserScreenState extends State<CreateUserScreen> {
+class _CreateUserBody extends StatefulWidget {
+  const _CreateUserBody();
+
+  @override
+  State<_CreateUserBody> createState() => _CreateUserBodyState();
+}
+
+class _CreateUserBodyState extends State<_CreateUserBody> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _couponPointsController = TextEditingController(text: '0');
 
   UserType _selectedUserType = UserType.child;
   Gender _selectedGender = Gender.male;
-  ServiceType _selectedServiceType = ServiceType.primaryBoys;
-  String _selectedUserClass = '1'; // Default to class 1
-  bool _firstLogin = true;
-  bool _isAdmin = false;
-  bool _storeAdmin = false;
-  bool _isActive = true;
-  DateTime? _birthday;
-  bool _isSubmitting = false;
+  // Stores the ClassMapping.id of the selected class (empty until stream loads)
+  String _selectedUserClass = '';
+
+  // Preview of auto-generated credentials (display only — actual values generated in cubit)
+  String _previewUsername = '';
+  String _previewEmail = '';
+  bool _passwordVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fullNameController.addListener(_onFullNameChanged);
+  }
 
   @override
   void dispose() {
+    _fullNameController.removeListener(_onFullNameChanged);
     _fullNameController.dispose();
-    _usernameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
     _phoneController.dispose();
-    _addressController.dispose();
-    _couponPointsController.dispose();
     super.dispose();
   }
 
-  List<DropdownMenuItem<String>> _buildClassDropdownItems(Map<String, List<ClassMapping>> groupedMappings) {
-    List<DropdownMenuItem<String>> items = [];
-
-    groupedMappings.forEach((classCode, mappings) {
-      // Add group header
-      items.add(
-        DropdownMenuItem<String>(
-          value: null,
-          enabled: false,
-          child: Text(
-            '${CompetitionClassMapping.getClassName(classCode)} ($classCode)',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white70,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      );
-
-      // Add class options
-      for (var mapping in mappings) {
-        items.add(
-          DropdownMenuItem<String>(
-            value: mapping.id, // Use mapping ID as value
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16.0),
-              child: Text(mapping.className),
-            ),
-          ),
-        );
-      }
+  void _onFullNameChanged() {
+    final name = _fullNameController.text.trim();
+    final username = name.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+    setState(() {
+      _previewUsername = username;
+      _previewEmail = username.isEmpty ? '' : '$username@avaabraamchurch.com';
     });
-
-    return items;
   }
 
-  Future<void> _createUserWithEdgeFunction() async {
-    if (!_formKey.currentState!.validate() || _isSubmitting) {
-      return;
-    }
-
-    final userInput = BulkUserInput(
-      name: _fullNameController.text.trim(),
-      userType: _selectedUserType.code,
-      gender: _selectedGender.code,
-      userClass: _selectedUserClass,
-      serviceType: _selectedServiceType.key,
-      phoneNumber: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-      address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
-      birthday: _birthday,
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('تم النسخ'),
+        duration: Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
+  }
 
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    try {
-      final result = await bulkCreateUsers([userInput]);
-
-      if (!mounted) {
-        return;
-      }
-
-      if (result.successful.isNotEmpty) {
-        final created = result.successful.first;
-        await showDialog<void>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('تم إنشاء المستخدم بنجاح'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                    'الاسم: ${created.name}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: teal500)
-                ),
-                Text('اسم المستخدم: ${created.username}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: teal500)),
-                Text('البريد الإلكتروني: ${created.email}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: teal500)),
-                Text('كلمة المرور المؤقتة: ${created.password}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: teal500)),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('حسنا'),
-              ),
-            ],
-          ),
-        );
-        if (!mounted) {
-          return;
-        }
-        Navigator.pop(context, true);
-        return;
-      }
-
-      final failedMessage = result.failed.isNotEmpty
-          ? result.failed.first.error
-          : 'فشل إنشاء المستخدم من خلال الخدمة';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(failedMessage), backgroundColor: Colors.red),
-      );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('حدث خطأ أثناء إنشاء المستخدم: $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
+  void _submit(BuildContext context) {
+    if (!_formKey.currentState!.validate()) return;
+    AdminUserCubit.get(context).createSingleUser(
+      fullName: _fullNameController.text.trim(),
+      gender: _selectedGender.code,
+      userType: _selectedUserType.code,
+      phone: _phoneController.text.trim().isEmpty
+          ? null
+          : _phoneController.text.trim(),
+      userClass: _selectedUserClass,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return ThemedScaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(120),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [teal700, teal500, teal300],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return BlocConsumer<AdminUserCubit, AdminUserState>(
+      listenWhen: (_, curr) =>
+          curr is AdminUserError || curr is AdminUserCreatedWithCredentials,
+      buildWhen: (_, curr) =>
+          curr is AdminUserLoading || curr is AdminUserInitial,
+      listener: (context, state) {
+        if (state is AdminUserError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: teal700.withValues(alpha: 0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+          );
+        } else if (state is AdminUserCreatedWithCredentials) {
+          _showSuccessDialog(context, state);
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is AdminUserLoading;
+        return ThemedScaffold(
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(110),
+            child: _AppHeader(),
+          ),
+          body: Directionality(
+            textDirection: TextDirection.rtl,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Required fields ────────────────────────────────────
+                    _SectionLabel('البيانات الأساسية'),
+                    const SizedBox(height: 12),
+                    _Field(
+                      controller: _fullNameController,
+                      label: 'الاسم الكامل',
+                      icon: Icons.person_outline,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty)
+                              ? 'الاسم الكامل مطلوب'
+                              : null,
+                    ),
+                    const SizedBox(height: 14),
+                    _DropdownField<UserType>(
+                      label: 'نوع المستخدم',
+                      icon: Icons.badge_outlined,
+                      value: _selectedUserType,
+                      items: UserType.values,
+                      itemLabel: (t) => t.label,
+                      onChanged: (v) =>
+                          setState(() => _selectedUserType = v!),
+                    ),
+                    const SizedBox(height: 14),
+                    _DropdownField<Gender>(
+                      label: 'الجنس',
+                      icon: Icons.wc_outlined,
+                      value: _selectedGender,
+                      items: Gender.values,
+                      itemLabel: (g) => g.label,
+                      onChanged: (v) =>
+                          setState(() => _selectedGender = v!),
+                    ),
+                    const SizedBox(height: 14),
+                    _ClassDropdown(
+                      selectedId: _selectedUserClass,
+                      onChanged: (id) =>
+                          setState(() => _selectedUserClass = id),
+                    ),
+                    const SizedBox(height: 14),
+                    _Field(
+                      controller: _phoneController,
+                      label: 'رقم الهاتف (اختياري)',
+                      icon: Icons.phone_outlined,
+                      keyboardType: TextInputType.phone,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return null;
+                        if (!RegExp(r'^[0-9+\-\s]{7,15}$')
+                            .hasMatch(v.trim())) {
+                          return 'رقم الهاتف غير صحيح';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    // ── Auto-generated credentials preview ─────────────────
+                    const SizedBox(height: 24),
+                    _SectionLabel('بيانات الدخول (تلقائية)'),
+                    const SizedBox(height: 4),
+                    Text(
+                      'يتم توليدها تلقائياً من الاسم',
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 12),
+                      textDirection: TextDirection.rtl,
+                    ),
+                    const SizedBox(height: 12),
+                    _ReadOnlyField(
+                      label: 'اسم المستخدم',
+                      icon: Icons.alternate_email,
+                      value: _previewUsername.isEmpty
+                          ? '—'
+                          : _previewUsername,
+                      onCopy: _previewUsername.isEmpty
+                          ? null
+                          : () => _copyToClipboard(_previewUsername),
+                    ),
+                    const SizedBox(height: 14),
+                    _ReadOnlyField(
+                      label: 'البريد الإلكتروني',
+                      icon: Icons.email_outlined,
+                      value: _previewEmail.isEmpty ? '—' : _previewEmail,
+                      onCopy: _previewEmail.isEmpty
+                          ? null
+                          : () => _copyToClipboard(_previewEmail),
+                    ),
+                    const SizedBox(height: 14),
+                    _ReadOnlyField(
+                      label: 'كلمة المرور',
+                      icon: Icons.lock_outline,
+                      value: _passwordVisible
+                          ? 'سيتم توليدها تلقائياً'
+                          : '••••••••',
+                      trailing: IconButton(
+                        icon: Icon(
+                          _passwordVisible
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: Colors.white70,
+                          size: 20,
+                        ),
+                        onPressed: () => setState(
+                            () => _passwordVisible = !_passwordVisible),
+                      ),
+                    ),
+
+                    // ── Submit ─────────────────────────────────────────────
+                    const SizedBox(height: 32),
+                    ElevatedButton.icon(
+                      onPressed: isLoading ? null : () => _submit(context),
+                      icon: isLoading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.person_add_rounded),
+                      label: Text(
+                          isLoading ? 'جارٍ الإنشاء...' : 'إنشاء المستخدم'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: teal500,
+                        foregroundColor: Colors.white,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        textStyle: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSuccessDialog(
+      BuildContext context, AdminUserCreatedWithCredentials s) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: teal800,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.greenAccent),
+              SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  'تم إنشاء المستخدم بنجاح',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
               ),
             ],
           ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Column(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _CredentialRow(label: 'الاسم', value: s.fullName),
+              const SizedBox(height: 8),
+              _CredentialRow(
+                  label: 'اسم المستخدم', value: s.username),
+              const SizedBox(height: 8),
+              _CredentialRow(
+                  label: 'البريد الإلكتروني', value: s.email),
+              const SizedBox(height: 8),
+              _CredentialRow(
+                  label: 'كلمة المرور',
+                  value: s.password,
+                  sensitive: true),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.5)),
+                ),
+                child: const Text(
+                  'سيُطلب من المستخدم تغيير كلمة المرور عند أول دخول',
+                  style: TextStyle(color: Colors.orange, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // close dialog
+                Navigator.of(context).pop(true); // back to list
+              },
+              child: const Text('حسناً',
+                  style: TextStyle(color: teal300)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Widgets ────────────────────────────────────────────────────────────────────
+
+class _AppHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [teal700, teal500, teal300],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: teal700.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.person_add_rounded,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'إضافة مستخدم جديد',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'إنشاء حساب مستخدم جديد',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: 13,
-                            fontWeight: FontWeight.normal,
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                          child: const Icon(Icons.person_add_rounded,
+                              color: Colors.white, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'إضافة مستخدم جديد',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'معلومات الحساب',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: teal900,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'سيتم إنشاء البريد الإلكتروني واسم المستخدم وكلمة المرور تلقائيا من خلال Supabase Edge Function.',
-                style: TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _fullNameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'الاسم الكامل *',
-                  labelStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.person_outline, color: Colors.white),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'يرجى إدخال الاسم الكامل';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _usernameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'اسم المستخدم *',
-                  labelStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.alternate_email, color: Colors.white),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'يرجى إدخال اسم المستخدم';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'البريد الإلكتروني *',
-                  labelStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.email_outlined, color: Colors.white),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value != null && value.isNotEmpty && !value.contains('@')) {
-                    return 'البريد الإلكتروني غير صحيح';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'كلمة المرور *',
-                  labelStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.lock_outline, color: Colors.white),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                obscureText: true,
-                validator: (value) {
-                  if (value != null && value.isNotEmpty && value.length < 6) {
-                    return 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _phoneController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'رقم الهاتف',
-                  labelStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.phone_outlined, color: Colors.white),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _addressController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'العنوان',
-                  labelStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.location_on_outlined, color: Colors.white),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'معلومات الخدمة',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: teal900,
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<UserType>(
-                value: _selectedUserType,
-                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
-                dropdownColor: teal700,
-                decoration: InputDecoration(
-                  labelText: 'نوع المستخدم *',
-                  labelStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.person_pin_outlined, color: Colors.white),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                items: UserType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type.label),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedUserType = value;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<Gender>(
-                value: _selectedGender,
-                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
-                dropdownColor: teal700,
-                decoration: InputDecoration(
-                  labelText: 'الجنس *',
-                  labelStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.wc_outlined, color: Colors.white),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                items: Gender.values.map((gender) {
-                  return DropdownMenuItem(
-                    value: gender,
-                    child: Text(gender.label),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedGender = value;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              // User Class Dropdown with StreamBuilder
-              StreamBuilder<List<ClassMapping>>(
-                stream: ClassMappingService.getActiveClassMappings(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Text('خطأ في تحميل الصفوف: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red));
-                  }
-
-                  final classMappings = snapshot.data ?? [];
-
-                  if (classMappings.isEmpty) {
-                    return Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.orange),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.warning, color: Colors.orange),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'لا توجد صفوف متاحة. يرجى إضافة صفوف من لوحة التحكم.',
-                              style: TextStyle(color: Colors.orange),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  // Group by classCode
-                  final groupedMappings = <String, List<ClassMapping>>{};
-                  for (var mapping in classMappings) {
-                    groupedMappings.putIfAbsent(mapping.classCode, () => []).add(mapping);
-                  }
-
-                  // Ensure selected value is valid
-                  final allMappingIds = classMappings.map((m) => m.id).toList();
-                  if (classMappings.isNotEmpty && !allMappingIds.contains(_selectedUserClass)) {
-                    _selectedUserClass = classMappings.first.id;
-                  }
-
-                  return DropdownButtonFormField<String>(
-                    value: _selectedUserClass,
-                    style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
-                    dropdownColor: teal700,
-                    decoration: InputDecoration(
-                      labelText: 'الفصل *',
-                      labelStyle: const TextStyle(color: Colors.white),
-                      prefixIcon: const Icon(Icons.class_outlined, color: Colors.white),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.white),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.white, width: 2),
-                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'البيانات تُولَّد تلقائياً',
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 13),
                     ),
-                    items: _buildClassDropdownItems(groupedMappings),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _selectedUserClass = value;
-                        });
-                      }
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'يرجى اختيار الفصل';
-                      }
-                      return null;
-                    },
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<ServiceType>(
-                value: _selectedServiceType,
-                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
-                dropdownColor: teal700,
-                decoration: InputDecoration(
-                  labelText: 'نوع الخدمة *',
-                  labelStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.church_outlined, color: Colors.white),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                items: ServiceType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type.displayName),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedServiceType = value;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _couponPointsController,
-                style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
-                decoration: InputDecoration(
-                  labelText: 'نقاط الكوبون',
-                  labelStyle: const TextStyle(color: Colors.white),
-                  prefixIcon: const Icon(Icons.star_outline, color: Colors.white),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value != null && value.isNotEmpty) {
-                    if (int.tryParse(value) == null) {
-                      return 'يرجى إدخال رقم صحيح';
-                    }
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              SwitchListTile(
-                title: const Text('أول تسجيل دخول', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('هل هذه أول مرة يسجل فيها المستخدم دخوله؟', style: TextStyle(color: Colors.white70)),
-                value: _firstLogin,
-                onChanged: (value) {
-                  setState(() {
-                    _firstLogin = value;
-                  });
-                },
-                activeColor: teal500,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Colors.white70),
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
-              const Text(
-                'الصلاحيات',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: teal900,
-                ),
-              ),
-              const SizedBox(height: 16),
-              SwitchListTile(
-                title: const Text('مسؤول النظام', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('منح صلاحيات المسؤول الكاملة', style: TextStyle(color: Colors.white70)),
-                value: _isAdmin,
-                onChanged: (value) {
-                  setState(() {
-                    _isAdmin = value;
-                  });
-                },
-                activeColor: brown500,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Colors.white70),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SwitchListTile(
-                title: const Text('مسؤول المتجر', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('منح صلاحيات إدارة المتجر', style: TextStyle(color: Colors.white70)),
-                value: _storeAdmin,
-                onChanged: (value) {
-                  setState(() {
-                    _storeAdmin = value;
-                  });
-                },
-                activeColor: brown500,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Colors.white70),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SwitchListTile(
-                title: const Text('حساب نشط', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('تفعيل أو تعطيل حساب المستخدم', style: TextStyle(color: Colors.white70)),
-                value: _isActive,
-                onChanged: (value) {
-                  setState(() {
-                    _isActive = value;
-                  });
-                },
-                activeColor: _isActive ? Colors.green : Colors.red,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Colors.white70),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'معلومات إضافية',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: teal900,
-                ),
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: () async {
-                  final DateTime? picked = await showDatePicker(
-                    context: context,
-                    initialDate: _birthday ?? DateTime.now(),
-                    firstDate: DateTime(1900),
-                    lastDate: DateTime.now(),
-                    builder: (context, child) {
-                      return Theme(
-                        data: Theme.of(context).copyWith(
-                          colorScheme: ColorScheme.light(
-                            primary: teal500,
-                            onPrimary: Colors.white,
-                            onSurface: teal900,
-                          ),
-                        ),
-                        child: child!,
-                      );
-                    },
-                  );
-                  if (picked != null) {
-                    setState(() {
-                      _birthday = picked;
-                    });
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.white70),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.cake_outlined, color: Colors.white70),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'تاريخ الميلاد',
-                              style: TextStyle(color: Colors.white70, fontSize: 12),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _birthday != null
-                                  ? '${_birthday!.day}/${_birthday!.month}/${_birthday!.year}'
-                                  : 'لم يتم تحديد تاريخ الميلاد',
-                              style: const TextStyle(color: Colors.white, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (_birthday != null)
-                        IconButton(
-                          icon: const Icon(Icons.clear, color: Colors.white70),
-                          onPressed: () {
-                            setState(() {
-                              _birthday = null;
-                            });
-                          },
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                '* حقول مطلوبة',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: sage600,
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _isSubmitting ? null : _createUserWithEdgeFunction,
-                icon: _isSubmitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.cloud_upload_rounded),
-                label: Text(_isSubmitting ? 'جار انشاء المستخدم...' : 'إنشاء المستخدم'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: teal500,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
+              const SizedBox(width: 48),
             ],
           ),
         ),
@@ -838,3 +414,332 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
   }
 }
 
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      textDirection: TextDirection.rtl,
+      style: const TextStyle(
+          fontSize: 16, fontWeight: FontWeight.bold, color: teal300),
+    );
+  }
+}
+
+class _Field extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  final TextInputType keyboardType;
+  final String? Function(String?)? validator;
+
+  const _Field({
+    required this.controller,
+    required this.label,
+    required this.icon,
+    this.keyboardType = TextInputType.text,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      textDirection: TextDirection.rtl,
+      style: const TextStyle(color: Colors.white),
+      validator: validator,
+      decoration: _buildDecoration(label, icon),
+    );
+  }
+}
+
+class _DropdownField<T> extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final T value;
+  final List<T> items;
+  final String Function(T) itemLabel;
+  final void Function(T?) onChanged;
+
+  const _DropdownField({
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.items,
+    required this.itemLabel,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<T>(
+      value: value,
+      style: const TextStyle(
+          color: Colors.white, fontFamily: 'Alexandria'),
+      dropdownColor: teal700,
+      decoration: _buildDecoration(label, icon),
+      items: items
+          .map((item) => DropdownMenuItem<T>(
+                value: item,
+                child: Text(itemLabel(item)),
+              ))
+          .toList(),
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _ReadOnlyField extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final String value;
+  final VoidCallback? onCopy;
+  final Widget? trailing;
+
+  const _ReadOnlyField({
+    required this.label,
+    required this.icon,
+    required this.value,
+    this.onCopy,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.white38),
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withValues(alpha: 0.05),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white54, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white54, fontSize: 12)),
+                const SizedBox(height: 2),
+                Text(value,
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 15)),
+              ],
+            ),
+          ),
+          if (trailing != null) trailing!,
+          if (onCopy != null)
+            IconButton(
+              icon: const Icon(Icons.copy_rounded,
+                  color: Colors.white54, size: 18),
+              onPressed: onCopy,
+              tooltip: 'نسخ',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CredentialRow extends StatefulWidget {
+  final String label;
+  final String value;
+  final bool sensitive;
+
+  const _CredentialRow({
+    required this.label,
+    required this.value,
+    this.sensitive = false,
+  });
+
+  @override
+  State<_CredentialRow> createState() => _CredentialRowState();
+}
+
+class _CredentialRowState extends State<_CredentialRow> {
+  bool _visible = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final display =
+        widget.sensitive && !_visible ? '••••••••' : widget.value;
+
+    return Row(
+      children: [
+        Expanded(
+          child: RichText(
+            textDirection: TextDirection.rtl,
+            text: TextSpan(
+              style: const TextStyle(fontSize: 13),
+              children: [
+                TextSpan(
+                  text: '${widget.label}: ',
+                  style: const TextStyle(color: Colors.white60),
+                ),
+                TextSpan(
+                  text: display,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (widget.sensitive)
+          GestureDetector(
+            onTap: () => setState(() => _visible = !_visible),
+            child: Icon(
+              _visible
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              color: Colors.white54,
+              size: 18,
+            ),
+          ),
+        const SizedBox(width: 4),
+        GestureDetector(
+          onTap: () =>
+              Clipboard.setData(ClipboardData(text: widget.value)),
+          child: const Icon(Icons.copy_rounded,
+              color: Colors.white54, size: 18),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dropdown that loads class options live from Firestore via [ClassMappingService].
+///
+/// Stores the [ClassMapping.id] (Firestore document ID) as the selected value
+/// so the specific class group can be resolved later.
+class _ClassDropdown extends StatelessWidget {
+  final String selectedId;
+  final void Function(String id) onChanged;
+
+  const _ClassDropdown({
+    required this.selectedId,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ClassMapping>>(
+      stream: ClassMappingService.getActiveClassMappings(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            height: 56,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white38),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.redAccent),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'خطأ في تحميل الفصول: ${snapshot.error}',
+              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+              textDirection: TextDirection.rtl,
+            ),
+          );
+        }
+
+        final classes = snapshot.data ?? [];
+
+        if (classes.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.6)),
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.orange.withValues(alpha: 0.08),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 18),
+                SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'لا توجد فصول متاحة. يرجى إضافة فصول من لوحة التحكم.',
+                    style: TextStyle(color: Colors.orange, fontSize: 13),
+                    textDirection: TextDirection.rtl,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Auto-select the first class when the list first loads
+        final currentId =
+            classes.any((c) => c.id == selectedId) ? selectedId : classes.first.id;
+        if (currentId != selectedId) {
+          // Schedule after build so we don't call setState during build
+          WidgetsBinding.instance.addPostFrameCallback((_) => onChanged(currentId));
+        }
+
+        return DropdownButtonFormField<String>(
+          value: currentId,
+          style: const TextStyle(color: Colors.white, fontFamily: 'Alexandria'),
+          dropdownColor: teal700,
+          decoration: _buildDecoration('الفصل', Icons.class_outlined),
+          items: classes
+              .map((c) => DropdownMenuItem<String>(
+                    value: c.id,
+                    child: Text(c.className),
+                  ))
+              .toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+          validator: (v) =>
+              (v == null || v.isEmpty) ? 'يرجى اختيار الفصل' : null,
+        );
+      },
+    );
+  }
+}
+
+InputDecoration _buildDecoration(String label, IconData icon) {
+  final border =
+      OutlineInputBorder(borderRadius: BorderRadius.circular(12));
+  return InputDecoration(
+    labelText: label,
+    labelStyle: const TextStyle(color: Colors.white70),
+    prefixIcon: Icon(icon, color: Colors.white70),
+    border: border,
+    enabledBorder: border.copyWith(
+        borderSide: const BorderSide(color: Colors.white38)),
+    focusedBorder: border.copyWith(
+        borderSide: const BorderSide(color: Colors.white, width: 2)),
+    errorBorder: border.copyWith(
+        borderSide: const BorderSide(color: Colors.redAccent)),
+    focusedErrorBorder: border.copyWith(
+        borderSide:
+            const BorderSide(color: Colors.redAccent, width: 2)),
+  );
+}

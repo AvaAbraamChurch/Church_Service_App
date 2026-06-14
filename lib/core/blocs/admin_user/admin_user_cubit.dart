@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:church/core/repositories/admin_repository.dart';
 import 'package:church/core/blocs/admin_user/admin_user_states.dart';
 import 'package:flutter/material.dart';
@@ -73,6 +74,85 @@ class AdminUserCubit extends Cubit<AdminUserState> {
         userData: userData,
       );
       _safeEmit(AdminUserCreated(userId));
+    } catch (e) {
+      _safeEmit(AdminUserError(e.toString()));
+    }
+  }
+
+  // ── Credential helpers ────────────────────────────────────────────────────
+
+  String _generateUsername(String fullName) {
+    // Collapse spaces and lower-case; Arabic letters are kept as-is.
+    return fullName.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
+  }
+
+  String _generatePassword() {
+    const digits = '0123456789';
+    const special = '!@#\$%^&*';
+    const letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const all = letters + digits + special;
+    final rand = Random.secure();
+
+    final chars = <String>[
+      digits[rand.nextInt(digits.length)],
+      special[rand.nextInt(special.length)],
+      ...List.generate(6, (_) => all[rand.nextInt(all.length)]),
+    ];
+    chars.shuffle(rand);
+    return chars.join();
+  }
+
+  /// Create a single user with auto-generated credentials.
+  ///
+  /// Emits [AdminUserCreatedWithCredentials] on success (carries credentials
+  /// for the summary card) or [AdminUserError] on failure.
+  ///
+  /// Because Firebase Auth's [createUserWithEmailAndPassword] signs in the
+  /// new user — logging out the admin — the caller must handle re-login via
+  /// [AdminSessionLost] or equivalent.
+  Future<void> createSingleUser({
+    required String fullName,
+    required String gender,
+    required String userType,
+    String? phone,
+    String? address,
+    String? userClass,
+  }) async {
+    _safeEmit(AdminUserLoading());
+    try {
+      final username = _generateUsername(fullName);
+      final email = '$username@avaabraamchurch.com';
+      final password = _generatePassword();
+
+      final userId = await _adminRepository.createUser(
+        email: email,
+        password: password,
+        userData: {
+          'fullName': fullName,
+          'username': username,
+          'gender': gender,
+          'userType': userType,
+          'userClass': userClass ?? '1',
+          if (phone != null && phone.isNotEmpty) 'phoneNumber': phone,
+          if (address != null && address.isNotEmpty) 'address': address,
+          'couponPoints': 0,
+          'clubCoins': 0,
+          'firstLogin': true,
+          'isAdmin': false,
+          'storeAdmin': false,
+          'isActive': true,
+          'cardStatus': 'active',
+        },
+      );
+
+      _safeEmit(AdminUserCreatedWithCredentials(
+        userId: userId,
+        fullName: fullName,
+        username: username,
+        email: email,
+        password: password,
+        userType: userType,
+      ));
     } catch (e) {
       _safeEmit(AdminUserError(e.toString()));
     }

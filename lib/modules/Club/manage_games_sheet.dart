@@ -1,7 +1,13 @@
+import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
+
 import '../../core/blocs/club/club_cubit.dart';
 import '../../core/models/club/game_model.dart';
+import '../../core/repositories/club_repository.dart';
 import '../../core/utils/gender_enum.dart';
 
 void showManageGamesSheet(BuildContext context, List<GameModel> games) {
@@ -46,7 +52,8 @@ class _ManageGamesSheetState extends State<_ManageGamesSheet> {
       initialData: _cubit.state,
       builder: (context, snapshot) {
         final state = snapshot.data;
-        final currentGames = state is ClubServantLoaded ? state.games : widget.games;
+        final currentGames =
+            state is ClubServantLoaded ? state.games : widget.games;
 
         return DraggableScrollableSheet(
           expand: false,
@@ -71,12 +78,14 @@ class _ManageGamesSheetState extends State<_ManageGamesSheet> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('إدارة الألعاب',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            )),
+                        Text(
+                          'إدارة الألعاب',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         Row(
                           children: [
                             TextButton.icon(
@@ -123,7 +132,8 @@ class _ManageGamesSheetState extends State<_ManageGamesSheet> {
                           final g = currentGames[index];
                           return _GameTile(
                             game: g,
-                            onEdit: () => _showGameForm(context, existingGame: g),
+                            onEdit: () =>
+                                _showGameForm(context, existingGame: g),
                             onDelete: () async {
                               final confirm = await _confirmDialog(
                                 context,
@@ -197,18 +207,22 @@ class _GameFormDialogState extends State<_GameFormDialog> {
   late bool _allowBooking;
   late Gender _gender;
 
+  // ── Image state ────────────────────────────────────────────────────────
+  XFile? _pickedImage;
+  String? _existingImageUrl;
+  bool _imageCleared = false;
+  bool _isUploading = false;
+
   @override
   void initState() {
     super.initState();
-    _nameArCtrl =
-        TextEditingController(text: widget.existingGame?.nameAr ?? '');
-    _nameCtrl = TextEditingController(text: widget.existingGame?.name ?? '');
-    _coinsCtrl = TextEditingController(
-        text: widget.existingGame?.coins.toString() ?? '');
-    _iconCtrl =
-        TextEditingController(text: widget.existingGame?.icon ?? '🎮');
-    _allowBooking = widget.existingGame?.allowBooking ?? false;
-    _gender = widget.existingGame?.gender ?? Gender.male;
+    _nameArCtrl       = TextEditingController(text: widget.existingGame?.nameAr ?? '');
+    _nameCtrl         = TextEditingController(text: widget.existingGame?.name ?? '');
+    _coinsCtrl        = TextEditingController(text: widget.existingGame?.coins.toString() ?? '');
+    _iconCtrl         = TextEditingController(text: widget.existingGame?.icon ?? '🎮');
+    _allowBooking     = widget.existingGame?.allowBooking ?? false;
+    _gender           = widget.existingGame?.gender ?? Gender.male;
+    _existingImageUrl = widget.existingGame?.imageUrl;
   }
 
   @override
@@ -220,8 +234,47 @@ class _GameFormDialogState extends State<_GameFormDialog> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1200,
+    );
+    if (file != null) {
+      setState(() {
+        _pickedImage  = file;
+        _imageCleared = false;
+      });
+    }
+  }
+
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isUploading = true);
+
+    String? finalImageUrl = _imageCleared ? null : _existingImageUrl;
+
+    if (_pickedImage != null) {
+      try {
+        final repo = ClubRepository();
+        final tempId = widget.existingGame?.id ??
+            DateTime.now().millisecondsSinceEpoch.toString();
+        finalImageUrl = await repo.uploadGameImage(
+          gameId: tempId,
+          imageFile: _pickedImage!,
+        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('فشل رفع الصورة: $e')),
+          );
+        }
+        setState(() => _isUploading = false);
+        return;
+      }
+    }
+
     final game = GameModel(
       id: widget.existingGame?.id ?? '',
       nameAr: _nameArCtrl.text.trim(),
@@ -231,108 +284,246 @@ class _GameFormDialogState extends State<_GameFormDialog> {
       icon: _iconCtrl.text.trim(),
       status: widget.existingGame?.status ?? CardStatus.active,
       allowBooking: _allowBooking,
+      imageUrl: finalImageUrl,
     );
+
     final cubit = context.read<ClubCubit>();
     if (widget.existingGame == null) {
       cubit.addGame(game);
     } else {
       cubit.updateGame(game);
     }
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existingGame != null;
+
     return AlertDialog(
       title: Text(isEdit ? 'تعديل اللعبة' : 'إضافة لعبة جديدة'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                SizedBox(
-                  width: 70,
-                  child: TextFormField(
-                    controller: _iconCtrl,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 28),
-                    decoration: const InputDecoration(labelText: 'أيقونة'),
-                    validator: (v) => v!.isEmpty ? 'مطلوب' : null,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _nameArCtrl,
-                    decoration: const InputDecoration(labelText: 'الاسم بالعربية'),
-                    validator: (v) => v!.isEmpty ? 'مطلوب' : null,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: 'الاسم بالإنجليزية'),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<Gender>(
-              initialValue: _gender,
-              decoration: const InputDecoration(labelText: 'النوع'),
-              items: GenderLists.selectable
-                  .map(
-                    (g) => DropdownMenuItem(
-                      value: g,
-                      child: Text(g.label),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Cover image ───────────────────────────────────────────
+              _CoverImagePicker(
+                pickedImage: _pickedImage,
+                existingImageUrl: _imageCleared ? null : _existingImageUrl,
+                onPick: _pickImage,
+                onClear: () => setState(() {
+                  _pickedImage      = null;
+                  _imageCleared     = _existingImageUrl != null;
+                  _existingImageUrl = null;
+                }),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Icon + Arabic name ────────────────────────────────────
+              Row(
+                children: [
+                  SizedBox(
+                    width: 70,
+                    child: TextFormField(
+                      controller: _iconCtrl,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 28),
+                      decoration: const InputDecoration(labelText: 'أيقونة'),
+                      validator: (v) => v!.isEmpty ? 'مطلوب' : null,
                     ),
-                  )
-                  .toList(),
-              onChanged: (val) => setState(() => _gender = val ?? _gender),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _coinsCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                  labelText: 'عدد العملات', suffixText: '🪙'),
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'مطلوب';
-                if (int.tryParse(v) == null) return 'رقم فقط';
-                return null;
-              },
-            ),
-            const SizedBox(height: 4),
-            // ── Allow Booking toggle ──────────────────────────────────────
-            StatefulBuilder(
-              builder: (context, setLocal) => SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('السماح بحجز الدور'),
-                subtitle: const Text(
-                  'الأطفال يمكنهم حجز دورهم عندما تكون اللعبة مشغولة',
-                  style: TextStyle(fontSize: 11),
-                ),
-                value: _allowBooking,
-                onChanged: (val) {
-                  setLocal(() => _allowBooking = val);
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _nameArCtrl,
+                      decoration:
+                          const InputDecoration(labelText: 'الاسم بالعربية'),
+                      validator: (v) => v!.isEmpty ? 'مطلوب' : null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _nameCtrl,
+                decoration:
+                    const InputDecoration(labelText: 'الاسم بالإنجليزية'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<Gender>(
+                value: _gender,
+                decoration: const InputDecoration(labelText: 'النوع'),
+                items: GenderLists.selectable
+                    .map((g) =>
+                        DropdownMenuItem(value: g, child: Text(g.label)))
+                    .toList(),
+                onChanged: (val) => setState(() => _gender = val ?? _gender),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _coinsCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                    labelText: 'عدد العملات', suffixText: '🪙'),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'مطلوب';
+                  if (int.tryParse(v) == null) return 'رقم فقط';
+                  return null;
                 },
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              StatefulBuilder(
+                builder: (context, setLocal) => SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('السماح بحجز الدور'),
+                  subtitle: const Text(
+                    'الأطفال يمكنهم حجز دورهم عندما تكون اللعبة مشغولة',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  value: _allowBooking,
+                  onChanged: (val) => setLocal(() => _allowBooking = val),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: _isUploading ? null : () => Navigator.pop(context),
             child: const Text('إلغاء')),
         FilledButton(
-            onPressed: _submit, child: Text(isEdit ? 'حفظ' : 'إضافة')),
+          onPressed: _isUploading ? null : _submit,
+          child: _isUploading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : Text(isEdit ? 'حفظ' : 'إضافة'),
+        ),
       ],
     );
   }
 }
+
+// ── Cover image picker ────────────────────────────────────────────────────────
+
+class _CoverImagePicker extends StatelessWidget {
+  final XFile? pickedImage;
+  final String? existingImageUrl;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+
+  const _CoverImagePicker({
+    required this.pickedImage,
+    required this.existingImageUrl,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  bool get _hasImage => pickedImage != null || existingImageUrl != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: onPick,
+      child: Container(
+        height: 140,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+          border: Border.all(
+            color: _hasImage
+                ? colorScheme.primary.withOpacity(0.4)
+                : colorScheme.outlineVariant,
+            width: _hasImage ? 2 : 1,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: _hasImage ? _buildPreview() : _buildPlaceholder(colorScheme),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder(ColorScheme colorScheme) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.add_photo_alternate_outlined,
+            size: 36, color: colorScheme.primary.withOpacity(0.6)),
+        const SizedBox(height: 8),
+        Text('إضافة صورة غلاف',
+            style: TextStyle(
+                color: colorScheme.primary.withOpacity(0.7), fontSize: 13)),
+        const SizedBox(height: 2),
+        Text('اختياري — اضغط للاختيار من المعرض',
+            style: TextStyle(
+                color: colorScheme.onSurface.withOpacity(0.4), fontSize: 11)),
+      ],
+    );
+  }
+
+  Widget _buildPreview() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (pickedImage != null)
+          Image.file(File(pickedImage!.path), fit: BoxFit.cover)
+        else if (existingImageUrl != null)
+          CachedNetworkImage(imageUrl: existingImageUrl!, fit: BoxFit.cover),
+
+        // Edit hint
+        Positioned(
+          bottom: 8,
+          left: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.edit_rounded, color: Colors.white, size: 14),
+                SizedBox(width: 4),
+                Text('تغيير',
+                    style: TextStyle(color: Colors.white, fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
+
+        // Clear button
+        Positioned(
+          top: 8,
+          right: 8,
+          child: GestureDetector(
+            onTap: onClear,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.red.shade700,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close_rounded,
+                  color: Colors.white, size: 16),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Game tile ─────────────────────────────────────────────────────────────────
 
 class _GameTile extends StatelessWidget {
   final GameModel game;
@@ -352,29 +543,17 @@ class _GameTile extends StatelessWidget {
     return ListTile(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: colorScheme.outlineVariant.withOpacity(0.4),
-        ),
+        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.4)),
       ),
       tileColor: colorScheme.surface,
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: colorScheme.primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(game.icon, style: const TextStyle(fontSize: 20)),
-      ),
+      leading: _buildLeading(colorScheme),
       title: Text(game.nameAr,
           style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text('+${game.coins} عملة'),
+      subtitle: Text('${game.coins} عملة 🪙'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: onEdit,
-          ),
+          IconButton(icon: const Icon(Icons.edit_outlined), onPressed: onEdit),
           IconButton(
             icon: Icon(Icons.delete_outline, color: colorScheme.error),
             onPressed: onDelete,
@@ -383,4 +562,35 @@ class _GameTile extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildLeading(ColorScheme colorScheme) {
+    if (game.imageUrl != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: CachedNetworkImage(
+          imageUrl: game.imageUrl!,
+          width: 44,
+          height: 44,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => Container(
+            width: 44,
+            height: 44,
+            color: colorScheme.primary.withOpacity(0.1),
+            child: const Icon(Icons.image_outlined, size: 20),
+          ),
+          errorWidget: (_, __, ___) => _iconFallback(colorScheme),
+        ),
+      );
+    }
+    return _iconFallback(colorScheme);
+  }
+
+  Widget _iconFallback(ColorScheme colorScheme) => Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: colorScheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(game.icon, style: const TextStyle(fontSize: 20)),
+      );
 }

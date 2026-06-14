@@ -26,6 +26,26 @@ class AdminUserCreated extends AdminUserState {
   AdminUserCreated(this.userId);
 }
 
+/// Emitted after a single user is created via [AdminUserCubit.createSingleUser].
+/// Carries the auto-generated credentials so the screen can display a summary card.
+class AdminUserCreatedWithCredentials extends AdminUserState {
+  final String userId;
+  final String fullName;
+  final String username;
+  final String email;
+  final String password;
+  final String userType;
+
+  AdminUserCreatedWithCredentials({
+    required this.userId,
+    required this.fullName,
+    required this.username,
+    required this.email,
+    required this.password,
+    required this.userType,
+  });
+}
+
 class AdminUserUpdated extends AdminUserState {}
 
 class AdminUserDeleted extends AdminUserState {}

@@ -10,6 +10,8 @@ import '../../models/user/user_model.dart';
 import '../../repositories/club_repository.dart';
 import '../../services/supabase_end_all_games_service.dart';
 import '../../utils/gender_enum.dart';
+import '../../models/club/club_subscription_info_model.dart';
+import '../../models/club/club_subscription_request_model.dart';
 
 part 'club_state.dart';
 
@@ -19,9 +21,12 @@ class ClubCubit extends Cubit<ClubState> {
   final String userId;
   final Gender userGender;
 
+  // ── Stream subscriptions (BUG 3) ─────────────────────────────────────────
   StreamSubscription? _gamesSub;
   StreamSubscription? _txSub;
   StreamSubscription? _servicesSub;
+  StreamSubscription? _coinsSub; // live child coins
+
   Timer? _autoEndTimer;
 
   List<GameModel> _games = [];
@@ -52,40 +57,60 @@ class ClubCubit extends Cubit<ClubState> {
     } else {
       _initServantStreams();
     }
-    _scheduleAutoEndAtTwoPm();
+    _scheduleOrRunAutoEnd();
   }
 
-  void _scheduleAutoEndAtTwoPm() {
+  // ── BUG 4: auto-end at 14:00 ─────────────────────────────────────────────
+
+  void _scheduleOrRunAutoEnd() {
     _autoEndTimer?.cancel();
     final now = DateTime.now();
     final todayAtTwo = DateTime(now.year, now.month, now.day, 14);
-    final nextRun = now.isAfter(todayAtTwo)
-        ? todayAtTwo.add(const Duration(days: 1))
-        : todayAtTwo;
-    final delay = nextRun.difference(now);
-    _autoEndTimer = Timer(delay, () async {
-      await _endAllGamesAtTwoPm();
-      _scheduleAutoEndAtTwoPm();
-    });
+
+    if (now.isAfter(todayAtTwo) || now.isAtSameMomentAs(todayAtTwo)) {
+      // Already past 14:00 → close immediately.
+      _closeAllGamesNow(showSnackbar: false);
+    } else {
+      final delay = todayAtTwo.difference(now);
+      _autoEndTimer = Timer(delay, () {
+        _closeAllGamesNow(showSnackbar: true);
+        // No reschedule — we only end once per day.
+      });
+    }
   }
 
-  Future<void> _endAllGamesAtTwoPm() async {
+  /// Called from AppLifecycleState.resumed so we re-evaluate the cutoff.
+  void onAppResumed() {
+    _scheduleOrRunAutoEnd();
+  }
+
+  Future<void> _closeAllGamesNow({bool showSnackbar = true}) async {
     try {
       await _endAllGamesService.endAllGames();
     } catch (_) {
       try {
         await _repo.endAllGames();
       } catch (_) {
-        // Keep silent to avoid user-facing errors for a background job.
+        // Silent — background job, don't surface to user.
+        return;
+      }
+    }
+    if (showSnackbar) {
+      emit(ClubActionSuccess('انتهى وقت اللعب لهذا اليوم'));
+      if (_isChild) {
+        _emitChild();
+      } else {
+        _emitServant();
       }
     }
   }
 
-  // ── Child ────────────────────────────────────────────────────────────────
+  // ── Child streams ─────────────────────────────────────────────────────────
 
   void _initChildStreams() {
     emit(ClubLoading());
 
+    // BUG 3: subscribe to games stream
     _gamesSub = _repo
         .gamesStream(genderCode: _genderFilterCode())
         .listen((games) {
@@ -93,8 +118,15 @@ class ClubCubit extends Cubit<ClubState> {
       _emitChild();
     });
 
+    // BUG 3: subscribe to coin transactions
     _txSub = _repo.coinTransactionsStream(userId).listen((txs) {
       _transactions = txs;
+      _emitChild();
+    });
+
+    // BUG 3: live coin balance (so UI updates instantly after deductions)
+    _coinsSub = _repo.childCoinsStream(userId).listen((coins) {
+      _clubCoins = coins;
       _emitChild();
     });
   }
@@ -113,11 +145,12 @@ class ClubCubit extends Cubit<ClubState> {
     if (_isChild) _emitChild();
   }
 
-  // ── Servant ──────────────────────────────────────────────────────────────
+  // ── Servant streams ───────────────────────────────────────────────────────
 
   void _initServantStreams() {
     emit(ClubLoading());
 
+    // BUG 3: subscribe to games stream
     _gamesSub = _repo
         .gamesStream(genderCode: _genderFilterCode())
         .listen((games) {
@@ -125,6 +158,7 @@ class ClubCubit extends Cubit<ClubState> {
       _emitServant();
     });
 
+    // BUG 3: subscribe to attendance services stream
     _servicesSub = _repo.attendanceServicesStream().listen((services) {
       _attendanceServices = services;
       _emitServant();
@@ -142,7 +176,7 @@ class ClubCubit extends Cubit<ClubState> {
     return userGender == Gender.female ? Gender.female.code : null;
   }
 
-  // ── Games management ─────────────────────────────────────────────────────
+  // ── Games management ──────────────────────────────────────────────────────
 
   Future<void> addGame(GameModel game) async {
     try {
@@ -185,17 +219,7 @@ class ClubCubit extends Cubit<ClubState> {
           status: status,
         ),
       );
-
-      final updatedGame = GameModel(
-        id: game.id,
-        nameAr: game.nameAr,
-        name: game.name,
-        gender: game.gender,
-        coins: game.coins,
-        icon: game.icon,
-        status: status,
-      );
-
+      final updatedGame = game.copyWith(status: status);
       await _repo.updateGame(updatedGame);
       final statusText = status == CardStatus.active ? 'تشغيل' : 'إيقاف';
       emit(ClubActionSuccess('تم $statusText ${game.nameAr}'));
@@ -231,7 +255,7 @@ class ClubCubit extends Cubit<ClubState> {
     }
   }
 
-  // ── Play game (servant scans child) ─────────────────────────────────────
+  // ── Play game (servant scans child) ──────────────────────────────────────
 
   Future<void> playGame({
     required String gameId,
@@ -246,9 +270,10 @@ class ClubCubit extends Cubit<ClubState> {
         _emitServant();
         return;
       }
+      // BUG 1: coin validation in cubit layer
       final childCoins = child.clubCoins;
       if (childCoins < gameCoins) {
-        emit(ClubError('رصيد العملات غير كافٍ'));
+        emit(ClubError('رصيد العملات غير كافٍ للحجز'));
         _emitServant();
         return;
       }
@@ -262,7 +287,7 @@ class ClubCubit extends Cubit<ClubState> {
       final displayName = child.fullName.isNotEmpty
           ? child.fullName
           : (child.username.isNotEmpty ? child.username : childShortId);
-      emit(ClubActionSuccess('تم خصم ${gameCoins} عملة من $displayName'));
+      emit(ClubActionSuccess('تم خصم $gameCoins عملة من $displayName'));
       _emitServant();
     } catch (e) {
       emit(ClubError('حدث خطأ: $e'));
@@ -296,6 +321,35 @@ class ClubCubit extends Cubit<ClubState> {
       _emitServant();
     } catch (e) {
       emit(ClubError('فشل إنشاء المباراة: $e'));
+      _emitServant();
+    }
+  }
+
+  Future<void> updateMatch({
+    required String gameId,
+    required GameMatch match,
+  }) async {
+    try {
+      await _repo.updateMatch(gameId: gameId, match: match);
+      emit(ClubActionSuccess('تم تحديث المباراة'));
+      _emitServant();
+    } catch (e) {
+      emit(ClubError('فشل تحديث المباراة: $e'));
+      _emitServant();
+    }
+  }
+
+  /// BUG 2: Delete match with fresh state emit.
+  Future<void> deleteMatch({
+    required String gameId,
+    required String matchId,
+  }) async {
+    try {
+      await _repo.deleteMatch(gameId: gameId, matchId: matchId);
+      emit(ClubActionSuccess('تم حذف المباراة'));
+      _emitServant();
+    } catch (e) {
+      emit(ClubError('فشل حذف المباراة: $e'));
       _emitServant();
     }
   }
@@ -354,9 +408,8 @@ class ClubCubit extends Cubit<ClubState> {
     try {
       final now = DateTime.now();
       final startedAt = match.startedAt;
-      final extra = startedAt == null
-          ? 0
-          : now.difference(startedAt).inSeconds;
+      final extra =
+          startedAt == null ? 0 : now.difference(startedAt).inSeconds;
       final updated = match.copyWith(
         isRunning: false,
         startedAt: null,
@@ -417,7 +470,7 @@ class ClubCubit extends Cubit<ClubState> {
     }
   }
 
-  // ── Booking (child queues for a busy bookable game) ──────────────────────
+  // ── Booking (child queues for a busy bookable game) ───────────────────────
 
   Future<void> bookGame({
     required String gameId,
@@ -453,6 +506,8 @@ class ClubCubit extends Cubit<ClubState> {
       _emitChild();
     }
   }
+
+  // ── Attendance services ───────────────────────────────────────────────────
 
   Future<void> addAttendanceService(AttendanceService service) async {
     try {
@@ -501,11 +556,82 @@ class ClubCubit extends Cubit<ClubState> {
     }
   }
 
+  // ── Club subscription ─────────────────────────────────────────────────────
+
+  Stream<ClubSubscriptionInfo?> clubSubscriptionInfoStream() {
+    return _repo.clubSubscriptionInfoStream();
+  }
+
+  Stream<ClubSubscriptionRequest?> mySubscriptionRequestStream() {
+    return _repo.subscriptionRequestForChild(userId);
+  }
+
+  Stream<List<ClubSubscriptionRequest>> subscriptionRequestsStream({
+    SubscriptionRequestStatus? status,
+  }) {
+    return _repo.subscriptionRequestsStream(status: status);
+  }
+
+  Future<void> updateClubSubscriptionInfo({
+    required String title,
+    required String description,
+  }) async {
+    try {
+      final info = ClubSubscriptionInfo(
+        id: ClubSubscriptionInfo.docId,
+        title: title,
+        description: description,
+        updatedAt: DateTime.now(),
+        updatedBy: userId,
+      );
+      await _repo.upsertClubSubscriptionInfo(info);
+      emit(ClubActionSuccess('تم حفظ معلومات الاشتراك'));
+    } catch (e) {
+      emit(ClubError('فشل حفظ المعلومات: $e'));
+    }
+  }
+
+  Future<bool> submitClubSubscriptionRequest({
+    required UserModel child,
+  }) async {
+    try {
+      final created = await _repo.createSubscriptionRequest(child: child);
+      if (created) {
+        emit(ClubActionSuccess('تم إرسال طلب الاشتراك'));
+      } else {
+        emit(ClubError('لديك طلب اشتراك قائم بالفعل'));
+      }
+      if (_isChild) _emitChild();
+      return created;
+    } catch (e) {
+      emit(ClubError('فشل إرسال الطلب: $e'));
+      if (_isChild) _emitChild();
+      return false;
+    }
+  }
+
+  Future<void> approveClubSubscriptionRequest({
+    required ClubSubscriptionRequest request,
+  }) async {
+    try {
+      await _repo.approveSubscriptionRequest(
+        request: request,
+        approvedBy: userId,
+      );
+      emit(ClubActionSuccess('تمت الموافقة على الطلب'));
+      _emitServant();
+    } catch (e) {
+      emit(ClubError('فشل الموافقة: $e'));
+      _emitServant();
+    }
+  }
+
   @override
   Future<void> close() {
     _gamesSub?.cancel();
     _txSub?.cancel();
     _servicesSub?.cancel();
+    _coinsSub?.cancel();
     _autoEndTimer?.cancel();
     return super.close();
   }

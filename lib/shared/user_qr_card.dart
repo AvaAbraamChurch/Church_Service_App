@@ -29,7 +29,7 @@ class UserQrCard extends StatelessWidget {
 
     // Draw QR code
     final painter = QrPainter(
-      data: uid,
+      data: shortId,
       version: QrVersions.auto,
       errorCorrectionLevel: QrErrorCorrectLevel.M,
       eyeStyle: const QrEyeStyle(

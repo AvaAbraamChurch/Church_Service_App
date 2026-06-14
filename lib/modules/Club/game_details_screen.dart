@@ -1,14 +1,17 @@
 import 'dart:async';
+
 import 'package:church/core/styles/themeScaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../core/blocs/club/booking_queue_cubit.dart';
 import '../../core/blocs/club/club_cubit.dart';
+import '../../core/models/club/game_match_model.dart';
 import '../../core/models/club/game_model.dart';
 import '../../core/models/club/playing_child_model.dart';
-import '../../core/models/club/game_match_model.dart';
 import '../../core/models/user/user_model.dart';
-import 'scan_or_manual_sheet.dart';
 
+/// Matches & Teams screen — redesigned for BUG 2 fix.
 class GameDetailsScreen extends StatefulWidget {
   final GameModel game;
 
@@ -20,89 +23,69 @@ class GameDetailsScreen extends StatefulWidget {
 
 class _GameDetailsScreenState extends State<GameDetailsScreen> {
   late final ClubCubit _cubit;
-  StreamSubscription<ClubState>? _cubitSub;
 
   @override
   void initState() {
     super.initState();
     _cubit = context.read<ClubCubit>();
-    _cubitSub = _cubit.stream.listen((state) {
-      if (state is ClubError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(state.message),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-      if (state is ClubActionSuccess) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(state.message),
-            backgroundColor: Colors.green.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _cubitSub?.cancel();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<ClubState>(
-      stream: _cubit.stream,
-      initialData: _cubit.state,
-      builder: (context, snapshot) {
-        final game = _resolveGame(snapshot.data);
+    // BlocConsumer replaces the old StreamBuilder + _cubitSub combination,
+    // using a single internal subscription for both listening and building.
+    return BlocConsumer<ClubCubit, ClubState>(
+      buildWhen: (prev, curr) =>
+          curr is ClubServantLoaded || curr is ClubLoading,
+      listenWhen: (prev, curr) =>
+          curr is ClubError || curr is ClubActionSuccess,
+      listener: (context, state) {
+        if (state is ClubError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else if (state is ClubActionSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.green.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        final game = _resolveGame(state);
         return ThemedScaffold(
           appBar: AppBar(
-              backgroundColor: Colors.transparent,
-              title: Text(game.nameAr, style: TextStyle(color: Colors.white),), centerTitle: true),
+            backgroundColor: Colors.transparent,
+            title: Text(
+              game.nameAr,
+              style: const TextStyle(color: Colors.white),
+            ),
+            centerTitle: true,
+          ),
           body: SingleChildScrollView(
             child: Column(
               children: [
-                // Game Info Header
                 _GameInfoHeader(game: game),
-                // Playing children
+
+                // Playing children section
                 StreamBuilder<List<PlayingChild>>(
                   stream: _cubit.playingChildrenStream(game.id),
-                  builder: (context, snapshot) {
-                    final children = snapshot.data ?? [];
-                    if (children.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.people_outline,
-                              size: 56,
-                              color: Colors.white.withAlpha(150),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'لا يوجد أطفال يلعبون الآن',
-                              style: TextStyle(
-                                color: Colors.white.withAlpha(150),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
+                  builder: (context, snap) {
+                    final children = snap.data ?? [];
+                    if (children.isEmpty) return const SizedBox.shrink();
                     return Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'الأطفال يلعبون الآن',
                             style: TextStyle(
                               color: Colors.white,
@@ -113,10 +96,8 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
                           ...children.map(
                             (child) => _PlayingChildCard(
                               child: child,
-                              onStop: () => _cubit.removePlayingChild(
-                                gameId: game.id,
-                                childUserId: child.id,
-                              ),
+                              onStop: () =>
+                                  _confirmStopChild(context, game, child),
                             ),
                           ),
                         ],
@@ -124,76 +105,23 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
                     );
                   },
                 ),
-                if (game.allowBooking && game.bookingQueue.isNotEmpty)
-                  _BookingQueueSection(cubit: _cubit, game: game),
+
+                // Matches section
                 _MatchesSection(
                   cubit: _cubit,
                   game: game,
                   onCreate: () => _showCreateMatchDialog(context, game),
-                  onSubmitResult: (match) =>
-                      _showMatchResultDialog(context, game, match),
-                  onToggleTimer: (match) => _toggleMatchTimer(game, match),
-                  onAddTime: (match) => _showAddTimeDialog(context, game, match),
+                  onSubmitResult: (m) =>
+                      _showMatchResultDialog(context, game, m),
+                  onToggleTimer: (m) => _toggleMatchTimer(game, m),
+                  onAddTime: (m) => _showAddTimeDialog(context, game, m),
+                  onEditTeam: (m) => _showEditTeamDialog(context, game, m),
+                  onDeleteMatch: (m) => _confirmDeleteMatch(context, game, m),
                 ),
-                // Action Buttons
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      Text(
-                        'إدارة اللعبة',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: () => _addChildToGame(context, game),
-                          icon: const Icon(Icons.add),
-                          label: const Text('إضافة طفل للعبة'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: () => _finishGame(context, game),
-                          icon: const Icon(Icons.stop_circle_outlined),
-                          label: const Text('إنهاء اللعبة'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            backgroundColor: Colors.orange.shade600,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+
+                const SizedBox(height: 100),
               ],
             ),
-          ),
-          floatingActionButton: FloatingActionButton.extended(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            onPressed: () => _addChildToGame(context, game),
-            icon: const Icon(
-              Icons.qr_code_scanner_rounded,
-              color: Colors.white,
-            ),
-            label: const Text('مسح QR', style: TextStyle(color: Colors.white)),
           ),
         );
       },
@@ -207,74 +135,95 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
         orElse: () => widget.game,
       );
     }
-    if (state is ClubChildLoaded) {
-      return state.games.firstWhere(
-        (g) => g.id == widget.game.id,
-        orElse: () => widget.game,
-      );
-    }
     return widget.game;
   }
 
-  Future<void> _addChildToGame(BuildContext context, GameModel game) async {
-    final shortId = await showScanOrManualInputSheet(
-      context,
-      title: game.nameAr,
-      icon: game.icon,
-      coinsDisplay: '${game.coins} 🪙',
-    );
-
-    if (shortId == null || !context.mounted) return;
-
-    context.read<ClubCubit>().playGame(
-      gameId: game.id,
-      childShortId: shortId,
-      gameCoins: game.coins,
-      gameName: game.nameAr,
-    );
-  }
-
-  void _finishGame(BuildContext context, GameModel game) {
-    showDialog(
+  void _confirmStopChild(
+    BuildContext context,
+    GameModel game,
+    PlayingChild child,
+  ) async {
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('إنهاء اللعبة'),
-        content: Text('هل أنت متأكد من إنهاء ${game.nameAr}؟'),
+        title: const Text('إيقاف اللعب'),
+        content: Text('هل تريد إنهاء لعب ${child.displayName}؟'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('إلغاء'),
           ),
           FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<ClubCubit>().finishGame(game.id);
-            },
-            child: const Text('إنهاء'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('نعم'),
           ),
         ],
       ),
     );
+    if (ok == true && context.mounted) {
+      _cubit.removePlayingChild(gameId: game.id, childUserId: child.id);
+    }
   }
+
+  // ── Match creation ────────────────────────────────────────────────────────
 
   Future<void> _showCreateMatchDialog(
     BuildContext context,
     GameModel game,
   ) async {
-    final cubit = context.read<ClubCubit>();
-    final queueUsers = await cubit.findUsersByIds(game.bookingQueue);
+    final cubit = _cubit;
+
+    // ── Collect available players ──────────────────────────────────────────
+    // Priority: live day-scoped booking queue (from BookingQueueCubit if
+    // navigated from BookingQueueScreen). Falls back to the old static
+    // game.bookingQueue for backward compatibility.
+    List<MatchPlayer> availablePlayers = [];
+    String availableSection = 'قائمة الانتظار اليوم';
+
+    try {
+      final queueCubit = context.read<BookingQueueCubit>();
+      final queueState = queueCubit.state;
+      if (queueState is BookingQueueLoaded) {
+        // Only show children still waiting (not yet played)
+        availablePlayers = queueState.bookingQueue
+            .where((e) => e.status == 'waiting')
+            .map((e) => MatchPlayer(
+                  id: e.childId,
+                  fullName: e.childName,
+                  shortId: e.childShortId,
+                ))
+            .toList();
+      }
+    } catch (_) {
+      // BookingQueueCubit not in context — use the static list
+      final users = await cubit.findUsersByIds(game.bookingQueue);
+      availablePlayers = users
+          .whereType<UserModel>()
+          .map((u) => MatchPlayer(
+                id: u.id,
+                fullName: u.fullName,
+                shortId: u.shortId,
+              ))
+          .toList();
+      availableSection = 'الحجوزات';
+    }
+
+    // Also include children currently playing
     final playingChildren = await cubit.playingChildrenStream(game.id).first;
+    final playingPlayers = playingChildren
+        .map((c) => MatchPlayer(
+              id: c.id,
+              fullName: c.fullName,
+              shortId: c.shortId,
+            ))
+        .toList();
+
     if (!context.mounted) return;
 
-    final sizeCtrl = TextEditingController(text: '1');
-    final durationCtrl = TextEditingController(text: '10');
-    final teamA = <MatchPlayer>[];
-    final teamB = <MatchPlayer>[];
-
-    if (queueUsers.isEmpty && playingChildren.isEmpty) {
+    if (availablePlayers.isEmpty && playingPlayers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('لا توجد قائمة حجز أو أطفال يلعبون الآن'),
+          content: const Text('لا يوجد أطفال في قائمة الانتظار حالياً'),
           backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
         ),
@@ -282,32 +231,58 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
       return;
     }
 
+    final sizeCtrl = TextEditingController(text: '1');
+    final durationCtrl = TextEditingController(text: '10');
+    final nameACtrl = TextEditingController(text: 'الفريق أ');
+    final nameBCtrl = TextEditingController(text: 'الفريق ب');
+    final teamA = <MatchPlayer>[];
+    final teamB = <MatchPlayer>[];
+
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) {
+        builder: (ctx, setDlg) {
           final size = int.tryParse(sizeCtrl.text) ?? 1;
           final canAddA = teamA.length < size;
           final canAddB = teamB.length < size;
 
-          Widget buildTeamList(String title, List<MatchPlayer> players) {
+          Widget buildTeamBox(
+            String title,
+            List<MatchPlayer> players,
+            TextEditingController nameCtrl,
+          ) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                TextFormField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'اسم الفريق',
+                    isDense: true,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 if (players.isEmpty)
-                  Text('لا يوجد لاعبين',
-                      style: TextStyle(color: Colors.grey.shade600)),
+                  const Text(
+                    'لا يوجد لاعبين بعد',
+                    style: TextStyle(fontSize: 12),
+                  ),
                 ...players.map(
                   (p) => ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    title: Text(p.fullName.isEmpty ? p.shortId : p.fullName),
-                    subtitle: Text('الرمز: ${p.shortId}'),
+                    title: Text(
+                      p.fullName.isNotEmpty ? p.fullName : p.shortId,
+                      style: const TextStyle(fontSize: 13),
+                    ),
                     trailing: IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => setState(() => players.remove(p)),
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      onPressed: () => setDlg(() => players.remove(p)),
                     ),
                   ),
                 ),
@@ -315,200 +290,156 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
             );
           }
 
+          /// A single player row showing the child's name with A/B assignment buttons.
+          Widget playerRow(MatchPlayer p) {
+            final label = p.fullName.isNotEmpty ? p.fullName : p.shortId;
+            final alreadyAssigned =
+                teamA.any((x) => x.id == p.id) || teamB.any((x) => x.id == p.id);
+
+            return ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: alreadyAssigned ? Colors.grey : null,
+                  decoration:
+                      alreadyAssigned ? TextDecoration.lineThrough : null,
+                ),
+              ),
+              trailing: alreadyAssigned
+                  ? const Icon(Icons.check_circle_outline,
+                      size: 18, color: Colors.green)
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FilledButton.tonal(
+                          onPressed: canAddA
+                              ? () => setDlg(() => teamA.add(p))
+                              : null,
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                          ),
+                          child: Text(
+                            nameACtrl.text.isEmpty
+                                ? 'أ'
+                                : nameACtrl.text.substring(0, 1),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        FilledButton.tonal(
+                          onPressed: canAddB
+                              ? () => setDlg(() => teamB.add(p))
+                              : null,
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                          ),
+                          child: Text(
+                            nameBCtrl.text.isEmpty
+                                ? 'ب'
+                                : nameBCtrl.text.substring(0, 1),
+                          ),
+                        ),
+                      ],
+                    ),
+            );
+          }
+
           return AlertDialog(
             title: const Text('إنشاء مباراة'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: sizeCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'عدد اللاعبين لكل فريق',
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: durationCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'مدة المباراة بالدقائق',
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'قائمة الحجز (الدور)',
-                      style: TextStyle(color: Colors.grey.shade700),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  if (queueUsers.isEmpty)
-                    Text('لا توجد حجوزات حالياً',
-                        style: TextStyle(color: Colors.grey.shade600)),
-                  ...queueUsers.asMap().entries.map(
-                    (entry) {
-                      final idx = entry.key + 1;
-                      final u = entry.value;
-                      final label = u.fullName.isNotEmpty
-                          ? u.fullName
-                          : u.shortId;
-                      return ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('$idx) $label'),
-                        subtitle: Text('الرمز: ${u.shortId}'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextButton(
-                              onPressed: canAddA
-                                  ? () {
-                                      final player = MatchPlayer(
-                                        id: u.id,
-                                        fullName: u.fullName,
-                                        shortId: u.shortId,
-                                      );
-                                      final exists = teamA.any(
-                                              (p) => p.id == player.id) ||
-                                          teamB.any(
-                                              (p) => p.id == player.id);
-                                      if (!exists) {
-                                        setState(() => teamA.add(player));
-                                      }
-                                    }
-                                  : null,
-                              child: const Text('A'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: sizeCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'لاعبون/فريق',
+                              isDense: true,
                             ),
-                            TextButton(
-                              onPressed: canAddB
-                                  ? () {
-                                      final player = MatchPlayer(
-                                        id: u.id,
-                                        fullName: u.fullName,
-                                        shortId: u.shortId,
-                                      );
-                                      final exists = teamA.any(
-                                              (p) => p.id == player.id) ||
-                                          teamB.any(
-                                              (p) => p.id == player.id);
-                                      if (!exists) {
-                                        setState(() => teamB.add(player));
-                                      }
-                                    }
-                                  : null,
-                              child: const Text('B'),
-                            ),
-                          ],
+                            onChanged: (_) => setDlg(() {}),
+                          ),
                         ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'الأطفال يلعبون الآن',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  if (playingChildren.isEmpty)
-                    Text('لا يوجد أطفال يلعبون الآن',
-                        style: TextStyle(color: Colors.white.withAlpha(150))),
-                  ...playingChildren.map(
-                    (child) {
-                      final label = child.fullName.isNotEmpty
-                          ? child.fullName
-                          : child.shortId;
-                      return ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(label),
-                        subtitle: Text('الرمز: ${child.shortId}'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextButton(
-                              onPressed: canAddA
-                                  ? () {
-                                      final player = MatchPlayer(
-                                        id: child.id,
-                                        fullName: child.fullName,
-                                        shortId: child.shortId,
-                                      );
-                                      final exists = teamA.any(
-                                              (p) => p.id == player.id) ||
-                                          teamB.any(
-                                              (p) => p.id == player.id);
-                                      if (!exists) {
-                                        setState(() => teamA.add(player));
-                                      }
-                                    }
-                                  : null,
-                              child: const Text('A'),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: durationCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'المدة (دقيقة)',
+                              isDense: true,
                             ),
-                            TextButton(
-                              onPressed: canAddB
-                                  ? () {
-                                      final player = MatchPlayer(
-                                        id: child.id,
-                                        fullName: child.fullName,
-                                        shortId: child.shortId,
-                                      );
-                                      final exists = teamA.any(
-                                              (p) => p.id == player.id) ||
-                                          teamB.any(
-                                              (p) => p.id == player.id);
-                                      if (!exists) {
-                                        setState(() => teamB.add(player));
-                                      }
-                                    }
-                                  : null,
-                              child: const Text('B'),
-                            ),
-                          ],
+                          ),
                         ),
-                      );
-                    },
-                  ),
-                  const Divider(height: 24),
-                  buildTeamList('الفريق A', teamA),
-                  const SizedBox(height: 8),
-                  buildTeamList('الفريق B', teamB),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // ── Available players from today's queue ────────────────
+                    if (availablePlayers.isNotEmpty) ...[
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          availableSection,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      ...availablePlayers.map(playerRow),
+                    ],
+                    // ── Children currently playing ──────────────────────────
+                    if (playingPlayers.isNotEmpty) ...[
+                      const Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          'يلعبون الآن',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      ...playingPlayers.map(playerRow),
+                    ],
+                    const Divider(height: 24),
+                    buildTeamBox('الفريق الأول', teamA, nameACtrl),
+                    const SizedBox(height: 12),
+                    buildTeamBox('الفريق الثاني', teamB, nameBCtrl),
+                  ],
+                ),
               ),
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(ctx),
                 child: const Text('إلغاء'),
               ),
               FilledButton(
                 onPressed: () {
                   final size = int.tryParse(sizeCtrl.text) ?? 0;
                   final minutes = int.tryParse(durationCtrl.text) ?? 0;
-                  if (size <= 0 || teamA.length != size || teamB.length != size) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                  if (size <= 0 ||
+                      teamA.length != size ||
+                      teamB.length != size) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
                       SnackBar(
-                        content: const Text(
-                            'تأكد من عدد اللاعبين في كل فريق'),
+                        content: const Text('تأكد من عدد اللاعبين في كل فريق'),
                         backgroundColor: Colors.red.shade700,
-                        behavior: SnackBarBehavior.floating,
                       ),
                     );
                     return;
                   }
                   if (minutes <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    ScaffoldMessenger.of(ctx).showSnackBar(
                       SnackBar(
                         content: const Text('أدخل مدة صحيحة بالدقائق'),
                         backgroundColor: Colors.red.shade700,
-                        behavior: SnackBarBehavior.floating,
                       ),
                     );
                     return;
@@ -521,12 +452,17 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
                     elapsedSeconds: 0,
                     isRunning: false,
                     startedAt: null,
-                    teamA: List<MatchPlayer>.from(teamA),
-                    teamB: List<MatchPlayer>.from(teamB),
-                    status: MatchStatus.pending,
+                    teamA: List.from(teamA),
+                    teamB: List.from(teamB),
+                    nameA: nameACtrl.text.trim().isEmpty
+                        ? 'الفريق أ'
+                        : nameACtrl.text.trim(),
+                    nameB: nameBCtrl.text.trim().isEmpty
+                        ? 'الفريق ب'
+                        : nameBCtrl.text.trim(),
                   );
                   cubit.createMatch(gameId: game.id, match: match);
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                 },
                 child: const Text('إنشاء'),
               ),
@@ -537,13 +473,203 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
     );
   }
 
+  // ── BUG 2: Edit team dialog ───────────────────────────────────────────────
+
+  Future<void> _showEditTeamDialog(
+    BuildContext context,
+    GameModel game,
+    GameMatch match,
+  ) async {
+    final nameACtrl = TextEditingController(text: match.nameA);
+    final nameBCtrl = TextEditingController(text: match.nameB);
+    List<MatchPlayer> teamA = List.from(match.teamA);
+    List<MatchPlayer> teamB = List.from(match.teamB);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) {
+          Widget teamSection(
+            String label,
+            TextEditingController ctrl,
+            List<MatchPlayer> team,
+            List<MatchPlayer> other,
+          ) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                TextFormField(
+                  controller: ctrl,
+                  decoration: const InputDecoration(
+                    labelText: 'اسم الفريق',
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ...team.asMap().entries.map((e) {
+                  final player = e.value;
+                  final label = player.fullName.isNotEmpty
+                      ? player.fullName
+                      : player.shortId;
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      Icons.person_outline,
+                      color: Theme.of(ctx).colorScheme.primary,
+                    ),
+                    title: Text(label, style: const TextStyle(fontSize: 13)),
+                    trailing: IconButton(
+                      icon: const Icon(
+                        Icons.remove_circle_outline,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                      tooltip: 'إزالة اللاعب',
+                      onPressed: () async {
+                        // BUG 2: Confirmation dialog for player removal
+                        final ok = await showDialog<bool>(
+                          context: ctx,
+                          builder: (c2) => AlertDialog(
+                            title: const Text('إزالة اللاعب'),
+                            content: Text(
+                              'هل تريد إزالة هذا اللاعب من الفريق؟\n$label',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(c2, false),
+                                child: const Text('إلغاء'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(c2, true),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.red.shade700,
+                                ),
+                                child: const Text('إزالة'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (ok == true) setDlg(() => team.remove(player));
+                      },
+                    ),
+                    // Move to other team button
+                    subtitle: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () {
+                        setDlg(() {
+                          team.remove(player);
+                          other.add(player);
+                        });
+                      },
+                      child: Text(
+                        'نقل إلى ${ctrl == nameACtrl ? nameBCtrl.text : nameACtrl.text}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            );
+          }
+
+          return AlertDialog(
+            title: const Text('تعديل الفرق'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    teamSection('الفريق الأول', nameACtrl, teamA, teamB),
+                    const Divider(height: 20),
+                    teamSection('الفريق الثاني', nameBCtrl, teamB, teamA),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إلغاء'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final updated = match.copyWith(
+                    teamA: teamA,
+                    teamB: teamB,
+                    nameA: nameACtrl.text.trim().isEmpty
+                        ? 'الفريق أ'
+                        : nameACtrl.text.trim(),
+                    nameB: nameBCtrl.text.trim().isEmpty
+                        ? 'الفريق ب'
+                        : nameBCtrl.text.trim(),
+                    updatedAt: DateTime.now(),
+                  );
+                  _cubit.updateMatch(gameId: game.id, match: updated);
+                  Navigator.pop(ctx);
+                },
+                child: const Text('حفظ التعديلات'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ── BUG 2: Delete match with confirmation ─────────────────────────────────
+
+  Future<void> _confirmDeleteMatch(
+    BuildContext context,
+    GameModel game,
+    GameMatch match,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حذف المباراة'),
+        content: const Text('هل أنت متأكد من حذف هذه المباراة؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && context.mounted) {
+      _cubit.deleteMatch(gameId: game.id, matchId: match.id);
+    }
+  }
+
+  // ── Match result dialog ───────────────────────────────────────────────────
+
   Future<void> _showMatchResultDialog(
     BuildContext context,
     GameModel game,
     GameMatch match,
   ) async {
-    final scoreACtrl = TextEditingController();
-    final scoreBCtrl = TextEditingController();
+    final scoreACtrl = TextEditingController(
+      text: match.scoreA != null ? '${match.scoreA}' : '',
+    );
+    final scoreBCtrl = TextEditingController(
+      text: match.scoreB != null ? '${match.scoreB}' : '',
+    );
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -554,33 +680,33 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
             TextFormField(
               controller: scoreACtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'نتيجة الفريق A'),
+              decoration: InputDecoration(labelText: 'نتيجة ${match.nameA}'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: scoreBCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'نتيجة الفريق B'),
+              decoration: InputDecoration(labelText: 'نتيجة ${match.nameB}'),
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('إلغاء'),
           ),
           FilledButton(
             onPressed: () {
-              final scoreA = int.tryParse(scoreACtrl.text) ?? -1;
-              final scoreB = int.tryParse(scoreBCtrl.text) ?? -1;
-              if (scoreA < 0 || scoreB < 0) return;
+              final sA = int.tryParse(scoreACtrl.text) ?? -1;
+              final sB = int.tryParse(scoreBCtrl.text) ?? -1;
+              if (sA < 0 || sB < 0) return;
               _cubit.submitMatchResult(
                 gameId: game.id,
                 match: match,
-                scoreA: scoreA,
-                scoreB: scoreB,
+                scoreA: sA,
+                scoreB: sB,
               );
-              Navigator.pop(context);
+              Navigator.pop(ctx);
             },
             child: const Text('حفظ'),
           ),
@@ -594,31 +720,31 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
     GameModel game,
     GameMatch match,
   ) async {
-    final minutesCtrl = TextEditingController(text: '1');
+    final ctrl = TextEditingController(text: '1');
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('إضافة وقت'),
         content: TextFormField(
-          controller: minutesCtrl,
+          controller: ctrl,
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'دقائق إضافية'),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('إلغاء'),
           ),
           FilledButton(
             onPressed: () {
-              final minutes = int.tryParse(minutesCtrl.text) ?? 0;
-              if (minutes <= 0) return;
+              final m = int.tryParse(ctrl.text) ?? 0;
+              if (m <= 0) return;
               _cubit.addMatchExtraTime(
                 gameId: game.id,
                 match: match,
-                extraSeconds: minutes * 60,
+                extraSeconds: m * 60,
               );
-              Navigator.pop(context);
+              Navigator.pop(ctx);
             },
             child: const Text('إضافة'),
           ),
@@ -636,63 +762,7 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
   }
 }
 
-class _BookingQueueSection extends StatelessWidget {
-  final ClubCubit cubit;
-  final GameModel game;
-
-  const _BookingQueueSection({required this.cubit, required this.game});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant.withAlpha(128),
-          ),
-        ),
-        child: FutureBuilder<List<dynamic>>(
-          future: cubit.findUsersByIds(game.bookingQueue),
-          builder: (context, snapshot) {
-            final users = snapshot.data ?? [];
-            if (users.isEmpty) {
-              return const Text('لا توجد حجوزات حالياً');
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('الدور القادم',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                ...users.asMap().entries.map((entry) {
-                  final idx = entry.key + 1;
-                  final u = entry.value;
-                  final label = u.fullName.isNotEmpty ? u.fullName : u.shortId;
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundColor: idx == 1
-                          ? Colors.green.withOpacity(0.15)
-                          : Colors.transparent,
-                      child: Text(idx.toString()),
-                    ),
-                    title: Text(label),
-                    subtitle: Text('الرمز: ${u.shortId}'),
-                  );
-                }),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
+// ── Matches section ───────────────────────────────────────────────────────────
 
 class _MatchesSection extends StatelessWidget {
   final ClubCubit cubit;
@@ -701,6 +771,8 @@ class _MatchesSection extends StatelessWidget {
   final ValueChanged<GameMatch> onSubmitResult;
   final ValueChanged<GameMatch> onToggleTimer;
   final ValueChanged<GameMatch> onAddTime;
+  final ValueChanged<GameMatch> onEditTeam;
+  final ValueChanged<GameMatch> onDeleteMatch;
 
   const _MatchesSection({
     required this.cubit,
@@ -709,19 +781,23 @@ class _MatchesSection extends StatelessWidget {
     required this.onSubmitResult,
     required this.onToggleTimer,
     required this.onAddTime,
+    required this.onEditTeam,
+    required this.onDeleteMatch,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          color: colorScheme.surface.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant.withAlpha(128),
+            color: colorScheme.outlineVariant.withOpacity(0.5),
           ),
         ),
         child: Column(
@@ -730,31 +806,49 @@ class _MatchesSection extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('المباريات',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'المباريات والفرق',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.white,
+                  ),
+                ),
                 FilledButton.tonal(
                   onPressed: onCreate,
                   child: const Text('إنشاء مباراة'),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             StreamBuilder<List<GameMatch>>(
               stream: cubit.matchesStream(game.id),
-              builder: (context, snapshot) {
-                final matches = snapshot.data ?? [];
+              builder: (context, snap) {
+                final matches = snap.data ?? [];
                 if (matches.isEmpty) {
-                  return const Text('لا توجد مباريات');
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(
+                      child: Text(
+                        'لا توجد مباريات بعد',
+                        style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                      ),
+                    ),
+                  );
                 }
                 return Column(
-                  children: matches.map((m) {
-                    return _MatchCard(
-                      match: m,
-                      onSubmitResult: onSubmitResult,
-                      onToggleTimer: onToggleTimer,
-                      onAddTime: onAddTime,
-                    );
-                  }).toList(),
+                  children: matches
+                      .map(
+                        (m) => _MatchCard(
+                          match: m,
+                          onSubmitResult: onSubmitResult,
+                          onToggleTimer: onToggleTimer,
+                          onAddTime: onAddTime,
+                          onEditTeam: onEditTeam,
+                          onDeleteMatch: onDeleteMatch,
+                        ),
+                      )
+                      .toList(),
                 );
               },
             ),
@@ -765,17 +859,23 @@ class _MatchesSection extends StatelessWidget {
   }
 }
 
+// ── Match card ────────────────────────────────────────────────────────────────
+
 class _MatchCard extends StatefulWidget {
   final GameMatch match;
   final ValueChanged<GameMatch> onSubmitResult;
   final ValueChanged<GameMatch> onToggleTimer;
   final ValueChanged<GameMatch> onAddTime;
+  final ValueChanged<GameMatch> onEditTeam;
+  final ValueChanged<GameMatch> onDeleteMatch;
 
   const _MatchCard({
     required this.match,
     required this.onSubmitResult,
     required this.onToggleTimer,
     required this.onAddTime,
+    required this.onEditTeam,
+    required this.onDeleteMatch,
   });
 
   @override
@@ -816,82 +916,215 @@ class _MatchCardState extends State<_MatchCard> {
   }
 
   int _effectiveElapsedSeconds() {
-    final match = widget.match;
-    if (!match.isRunning || match.startedAt == null) return match.elapsedSeconds;
-    final extra = DateTime.now().difference(match.startedAt!).inSeconds;
-    return match.elapsedSeconds + extra;
+    final m = widget.match;
+    if (!m.isRunning || m.startedAt == null) return m.elapsedSeconds;
+    return m.elapsedSeconds + DateTime.now().difference(m.startedAt!).inSeconds;
   }
 
-  String _formatDuration(Duration duration) {
-    final totalSeconds = duration.inSeconds.clamp(0, 999999);
-    final minutes = (totalSeconds ~/ 60).toString().padLeft(2, '0');
-    final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
+  String _fmt(int seconds) {
+    final s = seconds.clamp(0, 999999);
+    return '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
     final match = widget.match;
     final isFinished = match.status == MatchStatus.finished;
-    final scoreText = isFinished
-        ? '${match.scoreA ?? 0} - ${match.scoreB ?? 0}'
-        : 'قيد اللعب';
     final elapsed = _effectiveElapsedSeconds();
-    final total = match.durationSeconds;
-    final remaining = (total - elapsed).clamp(0, total);
+    final remaining = (match.durationSeconds - elapsed).clamp(
+      0,
+      match.durationSeconds,
+    );
 
-    String teamLabel(List<MatchPlayer> team) {
-      return team
-          .map((p) => p.fullName.isNotEmpty ? p.fullName : p.shortId)
-          .join(' • ');
-    }
+    String teamLabel(List<MatchPlayer> team) => team
+        .map((p) => p.fullName.isNotEmpty ? p.fullName : p.shortId)
+        .join(' · ');
 
-    return Card(
-      color: Colors.transparent,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('A: ${teamLabel(match.teamA)}'),
-            const SizedBox(height: 4),
-            Text('B: ${teamLabel(match.teamB)}'),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(scoreText),
-                if (!isFinished)
-                  TextButton(
-                    onPressed: () => widget.onSubmitResult(match),
-                    child: const Text('إدخال النتيجة'),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Team display (two-column) ─────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      match.nameA,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      teamLabel(match.teamA),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: isFinished
+                      ? Colors.green.withOpacity(0.15)
+                      : Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  isFinished
+                      ? '${match.scoreA ?? 0} - ${match.scoreB ?? 0}'
+                      : _fmt(elapsed),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
-              ],
-            ),
-            const Divider(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('الوقت: ${_formatDuration(Duration(seconds: elapsed))}'),
-                Text('المتبقي: ${_formatDuration(Duration(seconds: remaining))}'),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                FilledButton.tonal(
-                  onPressed: isFinished
-                      ? null
-                      : () => widget.onToggleTimer(match),
-                  child: Text(match.isRunning ? 'إيقاف' : 'بدء'),
                 ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: isFinished ? null : () => widget.onAddTime(match),
-                  child: const Text('إضافة وقت'),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      match.nameB,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      teamLabel(match.teamB),
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          if (!isFinished) ...[
+            const SizedBox(height: 4),
+            Text(
+              'المتبقي: ${_fmt(remaining)}',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: 11,
+              ),
+            ),
+          ],
+
+          const Divider(height: 16, color: Colors.white24),
+
+          // ── Action buttons ────────────────────────────────────────────
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              if (!isFinished) ...[
+                _ActionChip(
+                  label: match.isRunning ? 'إيقاف' : 'بدء',
+                  icon: match.isRunning
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  onTap: () => widget.onToggleTimer(match),
+                ),
+                _ActionChip(
+                  label: 'إضافة وقت',
+                  icon: Icons.more_time_rounded,
+                  onTap: () => widget.onAddTime(match),
+                ),
+                _ActionChip(
+                  label: 'إدخال النتيجة',
+                  icon: Icons.scoreboard_outlined,
+                  onTap: () => widget.onSubmitResult(match),
+                  color: Colors.green,
                 ),
               ],
+              // BUG 2: Edit teams button (always visible for pending matches)
+              if (!isFinished)
+                _ActionChip(
+                  label: 'تعديل الفرق',
+                  icon: Icons.group_outlined,
+                  onTap: () => widget.onEditTeam(match),
+                  color: Colors.blue,
+                ),
+              // BUG 2: Delete match
+              _ActionChip(
+                label: 'حذف',
+                icon: Icons.delete_outline_rounded,
+                onTap: () => widget.onDeleteMatch(match),
+                color: Colors.red,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color? color;
+
+  const _ActionChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? Colors.white;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: c.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: c.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: c.withOpacity(0.9)),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: c.withOpacity(0.9),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -900,28 +1133,34 @@ class _MatchCardState extends State<_MatchCard> {
   }
 }
 
+// ── Game info header ──────────────────────────────────────────────────────────
+
 class _GameInfoHeader extends StatelessWidget {
   final GameModel game;
-
   const _GameInfoHeader({required this.game});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isEnded = game.isEnded;
 
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [colorScheme.primary, colorScheme.primary.withAlpha(191)],
+          colors: isEnded
+              ? [Colors.grey.shade700, Colors.grey.shade500]
+              : [colorScheme.primary, colorScheme.primary.withOpacity(0.7)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.primary.withAlpha(38),
+            color: (isEnded ? Colors.grey : colorScheme.primary).withOpacity(
+              0.3,
+            ),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -931,7 +1170,6 @@ class _GameInfoHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(game.icon, style: const TextStyle(fontSize: 48)),
               const SizedBox(width: 12),
@@ -948,79 +1186,71 @@ class _GameInfoHeader extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      game.name,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withAlpha(204),
+                    if (game.name.isNotEmpty)
+                      Text(
+                        game.name,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.75),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(26),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('🪙', style: TextStyle(fontSize: 18)),
-                const SizedBox(width: 6),
-                Text(
-                  '${game.coins} عملة',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: game.status == CardStatus.active
-                  ? Colors.greenAccent.withAlpha(51)
-                  : Colors.orangeAccent.withAlpha(51),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  game.status == CardStatus.active
-                      ? Icons.check_circle
-                      : Icons.pause_circle,
-                  size: 16,
-                  color: game.status == CardStatus.active
-                      ? Colors.greenAccent
-                      : Colors.orangeAccent,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  game.status == CardStatus.active ? 'نشط' : 'غير نشط',
-                  style: TextStyle(
-                    color: game.status == CardStatus.active
-                        ? Colors.greenAccent
-                        : Colors.orangeAccent,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+          Row(
+            children: [
+              _InfoChip(label: '🪙 ${game.coinCost} عملة', color: Colors.amber),
+              const SizedBox(width: 8),
+              _InfoChip(
+                label: isEnded
+                    ? 'انتهى'
+                    : game.status == CardStatus.busy
+                    ? 'مشغول'
+                    : 'نشط',
+                color: isEnded
+                    ? Colors.red.shade300
+                    : game.status == CardStatus.busy
+                    ? Colors.orangeAccent
+                    : Colors.greenAccent,
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 }
+
+class _InfoChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _InfoChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Playing child card ────────────────────────────────────────────────────────
 
 class _PlayingChildCard extends StatelessWidget {
   final PlayingChild child;
@@ -1037,57 +1267,42 @@ class _PlayingChildCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outlineVariant.withAlpha(128)),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.5)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(10),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withAlpha(26),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.person, color: colorScheme.primary, size: 22),
+      child: ListTile(
+        leading: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  child.fullName,
-                  style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'الرمز: ${child.shortId}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withAlpha(128),
-                  ),
-                ),
-              ],
-            ),
+          child: Icon(Icons.person, color: colorScheme.primary, size: 22),
+        ),
+        title: Text(
+          child.displayName,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          'الرمز: ${child.shortId}',
+          style: TextStyle(
+            color: colorScheme.onSurface.withOpacity(0.55),
+            fontSize: 12,
           ),
-          IconButton(
-            icon: Icon(Icons.close_rounded, color: colorScheme.error, size: 20),
-            onPressed: onStop,
-            iconSize: 20,
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            padding: EdgeInsets.zero,
-          ),
-        ],
+        ),
+        trailing: IconButton(
+          icon: Icon(Icons.close_rounded, color: colorScheme.error, size: 20),
+          onPressed: onStop,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          padding: EdgeInsets.zero,
+        ),
       ),
     );
   }

@@ -134,7 +134,7 @@ class _ServantViewState extends State<ServantView>
     }
 
     final pointsController = TextEditingController();
-    final reasonController = TextEditingController(text: 'تعديل يدوي');
+    final reasonController = TextEditingController(text: 'تعديل نقاط الحضور');
 
     showDialog(
       context: context,

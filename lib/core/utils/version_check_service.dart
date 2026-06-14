@@ -38,10 +38,12 @@ class VersionCheckService {
     try {
       final url =
           '$_githubApiUrl/$_githubUsername/$_repositoryName/releases/latest';
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Accept': 'application/vnd.github.v3+json'},
-      );
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: {'Accept': 'application/vnd.github.v3+json'},
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

@@ -38,6 +38,11 @@ class GameMatch {
   final DateTime? startedAt;
   final List<MatchPlayer> teamA;
   final List<MatchPlayer> teamB;
+
+  /// Editable team names — defaults to "الفريق أ" / "الفريق ب"
+  final String nameA;
+  final String nameB;
+
   final MatchStatus status;
   final int? scoreA;
   final int? scoreB;
@@ -54,6 +59,8 @@ class GameMatch {
     required this.startedAt,
     required this.teamA,
     required this.teamB,
+    this.nameA = 'الفريق أ',
+    this.nameB = 'الفريق ب',
     this.status = MatchStatus.pending,
     this.scoreA,
     this.scoreB,
@@ -80,6 +87,8 @@ class GameMatch {
       teamB: (data['teamB'] as List<dynamic>? ?? [])
           .map((p) => MatchPlayer.fromMap(Map<String, dynamic>.from(p)))
           .toList(),
+      nameA: (data['nameA'] as String?) ?? 'الفريق أ',
+      nameB: (data['nameB'] as String?) ?? 'الفريق ب',
       status: (data['status'] == 'finished')
           ? MatchStatus.finished
           : MatchStatus.pending,
@@ -99,6 +108,8 @@ class GameMatch {
         if (startedAt != null) 'startedAt': Timestamp.fromDate(startedAt!),
         'teamA': teamA.map((p) => p.toMap()).toList(),
         'teamB': teamB.map((p) => p.toMap()).toList(),
+        'nameA': nameA,
+        'nameB': nameB,
         'status': status == MatchStatus.finished ? 'finished' : 'pending',
         if (scoreA != null) 'scoreA': scoreA,
         if (scoreB != null) 'scoreB': scoreB,
@@ -116,6 +127,8 @@ class GameMatch {
     DateTime? startedAt,
     List<MatchPlayer>? teamA,
     List<MatchPlayer>? teamB,
+    String? nameA,
+    String? nameB,
     MatchStatus? status,
     int? scoreA,
     int? scoreB,
@@ -132,6 +145,8 @@ class GameMatch {
       startedAt: startedAt ?? this.startedAt,
       teamA: teamA ?? this.teamA,
       teamB: teamB ?? this.teamB,
+      nameA: nameA ?? this.nameA,
+      nameB: nameB ?? this.nameB,
       status: status ?? this.status,
       scoreA: scoreA ?? this.scoreA,
       scoreB: scoreB ?? this.scoreB,

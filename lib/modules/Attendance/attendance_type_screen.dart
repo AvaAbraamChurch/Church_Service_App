@@ -119,7 +119,7 @@ class _AttendanceTypeScreenState extends State<AttendanceTypeScreen> {
     if (!_canEditPoints || user.userType.code != UserType.child.code) return;
 
     final pointsCtrl = TextEditingController();
-    final reasonCtrl = TextEditingController(text: 'تعديل يدوي');
+    final reasonCtrl = TextEditingController(text: 'تعديل نقاط الحضور');
 
     showDialog(
       context: context,

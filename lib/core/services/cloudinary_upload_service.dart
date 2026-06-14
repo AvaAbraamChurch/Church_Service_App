@@ -70,6 +70,19 @@ class CloudinaryUploadService {
     );
   }
 
+  /// Upload a game cover image.
+  ///
+  /// [gameId] is used as the stable public ID so re-uploading a cover for the
+  /// same game overwrites the previous file instead of orphaning it.
+  Future<String> uploadGameCoverImage(File imageFile, String gameId) {
+    return _uploadImageBytes(
+      bytes: imageFile.readAsBytesSync(),
+      filename: 'game_cover_$gameId.jpg',
+      folder: '$_baseFolder/game_covers',
+      publicId: 'game_covers/game_cover_$gameId',
+    );
+  }
+
   /// Upload a user profile photo.
   ///
   /// [userId] is used as the public ID so repeated uploads overwrite the

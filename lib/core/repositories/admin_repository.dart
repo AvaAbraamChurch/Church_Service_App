@@ -93,39 +93,45 @@ class AdminRepository {
   }
 
   /// Create a new user (with authentication)
+  ///
+  /// Creates a Firebase Auth account then writes the Firestore document.
+  /// If the Firestore write fails the Auth account is deleted (rollback) to
+  /// avoid orphaned auth-only users.
   Future<String> createUser({
     required String email,
     required String password,
     required Map<String, dynamic> userData,
   }) async {
+    // Note: createUserWithEmailAndPassword signs in the new user, logging out the admin.
+    final userCredential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    final userId = userCredential.user!.uid;
+
     try {
-      // Note: This will automatically sign in the new user, logging out the admin
-      final userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      final userId = userCredential.user!.uid;
-
-      // Add user data to Firestore
+      // Write Firestore document at users/{uid}
       await _firestore.collection('users').doc(userId).set({
         ...userData,
-        // Ensure we persist userClass instead of legacy 'class'
         if (userData.containsKey('class') && !userData.containsKey('userClass'))
           'userClass': userData['class'],
         'email': email,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-
-      // Sign out the newly created user
-      await _auth.signOut();
-
-      // Return userId - admin needs to re-login
-      return userId;
-    } catch (e) {
-      throw Exception('Error creating user: $e');
+    } catch (firestoreError) {
+      // Rollback: delete the Auth user so we don't leave an orphaned account
+      try {
+        await _auth.currentUser?.delete();
+      } catch (_) { /* rollback best-effort */ }
+      throw Exception('حدث خطأ أثناء حفظ بيانات المستخدم، يرجى المحاولة مجدداً');
     }
+
+    // Sign out the newly created user so admin can re-login
+    await _auth.signOut();
+
+    return userId;
   }
 
   /// Update user data

@@ -26,6 +26,8 @@ import 'core/services/points_sync_service.dart';
 import 'core/utils/notification_service.dart'; // ✅ Your updated service
 import 'firebase_options.dart';
 import 'shared/bloc_observer.dart';
+import 'core/services/club_cache_service.dart';
+import 'core/services/connectivity_service.dart';
 
 // ============ NotificationService Singleton ============
 NotificationService? _notificationServiceInstance;
@@ -90,32 +92,66 @@ Future<void> showLocalNotification(RemoteMessage message) async {
 }
 
 // ============ FCM Token Registration Helper ============
-Future<void> registerTokenToFirestore(String uid, String? token) async {
-  if (token == null || token.isEmpty) {
-    // ignore: avoid_print
-    print('⚠️ FCM token is null or empty — skipping registration');
-    return;
-  }
 
-  // ignore: avoid_print
-  print('📱 FCM device token for $uid: $token');
+/// Writes [token] to `users/{uid}` only when it differs from the stored value.
+/// This means a fresh install (new token) triggers one write; subsequent
+/// cold-starts with the same token are no-ops.
+Future<void> registerTokenToFirestore(String uid, String? token) async {
+  if (token == null || token.isEmpty) return;
 
   try {
     final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
 
-    // Store the latest token for this user
+    // Read from cache first to avoid a network round-trip on every launch.
+    String? storedToken;
+    try {
+      final cached = await userRef.get(const GetOptions(source: Source.cache));
+      storedToken = cached.data()?['fcmToken'] as String?;
+    } catch (_) { /* cache miss — will write below */ }
+
+    if (storedToken == token) {
+      // Token unchanged — no write needed.
+      return;
+    }
+
+    // Token is new or changed — write and collapse any duplicate entries.
     await userRef.set({
-      'fcmToken': token, // ✅ correct name
-      'fcmTokens': FieldValue.arrayUnion([token]), // ✅ correct type (array)
+      'fcmToken': token,
+      'fcmTokens': [token], // replace array with only the current token
       'fcmTokenLastUpdated': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    // ignore: avoid_print
-    print('✅ FCM token registered for user $uid');
     debugPrint('✅ FCM token registered for user $uid');
   } catch (e) {
-    // ignore: avoid_print
-    print('❌ Failed to register FCM token: $e');
+    debugPrint('❌ Failed to register FCM token: $e');
+  }
+}
+
+/// Removes duplicate / stale entries from `fcmTokens`, keeping only the
+/// current `fcmToken`. Call this once after sign-in to clean up old arrays.
+Future<void> cleanupFcmTokens(String uid) async {
+  try {
+    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+    final doc = await userRef.get(const GetOptions(source: Source.cache))
+        .catchError((_) => userRef.get());
+
+    final data = doc.data();
+    if (data == null) return;
+
+    final current = data['fcmToken'] as String?;
+    final tokens = data['fcmTokens'];
+
+    // Nothing to clean up if the array is already correct.
+    if (current == null) return;
+    if (tokens is List && tokens.length == 1 && tokens.first == current) return;
+
+    await userRef.update({
+      'fcmTokens': [current],
+    });
+
+    debugPrint('✅ FCM tokens deduplicated for user $uid');
+  } catch (e) {
+    debugPrint('❌ cleanupFcmTokens error: $e');
   }
 }
 
@@ -240,13 +276,30 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // 1. Register token when app starts (if user is signed in)
+  // ── Firestore offline persistence ─────────────────────────────────────────
+  // Must be set before any Firestore read/write.
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
+
+  // ── Connectivity & children cache ─────────────────────────────────────────
+  await ConnectivityService().initialize();
+  unawaited(ClubCacheService().preloadChildren());
+
+  // 1. Register token when app starts (if user is signed in).
+  // getToken() requires network — wrap with a timeout so offline startup
+  // is never blocked. Registration is fire-and-forget (unawaited).
   final currentUid = FirebaseAuth.instance.currentUser?.uid;
   if (currentUid != null) {
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token != null) {
-      await registerTokenToFirestore(currentUid, token);
-    }
+    unawaited(() async {
+      try {
+        final token = await FirebaseMessaging.instance
+            .getToken()
+            .timeout(const Duration(seconds: 5));
+        if (token != null) await registerTokenToFirestore(currentUid, token);
+      } catch (_) { /* no network — skip token registration at startup */ }
+    }());
   }
 
   // ============ Mobile-Only Initialization ============
@@ -266,9 +319,14 @@ void main() async {
     // 3. Re-register token when user signs in (handles token changes during session)
     FirebaseAuth.instance.authStateChanges().listen((User? user) async {
       if (user != null) {
-        final token = await FirebaseMessaging.instance.getToken();
+        final token = await FirebaseMessaging.instance
+            .getToken()
+            .timeout(const Duration(seconds: 5))
+            .catchError((_) => null);
         if (token != null) {
           await registerTokenToFirestore(user.uid, token);
+          // Clean up any stale duplicate tokens left from previous installs.
+          unawaited(cleanupFcmTokens(user.uid));
         }
       }
     });
@@ -322,19 +380,7 @@ void main() async {
       print(st);
     }
 
-    // Register current token if user signed in
-    if (currentUid != null) {
-      final token = await FirebaseMessaging.instance.getToken();
-      await registerTokenToFirestore(currentUid, token);
-    }
-
-    // Listen for token refresh
-    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid != null) {
-        await registerTokenToFirestore(uid, newToken);
-      }
-    });
+    // (Token already registered above at startup — no duplicate call needed.)
 
     // Request iOS permissions
     await FirebaseMessaging.instance.requestPermission(
@@ -445,6 +491,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final PointsSyncService _syncService = PointsSyncService();
   bool _hasShownSyncNotification = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   @override
   void initState() {
@@ -454,14 +501,25 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    super.dispose();
+  }
+
   void _setupConnectivityListener() {
-    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) async {
+    // Store the subscription so it can be cancelled in dispose().
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) async {
       final isOnline = results.contains(ConnectivityResult.mobile) ||
           results.contains(ConnectivityResult.wifi) ||
           results.contains(ConnectivityResult.ethernet);
 
       if (isOnline) {
         await Future.delayed(const Duration(seconds: 2)); // Stabilize connection
+
+        // Re-warm Firestore children cache now that we're online.
+        ClubCacheService().invalidate();
+        unawaited(ClubCacheService().preloadChildren());
 
         final pendingCount = LocalPointsRepository().getPendingCount();
         if (pendingCount > 0) {
@@ -473,7 +531,7 @@ class _MyAppState extends State<MyApp> {
           }
         }
       }
-    });
+    });  // end _connectivitySub
   }
 
   @override

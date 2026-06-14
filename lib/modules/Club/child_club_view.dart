@@ -5,6 +5,7 @@ import '../../core/models/user/user_model.dart';
 import 'coin_history_screen.dart';
 import 'game_card.dart';
 import 'dart:async';
+import 'club_subscription_screen.dart';
 
 class ChildClubView extends StatefulWidget {
   final UserModel user;
@@ -80,6 +81,56 @@ class _ChildContent extends StatelessWidget {
               coins: state.clubCoins,
               cardStatus: state.cardStatus,
               userName: user.fullName,
+            ),
+          ),
+        ),
+
+        // ── Club Subscription Card ────────────────────────────────────────
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colorScheme.outlineVariant.withAlpha(128)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'اشتراك النادي',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'اطّلع على تفاصيل الاشتراك واحجز مكانك في النادي.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface.withAlpha(153),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => BlocProvider.value(
+                            value: context.read<ClubCubit>(),
+                            child: ClubSubscriptionScreen(user: user),
+                          ),
+                        ));
+                      },
+                      icon: const Icon(Icons.how_to_reg_outlined),
+                      label: const Text('عرض التفاصيل والحجز'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

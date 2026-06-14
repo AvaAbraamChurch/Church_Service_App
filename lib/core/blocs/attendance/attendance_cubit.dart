@@ -638,6 +638,29 @@ class AttendanceCubit extends Cubit<AttendanceState> {
     }
   }
 
+  /// Manually adjust coupon points for a user (+ add / - subtract).
+  /// Works offline — saved locally and synced later via [CouponPointsService].
+  /// Updates the cached [users] list immediately so the UI reflects the change.
+  Future<void> adjustCouponPoints({
+    required String userId,
+    required int delta,
+    required String reason,
+  }) async {
+    final adminId = currentUser?.id ?? 'unknown';
+    await couponPointsService.setPoints(userId, delta, reason, adminId);
+
+    // Optimistically update local cache so UI shows the new value instantly
+    if (users != null) {
+      final idx = users!.indexWhere((u) => u.id == userId);
+      if (idx != -1) {
+        final updated = users![idx].copyWith(
+          couponPoints: (users![idx].couponPoints + delta).clamp(0, 999999),
+        );
+        users = List.from(users!)..[idx] = updated;
+      }
+    }
+  }
+
   String _attendanceTypeLabelFromKey(String key) {
     switch (key) {
       case 'holy_mass':

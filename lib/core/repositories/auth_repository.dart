@@ -113,6 +113,14 @@ class AuthRepository {
     if (user == null) {
       throw Exception('No user is currently logged in.');
     }
+    // Try cache first so offline startup is instant; fall back to server.
+    try {
+      final cached = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .get(const GetOptions(source: Source.cache));
+      if (cached.exists) return UserModel.fromDocumentSnapshot(cached);
+    } catch (_) { /* cache miss — continue to server */ }
     final doc = await _firestore.collection('users').doc(user.uid).get();
     return UserModel.fromDocumentSnapshot(doc);
   }
